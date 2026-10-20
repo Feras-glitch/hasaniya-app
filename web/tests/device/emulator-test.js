@@ -35,9 +35,18 @@ setTimeout(() => {
     // ننتظر زوال أي صفحة قديمة للتطبيق (بعد إغلاق قسري أو تحديث) حتى لا نتصل بصفحة ميتة
     for (let i = 0; i < 20 && device.webViews().some(w => w.pkg() === PKG); i++) await sleep(500);
     await sh(`am start -n ${PKG}/.MainActivity`);
-    const wv = await within(90000, device.webView({ pkg: PKG }, { timeout: 80000 }), 'الاتصال بصفحة التطبيق');
-    const page = await wv.page();
-    await within(40000, page.waitForFunction(() => typeof content !== 'undefined' && content.journeyData && content.journeyData.length > 0, null, { timeout: 30000 }), 'تحميل التطبيق');
+    /* بعد إغلاق قسري قد تبقى في القائمة صفحة ميتة للتطبيق: نجرّب أحدث صفحة حتى ثلاث مرات */
+    let page = null, lastErr = null;
+    for (let attempt = 0; attempt < 3 && !page; attempt++) {
+      try {
+        await within(90000, device.webView({ pkg: PKG }, { timeout: 80000 }), 'الاتصال بصفحة التطبيق');
+        const views = device.webViews().filter(w => w.pkg() === PKG);
+        const p = await views[views.length - 1].page();
+        await within(40000, p.waitForFunction(() => typeof content !== 'undefined' && content.journeyData && content.journeyData.length > 0, null, { timeout: 30000 }), 'تحميل التطبيق');
+        page = p;
+      } catch (e) { lastErr = e; await sleep(3000); }
+    }
+    if (!page) throw lastErr;
     await sleep(800);
     // كل تقييم داخل الصفحة بمهلة دقيقة
     const ev = page.evaluate.bind(page);

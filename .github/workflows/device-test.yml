@@ -60,7 +60,10 @@ jobs:
         run: |
           gradle assembleDebug --no-daemon
           cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/v1.apk"
-          gradle assembleDebug --no-daemon -PversionBump
+          # النسخة الثانية: رقمها أعلى بواحد (تعديل مؤقت داخل خادم الاختبار فقط، لا يُرفع)
+          sed -i -E 's/versionCode ([0-9]+)/versionCode \1 + 1/' app/build.gradle
+          grep -n "versionCode" app/build.gradle
+          gradle assembleDebug --no-daemon
           cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/v2.apk"
 
       - name: Enable KVM for the emulator

@@ -46,12 +46,3 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 }
-
-// لاختبار التحديث فقط (gradle assembleDebug -PversionBump): يرفع رقم النسخة واحداً دون تعديل الملف
-androidComponents {
-    onVariants(selector().all()) { variant ->
-        if (project.hasProperty("versionBump")) {
-            variant.outputs.each { out -> out.versionCode.set(out.versionCode.get() + 1) }
-        }
-    }
-}
