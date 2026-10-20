@@ -15,6 +15,14 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 /* كل خطوة لها مهلة: لا يعلق الاختبار كله إن تعطّلت خطوة واحدة */
 const within = (ms, p, what) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('انتهت المهلة (' + (ms / 1000) + ' ث): ' + (what || ''))), ms))]);
 const note = m => console.log('::notice::' + m);
+/* حارس عام: إن علق الاختبار نكتب موضع العلوق وما نجح قبله ثم نخرج، بدل أن يقطعه GitHub بلا معلومة */
+let current = 'البدء';
+const at = s => { current = s; console.log('… ' + s); };
+setTimeout(() => {
+  console.log('::error::علق الاختبار عند: ' + current);
+  console.log('::notice::' + results.map(r => `${r.ok ? '✔' : r.soft ? '⚠' : '✘'}${r.n}`).join(' '));
+  process.exit(1);
+}, 14 * 60 * 1000).unref();
 
 (async () => {
   const [device] = await android.devices();
@@ -31,12 +39,16 @@ const note = m => console.log('::notice::' + m);
     const page = await wv.page();
     await within(40000, page.waitForFunction(() => typeof content !== 'undefined' && content.journeyData && content.journeyData.length > 0, null, { timeout: 30000 }), 'تحميل التطبيق');
     await sleep(800);
+    // كل تقييم داخل الصفحة بمهلة دقيقة
+    const ev = page.evaluate.bind(page);
+    page.evaluate = (fn, arg) => within(60000, ev(fn, arg), 'تقييم داخل الصفحة: ' + current);
     return page;
   };
   const back = async () => { await sh('input keyevent 4'); await sleep(1500); };
   const errors = [];
 
   /* 1) التثبيت والفتح */
+  at('التثبيت والفتح');
   await sh(`pm uninstall ${PKG}`).catch(() => {});
   await device.installApk(fs.readFileSync(process.env.APK_V1));
   await sh(`pm grant ${PKG} android.permission.RECORD_AUDIO`).catch(() => {});
@@ -47,6 +59,7 @@ const note = m => console.log('::notice::' + m);
   rec(1, 'التثبيت والفتح', first.stations === 16 && first.bridge, JSON.stringify(first));
 
   /* تجهيز طفل بتقدّم */
+  at('تجهيز الطفل');
   await page.evaluate(() => {
     const u = getCurrentUser(); u.name = 'تجربة'; u.gender = 'boy';
     // إنهاء الإعداد الأول كما يفعل الوالد، حتى لا تُفتح نافذة الإعداد من جديد
@@ -59,6 +72,7 @@ const note = m => console.log('::notice::' + m);
   await sleep(600); await shot('02_map');
 
   /* 2) زر الرجوع: يغلق النافذة أولاً */
+  at('زر الرجوع');
   try {
     const pre = await page.evaluate(() => [...document.querySelectorAll('.modal-overlay.active')].map(m => m.id));
     if (pre.length) note('نوافذ مفتوحة قبل اختبار الرجوع: ' + pre.join(','));
@@ -73,6 +87,7 @@ const note = m => console.log('::notice::' + m);
   } catch (e) { rec(40, 'زر الرجوع', false, e.message); }
 
   /* 3) تدوير الشاشة */
+  at('التدوير');
   try {
     await sh('settings put system accelerometer_rotation 0'); await sh('settings put system user_rotation 1'); await sleep(2500);
     await shot('03_landscape');
@@ -82,6 +97,7 @@ const note = m => console.log('::notice::' + m);
   } catch (e) { rec(42, 'تدوير الشاشة', false, e.message); }
 
   /* 4) الميكروفون (الهاتف الافتراضي قد لا يملك صوتاً فعلياً) */
+  at('الميكروفون');
   try {
     const m = await page.evaluate(async () => {
       const w = ms => new Promise(r => setTimeout(r, ms));
@@ -98,6 +114,7 @@ const note = m => console.log('::notice::' + m);
   /* 5) نافذة المشاركة: النسخة الاحتياطية وتقرير الأسبوع */
   const chooserCheck = async (n, name, fn) => {
     try {
+      at('المشاركة ' + n);
       await page.evaluate(fn); await sleep(3000);
       const r = await resumed();
       const ok = /Chooser|Resolver|IntentForwarder|sharesheet/i.test(r);
@@ -112,6 +129,7 @@ const note = m => console.log('::notice::' + m);
   await chooserCheck(50, 'تقرير الأسبوع يفتح نافذة المشاركة (كان معطّلاً قبل v94)', () => shareWeeklyText());
 
   /* 6) الطباعة */
+  at('الطباعة');
   try {
     await page.evaluate(() => { const w = window.open('', '_blank'); w.document.open(); w.document.write('<html dir=rtl><body><h1>شهادة تجربة</h1></body></html>'); w.document.close(); });
     await sleep(4000);
@@ -123,6 +141,7 @@ const note = m => console.log('::notice::' + m);
   } catch (e) { rec(39, 'الطباعة', false, e.message, true); }
 
   /* 7) نافذة اختيار الملفات (استعادة النسخة الاحتياطية) */
+  at('اختيار الملفات');
   try {
     if (!(await appOnTop())) { await sh(`am start -n ${PKG}/.MainActivity`); await sleep(1500); }
     await page.evaluate(() => {
@@ -140,6 +159,7 @@ const note = m => console.log('::notice::' + m);
   } catch (e) { rec(32, 'اختيار الملفات', false, e.message); }
 
   /* 8) الوضع الليلي والخط الكبير */
+  at('الليلي');
   try {
     await page.evaluate(() => { localStorage.setItem('hasaniya_prefs', JSON.stringify(Object.assign(getPrefs(), { night: true, big: true }))); applyPrefs(); showMap(); });
     await sleep(800); await shot('04_night_big_map');
@@ -150,6 +170,7 @@ const note = m => console.log('::notice::' + m);
   } catch (e) { rec(45, 'الليلي والخط الكبير', false, e.message); }
 
   /* 9) الإغلاق القسري وإعادة الفتح دون إنترنت */
+  at('دون إنترنت بعد إغلاق قسري');
   try {
     note('دون إنترنت: وضع الطيران ثم إغلاق قسري');
     await sh('cmd connectivity airplane-mode enable').catch(e => note(e.message));
@@ -164,6 +185,7 @@ const note = m => console.log('::notice::' + m);
   } catch (e) { rec(43, 'الإغلاق وإعادة الفتح', false, e.message); }
 
   /* 10) تثبيت تحديث فوق النسخة الحالية */
+  at('التحديث');
   try {
     const v1 = (await sh(`dumpsys package ${PKG}`)).match(/versionCode=(\d+)/);
     note('تثبيت التحديث');
