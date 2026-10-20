@@ -70,7 +70,7 @@ async function recToggle(verseId, onDone, opts = {}) {
   audioStopAll();
   try {
     recState.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  } catch(e) { kidToast("اسمح للتطبيق باستخدام الميكروفون", "error"); return; }
+  } catch(e) { kidToast(kidLine("allowMic"), "error"); return; }
   audioStopAll();
   const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus"
              : MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "";
@@ -79,18 +79,23 @@ async function recToggle(verseId, onDone, opts = {}) {
   recState.storeKey = opts.storeKey || recKey(verseId); recState.kind = opts.kind || "verse";
   recState.fp = opts.fp || null; recState.source = opts.source || "rec"; recState.author = !!opts.author;
   recState.check = !!opts.check; recState.maxMs = opts.maxMs || REC_MAX_MS;
+  /* recId: المعرّف الذي يُحفظ مع التسجيل (البيت أو بصمة النص)، لا مفتاح الزر */
+  recState.recId = opts.recId || verseId; recState.text = opts.text || null;
   rec.ondataavailable = e => { if (e.data && e.data.size) recState.chunks.push(e.data); };
   rec.onstop = async () => {
     const type = rec.mimeType || mime || "audio/webm";
     const blob = new Blob(recState.chunks, { type });
     const vid = recState.verseId, cb = recState.onDone, sk = recState.storeKey, kind = recState.kind;
     const fp = recState.fp, src = recState.source, isAuthor = recState.author, chk = recState.check, mx = recState.maxMs;
+    const rid = recState.recId, rtext = recState.text;
     recState.stream.getTracks().forEach(t => t.stop());
     clearTimeout(recState.timer);
     recState.recorder = null; recState.stream = null; recState.chunks = [];
     if (blob.size > 0) {
       try {
-        await recPut({ key: sk, verseId: vid, kind, uid: isAuthor ? "author" : activeUserId, mime: type, blob, fp, source: src, at: Date.now() });
+        const row = { key: sk, verseId: rid || vid, kind, uid: isAuthor ? "author" : activeUserId, mime: type, blob, fp, source: src, at: Date.now() };
+        if (rtext) row.text = rtext;
+        await recPut(row);
         if (!isAuthor && typeof guideOnRecorded === "function") guideOnRecorded(kind);
         if (chk && typeof vpQualityCheck === "function") vpQualityCheck(sk, blob, mx);
       } catch(e) { showToast("تعذّر حفظ التسجيل على هذا المتصفح، لم يُحفظ", "error"); }
@@ -168,7 +173,7 @@ async function renderRecList() {
 }
 function recToggleParent(verseId) {
   const v = vpFindVerse(verseId);
-  recToggle("p:" + verseId, () => renderRecList(), { storeKey: authorKey("story", verseId), kind: "story", maxMs: 180000, fp: textFingerprint(v ? v.story : ""), author: true });
+  recToggle("p:" + verseId, () => renderRecList(), { storeKey: authorKey("story", verseId), recId: verseId, kind: "story", maxMs: 180000, fp: textFingerprint(v ? v.story : ""), author: true });
 }
 async function recPlayKey(key) {
   if (!audioBegin()) return;
@@ -246,7 +251,7 @@ async function renderSectionStatus() {
 }
 function recSection() {
   const range = currentRange();
-  if (!learnedVerses(range).length) { kidToast("لم تُحفظ أبيات بعد", "error"); return; }
+  if (!learnedVerses(range).length) { kidToast(kidLine("noLearned"), "error"); return; }
   recToggle(range, () => renderSectionStatus(), { storeKey: sectionKey(range), kind: "section", maxMs: 15 * 60 * 1000 });
   renderSectionStatus();
 }
@@ -297,7 +302,7 @@ async function playReview(rangeKey) {
     return;
   }
   const verses = learnedVerses(rangeKey);
-  if (!verses.length) { kidToast("لا توجد أبيات محفوظة بعد", "error"); return; }
+  if (!verses.length) { kidToast(kidLine("noSaved"), "error"); return; }
   const parts = [];
   for (const v of verses) {
     const rec = (await recGet(recKey(v.id))) || (await authorRecFor("verse", v));
@@ -383,7 +388,7 @@ async function exportRecitation() {
   const u = getCurrentUser();
   const includePhoto = document.getElementById("recIncludePhoto").checked;
   const all = (await recAllForUser(activeUserId)).sort((a, b) => a.at - b.at);
-  if (!all.length) { kidToast("لا توجد تسجيلات بعد", "error"); return; }
+  if (!all.length) { kidToast(kidLine("noRecs"), "error"); return; }
   const packs = packItems(all);
   const stamp = Date.now();
   const child = { name: u.name, gender: u.gender || null, photo: includePhoto ? (safeImg(u.photo) || null) : null };
@@ -528,94 +533,4 @@ function drawSharePhoto(ctx, cx, cy) {
 
 /* ---------- تسميع متصل: أمر المحفوظ فقط بعد كل بيت جديد ---------- */
 
-/* ---------- صوت الوالد: تسجيل أو رفع ملف صوتي لكل بيت وكل قصة، يبقى على الجهاز ----------
-   الأولوية عند الاستماع: صوت الوالد، ثم القراءة الآلية. */
-const PV_MAX_UPLOAD = 15 * 1024 * 1024;
-const PV_AUDIO_EXT = /\.(mp3|m4a|aac|ogg|oga|wav|webm|opus|3gp)$/i;
-function pvKey(kind, id) { return authorKey(kind === "story" ? "story" : "verse", id); }
-function openParentVoice() {
-  const sel = document.getElementById("pvStation");
-  sel.innerHTML = content.journeyData.map((st, i) => `<option value="${i}">${escapeHtml(st.title)}</option>`).join("");
-  sel.value = String(state.selectedStation || 0);
-  document.getElementById("vpAuthor").value = vpAuthorName();
-  document.getElementById("pvPopup").classList.add("active");
-  renderParentVoice();
-}
-async function renderParentVoice() {
-  const kind = document.getElementById("pvKind").value;
-  const st = content.journeyData[+document.getElementById("pvStation").value];
-  const body = document.getElementById("pvBody");
-  if (!st) return;
-  const list = kind === "story" ? st.verses.filter(v => v.story) : st.verses;
-  if (!list.length) { body.innerHTML = `<p class="empty-state">لا توجد قصص في هذه المحطة.</p>`; document.getElementById("pvCount").textContent = ""; renderVoiceStatus(); return; }
-  const rows = [];
-  let done = 0;
-  for (const [j, v] of list.entries()) {
-    const rec = await recGet(pvKey(kind, v.id));
-    const stale = vpIsStale(rec, kind, v);
-    if (rec && !stale) done++;
-    const id = escapeForAttr(v.id);
-    const label = kind === "story" ? v.story : v.fullVerse;
-    const status = !rec ? ""
-      : stale ? `<small class="rec-count" style="color:var(--danger)">⚠ النص تغيّر بعد التسجيل، أعد التسجيل</small>`
-      : `<small class="rec-count">${rec.source === "upload" ? "ملف مرفوع" : "مسجّل"}${rec.author ? " · من: " + escapeHtml(rec.author) : ""} · ${fmtBytes(rec.blob.size)}</small>`;
-    rows.push(`<div class="rec-row">
-      <div class="rec-text">${j + 1}. ${escapeHtml(label)}</div>
-      <div class="rec-actions">
-        <button class="tool-btn" onclick="pvRecord('${kind}','${id}')">${rec ? "🔁 أعد التسجيل" : "⏺ سجّل"}</button>
-        <label class="tool-btn" style="cursor:pointer">📁 رفع ملف<input type="file" accept="audio/*" style="display:none" onchange="pvUpload('${kind}','${id}',this.files[0]); this.value=''"></label>
-        ${rec ? `<button class="tool-btn" onclick="pvPlay('${kind}','${id}')">▶ استمع</button>
-        <button class="tool-btn" onclick="pvDelete('${kind}','${id}')">🗑</button>` : ""}
-      </div>
-      ${rec ? `<div class="rec-actions"><button class="tool-btn" onclick="vpToggleReviewed('${kind}','${id}')">${rec.reviewed ? "✔ مراجَع" : "☐ علّم كمراجَع"}</button></div>` : ""}
-      ${status}
-      ${rec && rec.q && rec.q.warnings && rec.q.warnings.length ? `<small class="rec-count" style="color:#b26a00">⚠ ${escapeHtml(rec.q.warnings.join("، "))}</small>` : ""}
-    </div>`);
-  }
-  body.innerHTML = rows.join("");
-  document.getElementById("pvCount").textContent = `مسجّل ${done} من ${list.length} ${kind === "story" ? "قصص" : "أبيات"}`;
-  renderVoiceStatus();
-}
-/* التسجيل يُحفظ بالمفتاح المشترك ومعه بصمة النص، والزيادة في التسجيل ممنوعة إن تجاوزت الحد */
-function pvRecord(kind, id) {
-  const k = kind === "story" ? "story" : "verse";
-  const v = vpFindVerse(id);
-  if (!v) return;
-  const maxMs = k === "story" ? 180000 : 60000;
-  recToggle("pv:" + id, () => renderParentVoice(), {
-    storeKey: authorKey(k, id), kind: k, maxMs, fp: textFingerprint(vpTextOf(k, v)), source: "rec", author: true, check: true
-  });
-}
-async function pvUpload(kind, id, file) {
-  if (!file) return;
-  const k = kind === "story" ? "story" : "verse";
-  const v = vpFindVerse(id);
-  if (!v) return;
-  const isAudio = (file.type && file.type.startsWith("audio/")) || PV_AUDIO_EXT.test(file.name || "");
-  if (!isAudio) { showToast("هذا الملف ليس صوتياً", "error"); return; }
-  if (file.size > PV_MAX_UPLOAD) { showToast("الملف أكبر من 15 ميجابايت", "error"); return; }
-  try {
-    await recPut({ key: authorKey(k, id), verseId: id, kind: k, uid: "author", mime: file.type || "audio/mpeg",
-      blob: file, fp: textFingerprint(vpTextOf(k, v)), source: "upload", at: Date.now() });
-    showToast("تم رفع الملف", "success");
-    vpQualityCheck(authorKey(k, id), file, Infinity);
-    renderParentVoice();
-  } catch(e) { showToast("تعذّر حفظ الملف", "error"); }
-}
-async function pvPlay(kind, id) {
-  if (!audioBegin()) return;
-  const token = seqToken;
-  const k = kind === "story" ? "story" : "verse";
-  const v = vpFindVerse(id);
-  const rec = await recGet(authorKey(k, id));
-  if (!rec || token !== seqToken) return;
-  if (vpIsStale(rec, k, v)) { showToast("النص تغيّر بعد التسجيل، أعد التسجيل", "error"); return; }
-  seqAudio = blobAudio(rec.blob);
-  audioPlayEl(seqAudio).catch(() => showToast("تعذّر التشغيل", "error"));
-}
-async function pvDelete(kind, id) {
-  if (!confirm("حذف هذا الصوت؟ سيُقرأ النص آلياً بعد الحذف.")) return;
-  await recDelete(pvKey(kind, id));
-  renderParentVoice();
-  renderStorageInfo();
-}
+/* v101: صوت الوالد صار «استوديو التسجيل» في studio.js */

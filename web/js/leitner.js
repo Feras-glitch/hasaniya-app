@@ -45,7 +45,7 @@ function showLeitnerBoxes() {
 }
 function startLeitnerReview() {
   const due = leitnerDueVerses().slice(0, 8);
-  if (!due.length) { kidToast("لا شيء مستحق اليوم 🎉", "success"); return; }
+  if (!due.length) { kidToast(kidLine("nothingDue"), "success"); return; }
   closePopup("hubPopup");
   playQueue = due.map(d => ({stationIndex: d.stationIndex, verseIndex: d.verseIndex}));
   playMode = MODE_REVIEW; playIndex = 0;

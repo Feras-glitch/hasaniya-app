@@ -81,18 +81,8 @@ function initSpeech() {
   window.speechSynthesis.onvoiceschanged = loadVoices;
   let t = 0; const iv = setInterval(() => { loadVoices(); if (voicesLoaded || ++t > 10) clearInterval(iv); }, 300);
 }
-function speak(text) {
-  if (!("speechSynthesis" in window)) { showToast("النطق غير مدعوم", "error"); return; }
-  if (!audioBegin()) return;
-  try {
-    const u = new SpeechSynthesisUtterance(ttsText(text));
-    u.lang = "ar-SA"; u.rate = speechRate(); u.pitch = 1;
-    const v = window.speechSynthesis.getVoices();
-    const ar = v.find(x => x.lang && x.lang.toLowerCase().startsWith("ar"));
-    if (ar) u.voice = ar;
-    window.speechSynthesis.speak(u);
-  } catch(e) {}
-}
+/* v101: الاستماع بضغطة من الطفل: تسجيل الوالد أو المعلم لهذا النص إن وُجد، وإلا القراءة الآلية (voice.js) */
+function speak(text) { return voicePlay([text]); }
 
 let mediaRecorder = null, recordedChunks = [], mediaStream = null;
 /* v100: التسجيل من شريط البيت (recordVerse) يحفظ تسجيل الطفل لكل بيت. يبقى هذا الاسم لمن يستدعيه */
@@ -137,20 +127,7 @@ function ttsText(text) {
     .replace(/\s+/g, " ")
     .trim();
 }
-function speakQueue(parts) {
-  if (!("speechSynthesis" in window)) return;
-  if (!audioBegin()) return;
-  try {
-    const voices = window.speechSynthesis.getVoices();
-    const ar = voices.find(x => x.lang && x.lang.toLowerCase().startsWith("ar"));
-    parts.filter(Boolean).forEach(t => {
-      const u = new SpeechSynthesisUtterance(ttsText(t));
-      u.lang = "ar-SA"; u.rate = speechRate(); u.pitch = 1;
-      if (ar) u.voice = ar;
-      window.speechSynthesis.speak(u);
-    });
-  } catch(e) {}
-}
+function speakQueue(parts) { return voicePlay(parts); }
 function stopSpeech() {
   audioStopAll();
 }
@@ -197,7 +174,7 @@ function audioStopAll(except) {
 }
 /* يُستدعى قبل كل تشغيل من المستخدم. يُرجع false إن كان التسجيل جارياً */
 function audioBegin() {
-  if (recIsActive()) { kidToast("أوقف التسجيل أولاً ثم استمع", "error"); return false; }
+  if (recIsActive()) { kidToast(kidLine("stopRecFirst"), "error"); return false; }
   audioStopAll();
   return true;
 }
@@ -212,6 +189,6 @@ function audioBusy() {
 document.addEventListener("play", e => {
   const t = e.target;
   if (!t || typeof t.pause !== "function" || liveAudios.has(t)) return;
-  if (recIsActive()) { try { t.pause(); } catch(err) {} kidToast("أوقف التسجيل أولاً ثم استمع", "error"); return; }
+  if (recIsActive()) { try { t.pause(); } catch(err) {} kidToast(kidLine("stopRecFirst"), "error"); return; }
   audioStopAll(t);
 }, true);

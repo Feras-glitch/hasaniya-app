@@ -578,3 +578,19 @@ body.reduce-motion .word-btn.bounce,body.reduce-motion .verse-intro{animation:no
 body.night .auto-read-row{background:#1e1e26}
 @media (max-width:360px){.rec-bar .big-btn{font-size:1rem;min-height:52px}}
 body.reduce-motion .rec-bar .rec-btn.recording{animation:none}
+/* v101: خيار السؤال مع زر 🔊 خاص به، واستوديو التسجيل */
+.opt-wrap{display:inline-flex;align-items:center;gap:2px}
+.opt-wrap .say-btn{width:32px;height:32px;min-width:32px;font-size:.95rem;margin:0}
+.pv-summary{background:#f6f8ff;border-radius:12px;padding:10px;margin-bottom:10px}
+.pv-bar{height:10px;background:#e3e7f3;border-radius:6px;overflow:hidden;margin-bottom:6px}
+.pv-bar span{display:block;height:100%;background:var(--success,#4caf50)}
+.rec-row.pv-done{border-color:#c8e6c9}
+.pv-seq{background:#fffdf5;border:2px solid var(--parent-border,#8e24aa);border-radius:16px;padding:14px;margin:8px 0;text-align:center}
+.seq-head{color:#666;font-size:.85rem;margin-bottom:8px}
+.seq-text{font-size:1.25rem;line-height:2;font-weight:bold;max-height:40vh;overflow-y:auto;white-space:pre-line;margin-bottom:8px}
+.seq-text.seq-verse{font-size:1.45rem;color:var(--primary)}
+.seq-status{min-height:22px;margin-bottom:8px}
+.seq-main{display:flex;gap:10px;justify-content:center;margin-bottom:8px}
+.seq-main .action-btn{flex:1;max-width:220px;font-size:1.1rem}
+.seq-nav{justify-content:center;flex-wrap:wrap}
+body.night .pv-summary,body.night .pv-seq{background:#2a2a34;color:#eceff1}

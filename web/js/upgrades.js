@@ -53,7 +53,7 @@ let hideState = null;
 function startHideLevels() {
   const pool = [];
   content.journeyData.forEach(st => st.verses.forEach(v => { if (state.seenVerses[v.id]) pool.push(v); }));
-  if (!pool.length) { kidToast("أكمل بيتاً واحداً أولاً", "error"); return; }
+  if (!pool.length) { kidToast(kidLine("needOneFirst"), "error"); return; }
   renderHideLevel(pool[Math.floor(Math.random() * pool.length)], 1);
 }
 /* المستوى 1: نخفي كل ثالث كلمة. 2: نخفي الكل ونعطي أول حرف. 3: نخفي الكل بلا تلميح */
@@ -115,7 +115,7 @@ let orderState = null;
 function startStationOrder() {
   /* من المحطات التي وصلها الطفل فقط: لا يُسأل عن ترتيب ما لم يتعلّمه بعد */
   const pool = content.journeyData.map((s, i) => i).filter(i => getStationStatus(content.journeyData[i]) !== "locked");
-  if (pool.length < 3) { kidToast("أكمل محطتين على الأقل لتلعب ترتيب المحطات", "error"); return; }
+  if (pool.length < 3) { kidToast(kidLine("needTwoStations"), "error"); return; }
   const picks = [];
   while (picks.length < Math.min(4, pool.length)) { const i = pool[Math.floor(Math.random() * pool.length)]; if (!picks.includes(i)) picks.push(i); }
   orderState = { sorted: [...picks].sort((a, b) => a - b), taken: [] };
@@ -181,7 +181,7 @@ function saveReflection() {
   state.reflections[content.journeyData[si].id] = txt;
   saveState();
   if (Object.values(state.reflections).filter(Boolean).length >= 3) awardBadge("reflect3");
-  kidToast(gForm("حفظتَ تأمّلك، شكراً لك ✨", "حفظتِ تأمّلكِ، شكراً لكِ ✨"));
+  kidToast(kidLine("reflectionSaved"));
 }
 
 /* ---------- 6. تقرير الأسبوع للوالدين (يُكتب على الجهاز ولا يُرسل إلا بضغط الوالد) ---------- */

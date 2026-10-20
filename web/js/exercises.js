@@ -91,7 +91,7 @@ function seenJourney() {
 function startExercise(kind) {
   const j = seenJourney();
   const qs = kind === "places" ? buildPlaceQs(5, j) : kind === "figures" ? buildFigureQs(5, j) : kind === "next" ? buildNextQs(5, j) : buildOrderQs(5, j);
-  if (!qs.length) { kidToast("لا توجد أسئلة كافية الآن، أكمل قصصاً أكثر", "error"); return; }
+  if (!qs.length) { kidToast(kidLine("notEnoughQs"), "error"); return; }
   exState = { kind, qs, i: 0, score: 0, answered: false };
   renderExercise();
 }
@@ -99,10 +99,10 @@ function renderExercise() {
   const q = exState.qs[exState.i];
   exState.answered = false;
   openHub(`🧭 سؤال ${exState.i + 1} من ${exState.qs.length}`, `
-    <p style="white-space:pre-line;line-height:1.9;font-weight:bold">${sayBtnHTML(q.prompt.replace("_____", "فراغ") + "، " + q.options.join("، أو "), "استمع للسؤال")} ${escapeHtml(q.prompt)}</p>
-    <div class="word-bank">${q.options.map((o, i) => `<button class="word-btn" onclick="answerExercise(${i}, this)">${escapeHtml(o)}</button>`).join("")}</div>
+    <p style="white-space:pre-line;line-height:1.9;font-weight:bold">${sayBtnHTML([q.prompt.replace("_____", "فراغ"), ...q.options], "استمع للسؤال")} ${escapeHtml(q.prompt)}</p>
+    <div class="word-bank">${optionsHTML(q.options, (o, i) => `answerExercise(${i}, this)`)}</div>
     <div id="exMsg" style="min-height:26px;font-weight:bold;margin-top:10px"></div>`);
-  autoSayNow(q.prompt.replace("_____", "فراغ") + "، " + q.options.join("، أو "));
+  autoSayNow([q.prompt.replace("_____", "فراغ"), ...q.options]);
 }
 function answerExercise(i, btn) {
   if (!exState || exState.answered) return;
@@ -112,10 +112,11 @@ function answerExercise(i, btn) {
   document.querySelectorAll("#hubBody .word-btn").forEach(b => b.disabled = true);
   btn.classList.add(ok ? "success" : "fail");
   const msg = document.getElementById("exMsg");
-  if (ok) { exState.score++; if (firstCreditToday("ex|" + exState.kind + "|" + q.verseId + "|" + q.correct)) addPoints(2); playSuccess(); msg.innerHTML = `<span style="color:var(--success)">✅ ${escapeHtml(guideVocative())}، ${gForm("أحسنتَ", "أحسنتِ")}!</span>`; }
+  if (ok) { exState.score++; if (firstCreditToday("ex|" + exState.kind + "|" + q.verseId + "|" + q.correct)) addPoints(2); playSuccess(); msg.innerHTML = `<span style="color:var(--success)">✅ ${escapeHtml(guideVocative())}، ${escapeHtml(kidLine("wellDone"))}</span>`; autoSayNow([guideVocative(), kidLine("wellDone")]); }
   else {
     playFail();
-    msg.innerHTML = `<span style="color:var(--danger)">الإجابة: ${escapeHtml(q.correct)}</span>`;
+    msg.innerHTML = `<span style="color:var(--danger)">${escapeHtml(kidLine("answerIs"))} ${escapeHtml(q.correct)}</span>`;
+    autoSayNow([kidLine("answerIs"), q.correct]);
     try { leitnerRecord(q.verseId, false); saveState(); } catch(e) {}
   }
   const last = exState.i + 1 >= exState.qs.length;
@@ -129,7 +130,7 @@ function finishExercise() {
   openHub("🎉 انتهى التمرين", `
     <div style="font-size:3rem">🧭</div>
     <p style="font-size:1.2rem"><strong>${score} / ${total}</strong></p>
-    <p style="color:#666">${score === total ? "ممتاز!" : "كل تمرين يقوّي ما حفظته."}</p>
+    <p style="color:#666">${escapeHtml(kidLine(score === total ? "exGreat" : "exKeep"))}</p>
     <button class="action-btn btn-info" style="width:100%" onclick="showExercises()">تمرين آخر</button>`);
   exState = null;
 }

@@ -52,7 +52,7 @@ function resetAll() {
   state.stats = {perfectSessions:0, reviewSessions:0, shared:0, challengeSessions:0};
   if (content.journeyData.length > 0) state.stationStatus[content.journeyData[0].id] = "current";
   saveState();
-  kidToast("تمّت إعادة التصفير", "success");
+  kidToast(kidLine("resetDone"), "success");
   showMap();
 }
 
@@ -150,7 +150,7 @@ function renderMap() {
 function startStation(index) {
   const station = content.journeyData[index];
   if (!station) return;
-  if (getStationStatus(station) === "locked") { kidToast("🔒 أكمل المحطة السابقة أولاً", "error"); return; }
+  if (getStationStatus(station) === "locked") { kidToast(kidLine("finishPrev"), "error"); return; }
   state.dailyLeft = null;
   state.selectedStation = index;
   state.selectedVerse = state.versePositions[station.id] || 0;
@@ -297,7 +297,7 @@ function renderWordOrder(verse, gameArea, prefix, intro) {
     `<button class="word-btn" id="word-${i}" onclick="selectWord('${escapeForAttr(w)}',${i})">${escapeHtml(w)}</button>`
   ).join("");
   const introHTML = intro ? `<div class="verse-intro" id="verseIntro">
-      <div class="intro-label">👂 بيت جديد: استمع إليه واقرأه</div>
+      <div class="intro-label">👂 ${escapeHtml(kidLine("introListen"))}</div>
       <div class="intro-verse">${baytHTML(verse)}</div>
       <div class="controls"><button class="tool-btn" onclick="introListen()">🔊 استمع مرة أخرى</button></div>
       <button class="action-btn btn-success intro-go" id="introGo" onclick="startOrderAfterIntro()">✅ قرأته، أرتّبه الآن</button>
@@ -322,7 +322,7 @@ function startOrderAfterIntro() {
   if (typeof audioStopAll === "function") audioStopAll();
   const i = document.getElementById("verseIntro"); if (i) i.remove();
   const o = document.getElementById("orderPart"); if (o) o.style.display = "";
-  if (typeof autoSay === "function") autoSay("رتّب كلمات البيت من ذاكرتك");
+  if (typeof autoSay === "function") autoSay(kidLine("orderFromMemory"));
 }
 function checkChoice(btn, selected) {
   const cur = getCurrentVerse(); if (!cur) return;
@@ -343,7 +343,7 @@ function checkChoice(btn, selected) {
       recordVerseStat(verse.id, false);
       addMistake(activeVariant || verse, verse.correctWord, station.id);
     }
-    kidToast("💡 الصحيح هو: " + verse.correctWord, "");
+    kidToast(kidLine("correctIs") + " " + verse.correctWord, "", [kidLine("correctIs"), verse.correctWord]);
     reloadVerseLater(1500);
   }
 }
@@ -432,14 +432,14 @@ function showFullVerse(verse) {
   document.getElementById("fullVerseText").innerHTML = baytHTML(verse);
   document.getElementById("fullVerseBox").style.display = "block";
   document.getElementById("nextBtn").style.display = "inline-block";
-  document.getElementById("speakFullBtn").onclick = () => speak(verse.fullVerse);
+  document.getElementById("speakFullBtn").onclick = () => playVerseAndStory(verse, false);
   const unlocked = verse.story && state.storyUnlocked && state.storyUnlocked[verse.id];
   playVerseAndStory(verse, !!(unlocked || noCredit()));
   const mb = document.getElementById("meaningBox");
   if (verse.meaning) {
     mb.textContent = "";
     const sp = document.createElement("button"); sp.className = "say-btn"; sp.textContent = "🔊"; sp.setAttribute("aria-label", "استمع للشرح");
-    sp.onclick = () => { if (!recIsActive() && audioBegin()) speakPlainArabic(verse.meaning); };
+    sp.onclick = () => sayText(verse.meaning);
     mb.appendChild(sp); mb.appendChild(document.createTextNode(" " + verse.meaning));
     mb.style.display = "block";
   }
@@ -516,7 +516,7 @@ function nextVerse() {
 /* درس اليوم: يبدأ من المحطة المفتوحة وموضع الطفل، ويتوقف بعد ثلاثة أبيات دون أن يعبر المحطة */
 function startDailyLesson() {
   const idx = content.journeyData.findIndex(s => { const st = getStationStatus(s); return st !== "completed" && st !== "locked"; });
-  if (idx < 0) { kidToast("🎉 " + gForm("أكملتَ", "أكملتِ") + " كل المحطات", "success"); return; }
+  if (idx < 0) { kidToast(kidLine("allDone"), "success"); return; }
   const station = content.journeyData[idx];
   state.selectedStation = idx;
   state.selectedVerse = Math.min(state.versePositions[station.id] || 0, station.verses.length - 1);
@@ -531,7 +531,7 @@ function dailyLessonDone(station) {
   const ids = state.dailyIds || [];
   state.dailyLeft = null; state.dailyIds = [];
   saveState();
-  kidToast(gForm("أحسنتَ! ", "أحسنتِ! ") + "انتهى درس اليوم، ويبقى الباقي لغداً 🐪", "success");
+  kidToast(kidLine("lessonDone"), "success");
   // سؤال المكان: يظهر إن كان أحد أبيات الدرس مرتبطاً بموضع على الخريطة
   const visit = (typeof PLACE_VISITS !== "undefined" ? PLACE_VISITS : []).find(v => ids.includes(v.ref));
   if (visit && typeof askPlaceAfterLesson === "function") askPlaceAfterLesson(visit, showMap);
@@ -575,7 +575,7 @@ function askPlaceAfterLesson(visit, done) {
 
 function startReview() {
   const ms = getMistakesSorted();
-  if (ms.length === 0) { kidToast("لا توجد أخطاء، " + gForm("أحسنتَ", "أحسنتِ") + "!", "success"); return; }
+  if (ms.length === 0) { kidToast(kidLine("noMistakes"), "success"); return; }
   playQueue = [];
   ms.forEach(m => {
     const si = content.journeyData.findIndex(s => s.id === m.stationId);
@@ -600,7 +600,7 @@ function startChallenge() {
       }
     });
   });
-  if (pool.length === 0) { kidToast("أكمل بيتاً واحداً على الأقل", "error"); return; }
+  if (pool.length === 0) { kidToast(kidLine("needOneVerse"), "error"); return; }
   pool.sort(() => Math.random() - .5);
   playQueue = pool.slice(0, Math.min(5, pool.length));
   playMode = MODE_CHALLENGE; playIndex = 0;

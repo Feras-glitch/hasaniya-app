@@ -6,19 +6,32 @@
    - الزيب يُكتب بلا ضغط (الصوت مضغوط أصلاً)، ويُقرأ بالطريقتين إن توفّر DecompressionStream.
    - الحزم تُقسَّم إلى أجزاء صغيرة: الجسر بين الويب وأندرويد لا يتحمّل ملفات بعشرات الميجابايت. */
 
-const VP_VERSION = 1;
+const VP_VERSION = 2;                    // v101: الحزمة تحمل كل نصوص التطبيق (kind: line)، وتُقبل حزم الإصدار 1
 const VP_RATE = 24000;                   // معدل تسجيل الصوت بالبت/ث
 const VP_PART_BYTES = 4 * 1024 * 1024;   // أقصى حجم لكل ملف تصدير
 const VP_PART_ITEMS = 80;                // أقصى عدد تسجيلات في الملف الواحد
 const VP_MAX_FILES = 40;                 // أقصى عدد ملفات يُستورد دفعة واحدة
-const VP_MAX_ITEMS = 500;                // أقصى عدد عناصر في الحزمة الواحدة
+const VP_MAX_ITEMS = 1500;                // أقصى عدد عناصر في الحزمة الواحدة
 const VP_MAX_BATCH_BYTES = 64 * 1024 * 1024; // أقصى مجموع تسجيلات تُحمَّل في الذاكرة دفعة واحدة
 const VP_MAX_TOTAL_BYTES = 24 * 1024 * 1024; // أقصى حجم مفكوك لملف واحد (حماية من الملفات المنفوخة)
 
 /* ---------- مفاتيح وبصمات ---------- */
-function authorKey(kind, id) { return "author|" + (kind === "story" ? "story" : "verse") + "|" + id; }
+/* ثلاثة أنواع: verse و story (بمعرّف البيت)، و line لكل نص آخر يراه الطفل (بمعرّف = بصمة النص نفسه).
+   مفتاح السطر مشتق من نصه، فإن تغيّر النص تغيّر المفتاح، فلا يُشغَّل تسجيل قديم لنص جديد أبداً. */
+function vpKindOf(kind) { return kind === "story" ? "story" : kind === "line" ? "line" : "verse"; }
+function authorKey(kind, id) { return "author|" + vpKindOf(kind) + "|" + id; }
 function vpIsAuthorKey(k) { return typeof k === "string" && k.split("|").length === 3 && k.startsWith("author|"); }
-function vpTextOf(kind, v) { return kind === "story" ? ((v && v.story) || "") : ((v && v.fullVerse) || ""); }
+function vpTextOf(kind, v) { return kind === "story" ? ((v && v.story) || "") : kind === "line" ? ((v && v.text) || "") : ((v && v.fullVerse) || ""); }
+/* توحيد النص قبل حساب بصمته: تُحذف الرموز التعبيرية وعلامات الترقيم والمحارف الخفية، وتبقى الحركات،
+   لأن صيغة الولد وصيغة البنت تسجيلان مختلفان */
+function voiceNorm(t) {
+  return String(t == null ? "" : t).normalize("NFC")
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200B}-\u{200F}\u{2066}-\u{2069}]/gu, "")
+    .replace(/[.,،؛;؟?!:…"'«»()\[\]{}\-–—_\/\\*~٭]/g, " ")
+    .replace(/\s+/g, " ").trim();
+}
+function lineId(text) { return textFingerprint(voiceNorm(text)); }
+function lineKey(text) { return authorKey("line", lineId(text)); }
 function vpFindVerse(id) {
   for (const st of content.journeyData) for (const v of st.verses) if (v.id === id) return v;
   /* رقم قديم من قبل تقسيم المحطتين 11 و12 */
@@ -176,11 +189,16 @@ async function zipRead(buf) {
 function vpValidateManifest(m) {
   const bad = msg => ({ ok: false, error: msg });
   if (!m || m.app !== "hasaniya" || m.type !== "voicepack") return bad("هذا ليس ملف حزمة صوت");
-  if (m.version !== VP_VERSION) return bad("إصدار الحزمة غير مدعوم");
+  if (m.version !== 1 && m.version !== VP_VERSION) return bad("إصدار الحزمة غير مدعوم");
   if (!Array.isArray(m.items) || m.items.length > VP_MAX_ITEMS) return bad("محتوى الحزمة غير صالح");
   for (const it of m.items) {
-    if (!it || (it.kind !== "verse" && it.kind !== "story")) return bad("عنصر غير معروف في الحزمة");
+    const okKind = it && (it.kind === "verse" || it.kind === "story" || (it.kind === "line" && m.version >= 2));
+    if (!okKind) return bad("عنصر غير معروف في الحزمة");
     if (typeof it.id !== "string" || !it.id || it.id.length > 20) return bad("رقم بيت غير صالح");
+    if (it.kind === "line") {
+      if (typeof it.text !== "string" || !it.text.trim() || it.text.length > 6000) return bad("نص غير صالح في الحزمة");
+      if (!/^[0-9a-f]{8}$/.test(it.id) || lineId(it.text) !== it.id) return bad("بصمة نص غير صالحة");
+    }
     if (typeof it.file !== "string" || !/^audio\/[A-Za-z0-9._-]{1,40}$/.test(it.file)) return bad("مسار ملف غير صالح");
     if (typeof it.mime !== "string" || !it.mime.startsWith("audio/")) return bad("نوع ملف غير صوتي");
     if (it.fp != null && !/^[0-9a-f]{8}$/.test(it.fp)) return bad("بصمة نص غير صالحة");
@@ -269,8 +287,7 @@ async function vpQualityCheck(key, blob, maxMs) {
 
 /* ---------- المراجعة: علامة «مراجَع» يضعها المعلم بعد أن يستمع ---------- */
 async function vpToggleReviewed(kind, id) {
-  const k = kind === "story" ? "story" : "verse";
-  await vpPatchRec(authorKey(k, id), cur => ({ reviewed: !cur.reviewed, reviewedAt: cur.reviewed ? null : Date.now() }));
+  await vpPatchRec(authorKey(kind, id), cur => ({ reviewed: !cur.reviewed, reviewedAt: cur.reviewed ? null : Date.now() }));
   renderParentVoice();
 }
 
@@ -283,21 +300,24 @@ async function vpPlanExport(opts) {
     (!opts.onlyReviewed || r.reviewed) &&
     (!opts.deltaOnly || exported[r.key] !== (r.at || 0)));
   const stale = recs.filter(r => {
+    if (r.kind === "line") return false;
     const ver = vpFindVerse(r.verseId);
     return ver && vpIsStale(r, r.kind === "story" ? "story" : "verse", ver);
   }).length;
+  /* أقسام الاستوديو: كم سُجّل من كل قسم */
+  const sections = typeof voiceProgress === "function" ? voiceProgress(recs) : [];
   const flagged = recs.filter(r => r.q && r.q.warnings && r.q.warnings.length).length;
   const seconds = selected.reduce((s, r) => s + vpEstSeconds(r), 0);
   const stations = content.journeyData.map((st, i) => {
     const vTotal = st.verses.length, sTotal = st.verses.filter(v => v.story).length;
-    const has = (kind, v) => recs.some(r => r.verseId === v.id && (kind === "story" ? r.kind === "story" : r.kind !== "story"));
+    const has = (kind, v) => recs.some(r => r.verseId === v.id && (kind === "story" ? r.kind === "story" : (r.kind !== "story" && r.kind !== "line")));
     const vDone = st.verses.filter(v => has("verse", v)).length;
     const sDone = st.verses.filter(v => v.story && has("story", v)).length;
     return { n: i + 1, title: st.title, vDone, vTotal, sDone, sTotal };
   });
   const totalV = content.journeyData.reduce((s, st) => s + st.verses.length, 0);
   const totalS = content.journeyData.reduce((s, st) => s + st.verses.filter(v => v.story).length, 0);
-  return { recs, selected, unreviewed, stale, flagged, seconds, stations, totalV, totalS,
+  return { recs, selected, unreviewed, stale, flagged, seconds, stations, sections, totalV, totalS,
     doneV: stations.reduce((s, x) => s + x.vDone, 0), doneS: stations.reduce((s, x) => s + x.sDone, 0) };
 }
 function vpFmtDuration(sec) {
@@ -309,15 +329,15 @@ async function vpRefreshExportReport() {
   if (!body) return;
   const opts = { onlyReviewed: document.getElementById("vpOnlyReviewed").checked, deltaOnly: document.getElementById("vpDeltaOnly").checked };
   const p = await vpPlanExport(opts);
-  const rows = p.stations.filter(x => x.vDone < x.vTotal || x.sDone < x.sTotal).map(x =>
-    `<div>المحطة ${x.n}: أبيات ${x.vDone}/${x.vTotal}${x.sTotal ? ` · قصص ${x.sDone}/${x.sTotal}` : ""}</div>`).join("");
+  const rows = p.sections.filter(x => x.done < x.total).map(x =>
+    `<div>${escapeHtml(x.title)}: ${x.done}/${x.total}</div>`).join("");
   body.innerHTML = `
     <div><strong>المؤلف:</strong> ${escapeHtml(vpAuthorName())}</div>
     <div><strong>مسجّل:</strong> ${p.doneV}/${p.totalV} بيتاً · ${p.doneS}/${p.totalS} قصة</div>
     <div><strong>سيُرسل الآن:</strong> ${p.selected.length} تسجيلاً · مدة تقريبية ${vpFmtDuration(p.seconds)}</div>
     <div style="color:#666">غير مراجَع: ${p.unreviewed} · نص تغيّر ويحتاج إعادة: ${p.stale} · تنبيه صوت: ${p.flagged}</div>
     <div style="margin-top:8px"><strong>ما بقي للتسجيل:</strong></div>
-    ${rows || "<div>✅ كل الأبيات والقصص مسجّلة</div>"}`;
+    ${rows || "<div>✅ كل النصوص مسجّلة</div>"}`;
   document.getElementById("vpDoExportBtn").disabled = p.selected.length === 0;
 }
 
@@ -345,9 +365,12 @@ async function vpDoExport() {
       for (const [j, r] of part.entries()) {
         const file = `audio/a${String(j + 1).padStart(4, "0")}.${vpExt(r.mime)}`;
         files.push({ name: file, data: new Uint8Array(await r.blob.arrayBuffer()) });
-        items.push({ kind: r.kind === "story" ? "story" : "verse", id: r.verseId, file,
+        const kind = vpKindOf(r.kind);
+        const item = { kind, id: r.key.split("|")[2], file,
           mime: r.mime || "audio/webm", fp: r.fp || null, at: r.at || 0,
-          source: r.source === "upload" ? "upload" : "rec", reviewed: !!r.reviewed });
+          source: r.source === "upload" ? "upload" : "rec", reviewed: !!r.reviewed };
+        if (kind === "line") item.text = r.text || "";
+        items.push(item);
       }
       const manifest = { app: "hasaniya", type: "voicepack", version: VP_VERSION, author,
         createdAt: new Date().toISOString(), part: i + 1, parts: parts.length, items };
@@ -396,15 +419,15 @@ async function importVoicePacks(fileList) {
       const author = String(m.author || "").slice(0, 40);
       if (author) staged.authors.add(author);
       for (const it of m.items) {
-        if (typeof legacyVerseId === "function" && legacyMigrationApplies()) it.id = legacyVerseId(it.id);
-        const ver = vpFindVerse(it.id);
+        if (it.kind !== "line" && typeof legacyVerseId === "function" && legacyMigrationApplies()) it.id = legacyVerseId(it.id);
+        const ver = it.kind === "line" ? { text: it.text } : vpFindVerse(it.id);
         const data = entries.get(it.file);
         if (!ver || !data) { staged.errors.push(`${f.name}: عنصر لا يطابق المحتوى (${it.id})`); continue; }
         const key = authorKey(it.kind, it.id);
         const existing = await recGet(key);
         const action = !existing ? "add" : ((existing.at || 0) >= (it.at || 0) ? "same" : "replace");
         stagedBytes += data.length;
-        staged.items.push({ action, key, it, data, author, stale: vpIsStale({ fp: it.fp }, it.kind, ver) });
+        staged.items.push({ action, key, it, data, author, stale: it.kind !== "line" && vpIsStale({ fp: it.fp }, it.kind, ver) });
       }
     } catch(e) {
       staged.errors.push(`${f.name}: ${e.message || "ملف غير صالح"}`);
@@ -429,9 +452,11 @@ async function vpCommitVoicePacks() {
   try {
     for (const x of vpStaged.items) {
       if (x.action !== "add" && x.action !== "replace") continue;
-      await recPut({ key: x.key, verseId: x.it.id, kind: x.it.kind, uid: "author", mime: x.it.mime,
+      const rec = { key: x.key, verseId: x.it.id, kind: x.it.kind, uid: "author", mime: x.it.mime,
         blob: new Blob([x.data], { type: x.it.mime }), fp: x.it.fp || null, at: x.it.at || Date.now(),
-        source: x.it.source === "upload" ? "upload" : "rec", reviewed: !!x.it.reviewed, author: x.author });
+        source: x.it.source === "upload" ? "upload" : "rec", reviewed: !!x.it.reviewed, author: x.author };
+      if (x.it.kind === "line") { rec.text = x.it.text; rec.fp = x.it.id; }
+      await recPut(rec);
       added++;
     }
   } catch(e) { showToast("تعذّر حفظ بعض التسجيلات", "error"); }
@@ -443,6 +468,7 @@ async function vpCommitVoicePacks() {
   renderVoiceStatus();
   if (document.getElementById("pvPopup").classList.contains("active")) renderParentVoice();
   if (document.getElementById("recPopup").classList.contains("active") && typeof renderRecList === "function") renderRecList();
+  if (typeof voiceCacheReset === "function") voiceCacheReset();
 }
 
 /* ---------- حالة حزمة الصوت على الجهاز ---------- */
@@ -451,16 +477,18 @@ async function renderVoiceStatus() {
   if (!el) return;
   try {
     const recs = await vpAllAuthorRecs();
-    const verses = recs.filter(r => r.kind !== "story").length;
-    const stories = recs.length - verses;
+    const verses = recs.filter(r => r.kind !== "story" && r.kind !== "line").length;
+    const stories = recs.filter(r => r.kind === "story").length;
+    const lines = recs.filter(r => r.kind === "line").length;
     const stale = recs.filter(r => {
+      if (r.kind === "line") return false;
       const ver = vpFindVerse(r.verseId);
       return ver && vpIsStale(r, r.kind === "story" ? "story" : "verse", ver);
     }).length;
     const reviewed = recs.filter(r => r.reviewed).length;
     const from = vpPref("importedAuthor");
     el.textContent = recs.length
-      ? `🎙️ على هذا الجهاز: ${verses} بيتاً و${stories} قصة · مراجَع ${reviewed}${from ? ` · من: ${from}` : ""}${stale ? ` · ${stale} تسجيل يحتاج إعادة (النص تغيّر)` : ""}`
+      ? `🎙️ على هذا الجهاز: ${verses} بيتاً و${stories} قصة و${lines} نصاً آخر · مراجَع ${reviewed}${from ? ` · من: ${from}` : ""}${stale ? ` · ${stale} تسجيل يحتاج إعادة (النص تغيّر)` : ""}`
       : "🎙️ لا توجد حزمة صوت على هذا الجهاز بعد";
   } catch(e) { el.textContent = ""; }
 }
@@ -485,6 +513,16 @@ async function migrateLegacyRecIds() {
     if (nkey !== key) await recDelete(key);
   }
   vpPref("recIdsV94", true);
+}
+/* v101: تسجيلات الوالد القديمة حُفظت بمعرّف الزر ("pv:s1v1") بدل معرّف البيت، فلم تُحسب ولم تُستورد. تُصحَّح مرة واحدة */
+async function vpFixRecIds() {
+  const recs = await vpAllAuthorRecs();
+  for (const r of recs) {
+    if (typeof r.verseId === "string" && /^(pv|p):/.test(r.verseId)) {
+      const id = r.key.split("|")[2];
+      await vpPatchRec(r.key, () => ({ verseId: id }));
+    }
+  }
 }
 async function migrateVoiceKeys() {
   if (vpPref("voiceKeysV2")) return;

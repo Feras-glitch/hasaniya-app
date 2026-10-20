@@ -74,7 +74,7 @@ function guideOnWrong() {
   guideWrongCount[id] = (guideWrongCount[id] || 0) + 1;
   if (guideWrongCount[id] === 3) {
     guideSetMood("think", 8000);
-    guidePanel("{N}، هذا البيت يحتاج تمهّل. ماذا نفعل معاً؟", [
+    guidePanel(kidLine("hardVerse"), [
       { label: "🔊 استمع للبيت", run: () => playVerseAndStory(cur.verse, false) },
       { label: "🎙️ سجّل صوتك", run: () => recordVerse() }
     ], document.getElementById("recordBtn") || document.getElementById("speakFullBtn"));
@@ -193,7 +193,7 @@ async function guidePlayStationStories(si) {
     if (token !== seqToken) return;
     items.push({ rec, text: v.story });
   }
-  if (!items.length) { kidToast("لا توجد قصص في هذه المحطة", ""); return; }
+  if (!items.length) { kidToast(kidLine("noStories"), ""); return; }
   guideDance(true);
   for (const it of items) { if (token !== seqToken) break; await playPart(token, it.rec, it.text); }
   if (token === seqToken) guideDance(false);
@@ -239,8 +239,9 @@ function guideOnVerseShown(station, verse, verseIndex) {
   state.meaningSeen = state.meaningSeen || {};
   if (!state.meaningSeen[verse.id] && EXPLANATIONS[verse.id]) {
     state.meaningSeen[verse.id] = true; saveState();
-    guidePanel(gForm("{N}، بيت جديد! هل تريد معرفة معناه قبل أن نقرأه؟", "{N}، بيت جديد! هل تريدين معرفة معناه قبل أن نقرأه؟"), [
-      { label: "📖 أعرف المعنى", run: () => guidePanel(EXPLANATIONS[verse.id], [{ label: "🔊 استمع للمعنى", run: () => speakPlainArabic(EXPLANATIONS[verse.id]) }]) }
+    const meaning = verse.meaning || EXPLANATIONS[verse.id];
+    guidePanel(kidLine("newVerseMeaning"), [
+      { label: "📖 أعرف المعنى", run: () => guidePanel(meaning, [{ label: "🔊 استمع للمعنى", run: () => sayText(meaning) }]) }
     ]);
   }
 }
@@ -256,13 +257,13 @@ function guideHelperTurn(verse) {
     run: () => {
       if (w === correct) {
         playSuccess(); guideSetMood("proud", 5000);
-        guideSay("mastery", "شكراً! ساعدتني فتذكّرتُ الآن 🐪");
+        guideSay("mastery", kidLine("helperThanks"));
       } else {
-        playClick(); ask(gForm("{N}، ليس هذا، جرّب مرة أخرى 🌿", "{N}، ليس هذا، جرّبي مرة أخرى 🌿"));
+        playClick(); ask(kidLine("helperNotThis"));
       }
     }
-  })));
-  ask("{N}، نسيتُ أول كلمة في هذا البيت! هل تساعدني؟");
+  })), null, opts);
+  ask(kidLine("helperForgot"));
 }
 
 /* ---------- أين ناجي؟ كل يوم يختبئ في محطة مفتوحة ---------- */
@@ -284,7 +285,7 @@ function guidePlaceHidden() {
     ev.stopPropagation();
     state.najiFound = guideDayKey(); state.najiCount = (state.najiCount || 0) + 1; saveState();
     h.remove(); playSuccess(); guideSetMood("proud", 6000);
-    guidePanel(gForm("وجدتَني {N}! 🎉 أضفتُ ختماً خاصاً إلى دفترك", "وجدتِني {N}! 🎉 أضفتُ ختماً خاصاً إلى دفترك"), [{ label: "📖 الدفتر", run: () => openGuideJournal() }]);
+    guidePanel(kidLine("foundMe"), [{ label: "📖 الدفتر", run: () => openGuideJournal() }]);
   };
   wrap.appendChild(h);
 }

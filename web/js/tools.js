@@ -99,10 +99,10 @@ function eventChoicesFor(v) {
 /* قبل القصة: سؤال واحد عن حدث البيت، ثم تظهر القصة مباشرة */
 function askEventBeforeStory(v) {
   const opts = eventChoicesFor(v);
-  guideSay("ask", gForm("{N}، ماذا حدث هنا؟ اختر الإجابة الصحيحة 🐪", "{N}، ماذا حدث هنا؟ اختاري الإجابة الصحيحة 🐪"));
+  guideSay("ask", kidLine("askEvent"), opts);
   document.getElementById("storyText").innerHTML = `
-    <div style="font-weight:bold;margin-bottom:8px">${sayBtnHTML("ما الحدث الذي يصفه هذا البيت؟ " + opts.join("، أو "), "استمع للسؤال")} 🧩 قبل القصة: ما الحدث الذي يصفه هذا البيت؟</div>
-    <div class="word-bank">${opts.map(o => `<button class="word-btn" onclick="answerEventQ(this,'${escapeForAttr(o)}','${v.id}')">${escapeHtml(o)}</button>`).join("")}</div>`;
+    <div style="font-weight:bold;margin-bottom:8px">${sayBtnHTML([kidLine("eventQ"), ...opts], "استمع للسؤال")} 🧩 ${escapeHtml(kidLine("eventQ"))}</div>
+    <div class="word-bank">${optionsHTML(opts, o => `answerEventQ(this,'${escapeForAttr(o)}','${v.id}')`)}</div>`;
   document.getElementById("sourcesWrap").style.display = "none";
   document.getElementById("khilafWrap").style.display = "none";
   document.getElementById("storyImg").style.display = "none";
@@ -254,7 +254,7 @@ function toggleStationList() {
 /* ---------- أكمل من حيث توقفت ---------- */
 function resumeJourney() {
   const idx = content.journeyData.findIndex(s => { const st = getStationStatus(s); return st !== "completed" && st !== "locked"; });
-  if (idx < 0) { kidToast("لا توجد محطة مفتوحة الآن", "error"); return; }
+  if (idx < 0) { kidToast(kidLine("noOpenStation"), "error"); return; }
   startStation(idx);
 }
 

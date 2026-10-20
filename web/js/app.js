@@ -6,7 +6,7 @@ function init() {
   updateUserChip();
   updatePointsDisplay();
   showMap();
-  migrateLegacyRecIds().catch(e => console.warn("rec ids migrate", e)).then(() => migrateVoiceKeys()).catch(e => console.warn("voice migrate", e));
+  migrateLegacyRecIds().catch(e => console.warn("rec ids migrate", e)).then(() => migrateVoiceKeys()).catch(e => console.warn("voice migrate", e)).then(() => vpFixRecIds()).catch(e => console.warn("voice ids", e));
   // فحص مبكر: إن كان مخزن التسجيلات غير متاح نُخبر الوالد من البداية، لا عند أول تسجيل فاشل
   if (typeof recDb === "function") recDb().catch(() => { if (typeof recStorageFailed === "function") recStorageFailed(); });
   maybeOnboard();

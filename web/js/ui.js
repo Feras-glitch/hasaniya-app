@@ -1,6 +1,7 @@
 /* النوافذ والقوائم */
 function closePopup(id) {
   if ((id === "recPopup" || id === "pvPopup") && typeof recStop === "function" && recState && recState.recorder) recStop();
+  if (id === "pvPopup" && typeof pvSeq !== "undefined") pvSeq = null;
   document.getElementById(id).classList.remove("active");
   if (id === "hubPopup" && typeof placeHubClosed === "function") placeHubClosed();
   if (id === "rewardPopup") showMap();

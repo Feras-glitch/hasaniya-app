@@ -91,7 +91,7 @@ function pickTapWord(k) {
 /* «رتّب بالنقر» في صندوق التدريب: بيت عشوائي مما رآه الطفل */
 function startTapOrderHub() {
   const seen = content.journeyData.flatMap(st => st.verses).filter(v => state.seenVerses && state.seenVerses[v.id]);
-  if (!seen.length) { kidToast("ابدأ الرحلة أولاً، ثم تدرّب هنا على ما حفظت", "error"); return; }
+  if (!seen.length) { kidToast(kidLine("startFirst"), "error"); return; }
   const v = seen[Math.floor(Math.random() * seen.length)];
   openHub("👆 رتّب بالنقر", `<div class="verse-text" style="font-size:1rem;color:#666">${escapeHtml(v.event || "")}</div><div id="tapHub"></div>
     <div class="controls" style="margin-top:8px"><button class="tool-btn" onclick="startTapOrderHub()">🎲 بيت آخر</button></div>`);

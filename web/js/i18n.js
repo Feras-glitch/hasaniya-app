@@ -11,7 +11,7 @@ const PARENT_EN = {
   "🔍 عينة للمراجعة": "🔍 Review sample",
   "✍️ توقيع الوالد": "✍️ Parent signature",
   "🎖️ سجل الشهادات": "🎖️ Certificate log",
-  "🎙️ صوت الوالد": "🎙️ Parent voice",
+  "🎙️ استوديو التسجيل": "🎙️ Recording studio",
   "🏫 لوحة الصف": "🏫 Class dashboard",
   "📊 تقرير المتابعة": "📊 Progress report",
   "الطفل الحالي:": "Current child:",

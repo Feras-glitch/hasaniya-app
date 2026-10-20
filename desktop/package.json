@@ -1,7 +1,7 @@
 {
   "name": "hasaniya",
   "productName": "المنظومة الحسنية",
-  "version": "100.0.0",
+  "version": "101.0.0",
   "description": "المنظومة الحسنية في السيرة النبوية، تطبيق مستقل بلا خادم",
   "main": "main.js",
   "private": true,

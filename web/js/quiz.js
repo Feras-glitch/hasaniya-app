@@ -14,10 +14,11 @@ function renderQuizQuestion() {
   const order = [it.correct, ...it.wrong].sort(() => Math.random() - .5);
   document.getElementById("quizBody").innerHTML = `
     <div style="color:#666;font-size:.85rem">سؤال ${i + 1} من ${items.length}</div>
-    <h3 style="margin:10px 0">${sayBtnHTML(it.q + "، " + order.join("، أو "), "استمع للسؤال")} ${escapeHtml(it.q)}</h3>
-    <div class="word-bank">${order.map(o => `<button class="word-btn" onclick="answerQuiz(this,'${escapeForAttr(o)}')">${escapeHtml(o)}</button>`).join("")}</div>
+    <h3 style="margin:10px 0">${sayBtnHTML([it.q, ...order], "استمع للسؤال")} ${escapeHtml(it.q)}</h3>
+    <div class="word-bank">${optionsHTML(order, o => `answerQuiz(this,'${escapeForAttr(o)}')`)}</div>
     <p id="quizFeedback" style="min-height:24px;font-weight:bold"></p>`;
-  autoSayNow(it.q + "، " + order.join("، أو "));
+  /* v101: السؤال ثم كل خيار بتسجيله الخاص، بترتيب ظهوره على الشاشة */
+  autoSayNow([it.q, ...order]);
 }
 function answerQuiz(btn, chosen) {
   const qs = quizState; if (!qs) return;
@@ -28,13 +29,14 @@ function answerQuiz(btn, chosen) {
   const good = chosen === it.correct;
   btn.classList.add(good ? "success" : "fail");
   if (good) { quizState.score++; playSuccess(); } else playFail();
-  document.getElementById("quizFeedback").textContent = (good ? "✅ " + guideVocative() + "، " + gForm("أحسنتَ", "أحسنتِ") + "! " : "❌ ") + it.explain;
-  setTimeout(() => {
+  document.getElementById("quizFeedback").textContent = (good ? "✅ " + guideVocative() + "، " + kidLine("wellDone") + " " : "❌ ") + it.explain;
+  /* التعقيب يُقرأ كاملاً قبل السؤال التالي، حتى لا يقطعه */
+  voiceFeedback(good ? [guideVocative(), kidLine("wellDone"), it.explain] : [it.explain], 1800).then(() => {
     if (quizState !== qs) return; // تُخطّي الاختبار أو انتهى قبل المؤقّت
     quizState.i++;
     if (quizState.i < quizState.items.length) renderQuizQuestion();
     else finishQuiz();
-  }, 1800);
+  });
 }
 /* تخطّي الاختبار: يكمل المحطة دون نقاط، حتى لا يتعطّل الطفل */
 function skipQuiz() {
@@ -86,7 +88,7 @@ function startDaily() {
       pool.push({stationIndex: si, verseIndex: vi, last: s.lastCorrect || 0});
     }
   }));
-  if (!pool.length) { kidToast("أكمل بيتاً واحداً على الأقل", "error"); return; }
+  if (!pool.length) { kidToast(kidLine("needOneVerse"), "error"); return; }
   pool.sort((a, b) => a.last - b.last);
   playQueue = pool.slice(0, 5);
   playMode = MODE_CHALLENGE; playIndex = 0;

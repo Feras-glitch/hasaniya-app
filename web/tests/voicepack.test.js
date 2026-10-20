@@ -6,7 +6,7 @@ const assert = require("assert");
 
 const src = fs.readFileSync(path.join(__dirname, "..", "js", "voicepack.js"), "utf8");
 const ctx = { TextEncoder, TextDecoder, Blob, Response, DecompressionStream, Uint8Array, Uint32Array, DataView, ArrayBuffer, Map, Set, Math, console };
-const V = vm.runInNewContext(src + "\n;({ crc32, zipStore, zipRead, textFingerprint, vpValidateManifest, vpSplit, vpExt })", ctx);
+const V = vm.runInNewContext(src + "\n;({ crc32, zipStore, zipRead, textFingerprint, vpValidateManifest, vpSplit, vpExt, voiceNorm, lineId, authorKey })", ctx);
 
 (async () => {
   // CRC-32 بالمتجه المعياري
@@ -52,7 +52,20 @@ const V = vm.runInNewContext(src + "\n;({ crc32, zipStore, zipRead, textFingerpr
   assert.strictEqual(V.vpValidateManifest(good).ok, true);
   const mut = (f) => { const m = JSON.parse(JSON.stringify(good)); f(m); return V.vpValidateManifest(m); };
   assert.strictEqual(mut(m => { m.type = "recitation"; }).ok, false);
-  assert.strictEqual(mut(m => { m.version = 2; }).ok, false);
+  assert.strictEqual(mut(m => { m.version = 3; }).ok, false);
+  // v101: الإصدار 2 يقبل نوع «line» (أي نص آخر) بشرط أن تطابق البصمة نصه، والإصدار 1 لا يقبله
+  const lineText = "حاولي مرة أخرى";
+  const v2 = mut(m => { m.version = 2; m.items.push({ kind: "line", id: V.lineId(lineText), text: lineText, file: "audio/a0003.webm", mime: "audio/webm", fp: V.lineId(lineText), at: 3 }); });
+  assert.strictEqual(v2.ok, true, v2.error);
+  assert.strictEqual(mut(m => { m.items.push({ kind: "line", id: V.lineId(lineText), text: lineText, file: "audio/a0003.webm", mime: "audio/webm", at: 3 }); }).ok, false);
+  assert.strictEqual(mut(m => { m.version = 2; m.items.push({ kind: "line", id: V.lineId(lineText), text: "نص آخر", file: "audio/a0003.webm", mime: "audio/webm", at: 3 }); }).ok, false);
+  assert.strictEqual(mut(m => { m.version = 2; m.items.push({ kind: "line", id: "../x", text: lineText, file: "audio/a0003.webm", mime: "audio/webm", at: 3 }); }).ok, false);
+  // توحيد النص: الرموز والترقيم لا تغيّر البصمة، والحركات تغيّرها
+  assert.strictEqual(V.lineId("🎉 أحسنتَ!"), V.lineId("أحسنتَ"));
+  assert.notStrictEqual(V.lineId("أحسنتَ"), V.lineId("أحسنتِ"));
+  assert.strictEqual(V.authorKey("line", "abc"), "author|line|abc");
+  assert.strictEqual(V.authorKey("story", "s1v1"), "author|story|s1v1");
+  assert.strictEqual(V.authorKey("verse", "s1v1"), "author|verse|s1v1");
   assert.strictEqual(mut(m => { m.items[0].kind = "poem"; }).ok, false);
   assert.strictEqual(mut(m => { m.items[0].file = "../../evil.js"; }).ok, false);
   assert.strictEqual(mut(m => { m.items[0].mime = "text/html"; }).ok, false);

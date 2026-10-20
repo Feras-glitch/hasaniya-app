@@ -30,7 +30,7 @@ function markWeekly(vid) {
   if (!weeklyVerseIds(w.week).includes(vid) || w.done[vid]) return;
   w.done[vid] = true; saveState();
   if (weeklyVerseIds(w.week).every(id => w.done[id])) {
-    kidToast("🏅 " + gForm("أتممتَ", "أتممتِ") + " تحدّي الأسبوع!", "success");
+    kidToast(kidLine("weeklyDone"), "success");
     awardBadge("weekly");
   }
 }

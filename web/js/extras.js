@@ -5,7 +5,7 @@ function showDiscussion() {
   const rows = content.journeyData.map((st, i) => {
     const qs = (typeof DISCUSSION !== "undefined" && DISCUSSION[st.id]) || [];
     return `<div style="margin-bottom:12px"><strong>${i + 1}. ${escapeHtml(st.icon)} ${escapeHtml(st.title)}</strong>
-      <ul style="margin:6px 0 0;padding-right:18px;line-height:1.8">${qs.map(q => `<li>${escapeHtml(q)}</li>`).join("")}</ul></div>`;
+      <ul style="margin:6px 0 0;padding-right:18px;line-height:1.8">${qs.map(q => `<li>${sayBtnHTML(q, "استمع للسؤال")} ${escapeHtml(q)}</li>`).join("")}</ul></div>`;
   }).join("");
   openHub("💬 أسئلة النقاش", `<p style="color:#666;font-size:.9rem">أسئلة للحوار مع الطفل بعد كل محطة، بلا إجابات جاهزة.</p>${rows}`);
 }

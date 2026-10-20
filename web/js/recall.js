@@ -28,7 +28,7 @@ function startRecall(mode) {
     content.journeyData.forEach((st, si) => st.verses.forEach((v, vi) => {
       if (state.seenVerses[v.id]) pool.push({st, v, si, vi});
     }));
-    if (!pool.length) { kidToast("أكمل بيتاً واحداً أولاً", "error"); return; }
+    if (!pool.length) { kidToast(kidLine("needOneFirst"), "error"); return; }
     recallQ.items = pool.sort(() => Math.random() - .5).slice(0, 8);
   }
   renderRecall();
@@ -44,14 +44,17 @@ function renderRecall() {
     : `الحروف الأولى: <strong style="font-size:1.3rem;letter-spacing:4px;color:var(--primary)">${it.v.words.map(w => escapeHtml(normalizeArabic(w).charAt(0))).join(" ")}</strong>`;
   openHub(`🔑 ${q.i + 1} من ${q.items.length}`, `
     <p>${prompt}</p>
-    <p style="color:#666;font-size:.85rem">قل البيت بصوت عالٍ أولاً، ثم أظهره.</p>
+    <p style="color:#666;font-size:.85rem">${sayBtnHTML(kidLine("recallSay"))} ${escapeHtml(kidLine("recallSay"))}</p>
     <div id="recallAns" style="display:none;margin:12px 0;font-size:1.15rem;line-height:1.9;color:var(--primary)">${escapeHtml(it.v.fullVerse)}</div>
     <div id="recallBtns" class="hub-actions">
       <button class="action-btn btn-info" onclick="revealRecall()">أظهر البيت</button>
     </div>`);
+  autoSayNow(kidLine("recallSay"));
 }
 function revealRecall() {
   document.getElementById("recallAns").style.display = "block";
+  const it = recallQ && recallQ.items[recallQ.i];
+  if (it) autoSayNow(it.v.fullVerse);
   document.getElementById("recallBtns").innerHTML = `
     <button class="action-btn btn-success" onclick="rateRecall(true)">✅ تذكّرتُه</button>
     <button class="action-btn btn-danger" onclick="rateRecall(false)">❌ نسيته</button>`;
@@ -85,18 +88,21 @@ function checkRiddle() {
     if (!state.riddlesSolved) state.riddlesSolved = {};
     if (!state.riddlesSolved[r.station]) { state.riddlesSolved[r.station] = true; addPoints(5); }
     saveState();
-    document.getElementById("riddleMsg").innerHTML = `<span style="color:var(--success)">✅ ${escapeHtml(guideVocative())}، ${gForm("أحسنتَ", "أحسنتِ")}! الجواب: ${escapeHtml(r.answer)}</span>`;
+    document.getElementById("riddleMsg").innerHTML = `<span style="color:var(--success)">✅ ${escapeHtml(guideVocative())}، ${escapeHtml(kidLine("wellDone"))} ${escapeHtml(kidLine("answerIs"))} ${escapeHtml(r.answer)}</span>`;
+    autoSayNow([guideVocative(), kidLine("wellDone"), kidLine("answerIs"), r.answer]);
     document.getElementById("riddleBtns").innerHTML = `<button class="action-btn btn-success" onclick="nextRiddle()">التالي ⬅️</button>`;
     playSuccess();
   } else {
-    document.getElementById("riddleMsg").innerHTML = `<span style="color:var(--danger)">حاول مرة أخرى</span>`;
+    document.getElementById("riddleMsg").innerHTML = `<span style="color:var(--danger)">${escapeHtml(kidLine("tryAgain"))}</span>`;
+    autoSayNow(kidLine("tryAgain"));
     playFail();
   }
 }
 function revealRiddle() {
   const r = recallQ.items[recallQ.i];
   const v = content.journeyData.flatMap(s => s.verses).find(x => x.id === r.ref);
-  document.getElementById("riddleMsg").innerHTML = `الجواب: <strong>${escapeHtml(r.answer)}</strong>
+  autoSayNow([kidLine("answerIs"), r.answer]);
+  document.getElementById("riddleMsg").innerHTML = `${escapeHtml(kidLine("answerIs"))} <strong>${escapeHtml(r.answer)}</strong>
     <div style="color:var(--primary);font-weight:normal;margin-top:8px;line-height:1.8">${escapeHtml(v ? v.fullVerse : "")}</div>`;
   document.getElementById("riddleBtns").innerHTML = `<button class="action-btn btn-success" onclick="nextRiddle()">التالي ⬅️</button>`;
 }
@@ -107,6 +113,7 @@ function finishRecall() {
   openHub("🎉 انتهى التذكّر", `
     <div style="font-size:3rem">🔑</div>
     <p style="font-size:1.2rem"><strong>${q.score} / ${q.items.length}</strong></p>
-    <p style="color:#666">${q.score === q.items.length ? "ممتاز! ذاكرتك قوية." : "كل مرة تُعيد فيها البيت تقوى ذاكرتك."}</p>
+    <p style="color:#666">${escapeHtml(kidLine(q.score === q.items.length ? "recallGreat" : "recallKeep"))}</p>
     <button class="action-btn btn-info" style="width:100%" onclick="showRecallMenu()">تذكّر مرة أخرى</button>`);
+  autoSay(kidLine(q.score === q.items.length ? "recallGreat" : "recallKeep"));
 }

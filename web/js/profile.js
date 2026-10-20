@@ -2,7 +2,9 @@
 
 /* يختار الصيغة حسب جنس الطفل: ولد أو بنت */
 function gForm(boyForm, girlForm) {
-  return getCurrentUser()?.gender === "girl" ? girlForm : boyForm;
+  /* gForm.force: يضبطه سجل الأصوات مؤقتاً ليجمع صيغتي الولد والبنت لكل رسالة */
+  const g = gForm.force || getCurrentUser()?.gender;
+  return g === "girl" ? girlForm : boyForm;
 }
 
 /* تصغير الصورة إلى مربع صغير بصيغة JPEG، لتبقى خفيفة في التخزين */
@@ -126,11 +128,11 @@ function certificateBlob(station, cert) {
 
 /* الحفظ والطباعة يطلبان الرقم السري (موافقة الوالد) */
 function certSave(station) {
-  if (!station) { kidToast("لا توجد محطة مكتملة الآن", "error"); return; }
+  if (!station) { kidToast(kidLine("noDoneStation"), "error"); return; }
   requirePin(() => saveCertificate(station), "حفظ الشهادة أو مشاركتها يحتاج موافقة الوالد");
 }
 function certPrint(station) {
-  if (!station) { kidToast("لا توجد محطة مكتملة الآن", "error"); return; }
+  if (!station) { kidToast(kidLine("noDoneStation"), "error"); return; }
   requirePin(() => printCertificate(station), "طباعة الشهادة تحتاج موافقة الوالد");
 }
 async function saveCertificate(station) {

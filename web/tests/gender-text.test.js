@@ -10,7 +10,7 @@ const pattern = /[أ-ي]تَ(?=[\s"«»،!.)؟:]|$)/;
 let bad = [];
 for (const f of files) {
   fs.readFileSync(path.join(root, f), "utf8").split("\n").forEach((line, i) => {
-    if (pattern.test(line) && !line.includes("gForm(") && !/^\s*\[".*",\s*".*"\],?\s*$/.test(line) && !/^\s*\/\//.test(line) && !/^\s*\/?\*/.test(line)) {
+    if (pattern.test(line) && !line.includes("gForm(") && !/^\s*(\w+:\s*)?\[".*",\s*".*"\],?\s*$/.test(line) && !/^\s*\/\//.test(line) && !/^\s*\/?\*/.test(line)) {
       bad.push(`${f}:${i + 1}: ${line.trim().slice(0, 120)}`);
     }
   });

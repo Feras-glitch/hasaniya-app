@@ -68,15 +68,17 @@ function showFinale() {
 function autoReadOn() { const p = getPrefs(); return p.autoRead !== false && p.guideVoice !== false; }
 function guideVoiceOn() { return autoReadOn(); }
 function cleanSpeech(t) { return String(t || "").replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, "").replace(/\s+/g, " ").trim(); }
+/* v101: كل القراءة تمرّ من voicePlay (voice.js): تسجيل الوالد أو المعلم أولاً، ثم القارئ الآلي */
 function autoSay(text) {
   if (!autoReadOn() || (typeof recIsActive === "function" && recIsActive())) return;
-  const t = cleanSpeech(text); if (t) speakPlainArabic(t);
+  voicePlay(text, { polite: true, silent: true });
 }
-/* زر 🔊 بجانب أي نص: يقرؤه عند الضغط (لا أثناء التسجيل) */
-function sayText(t) { if (typeof recIsActive === "function" && recIsActive()) return; audioStopAll(); const c = cleanSpeech(t); if (c) speakPlainArabic(c); }
-function sayBtnHTML(t, label) { return `<button class="say-btn" type="button" aria-label="${escapeHtml(label || "استمع")}" onclick="sayText('${escapeForAttr(t)}')">🔊</button>`; }
+/* زر 🔊 بجانب أي نص: يقرؤه عند الضغط (لا أثناء التسجيل). القائمة تُمرَّر نصوصاً مفصولة بـ␞ */
+const SAY_SEP = "\u241E";
+function sayText(t) { if (typeof recIsActive === "function" && recIsActive()) return; voicePlay(String(t).split(SAY_SEP)); }
+function sayBtnHTML(t, label) { const v = Array.isArray(t) ? t.join(SAY_SEP) : String(t); return `<button class="say-btn" type="button" aria-label="${escapeHtml(label || "استمع")}" onclick="sayText('${escapeForAttr(v)}')">🔊</button>`; }
 /* قراءة تلقائية لسؤال جديد: تقطع ما قبلها، لأن السؤال الجديد أهم من بقية الرسالة السابقة */
-function autoSayNow(text) { if (!autoReadOn() || (typeof recIsActive === "function" && recIsActive())) return; audioStopAll(); const c = cleanSpeech(text); if (c) speakPlainArabic(c); }
+function autoSayNow(text) { if (!autoReadOn() || (typeof recIsActive === "function" && recIsActive())) return; return voicePlay(text, { silent: true }); }
 /* فقاعة ظهرت أثناء التسجيل تُحجز ولا تُعرض، ثم تظهر بعد انتهائه إن لم يمضِ عليها وقت طويل */
 let heldVoice = null;
 function flushHeldVoice() {
@@ -92,14 +94,15 @@ function guideVocative() {
 }
 function guideFill(t) { return String(t).replace(/\{N\}/g, guideVocative()); }
 /* رسالة للطفل تبدأ باسمه: تنبيه أو تشجيع */
-function kidToast(msg, t) { const m = guideVocative() + "، " + msg; showToast(m, t || ""); autoSay(m); }
+/* parts: ما يُقرأ إن اختلف عن النص (رسالة فيها كلمة متغيّرة: «الصحيح هو:» ثم الكلمة) */
+function kidToast(msg, t, parts) { const m = guideVocative() + "، " + msg; showToast(m, t || ""); autoSay(parts ? [guideVocative(), ...parts] : m); }
 
-function guideSay(mood, customText) {
+function guideSay(mood, customText, extraVoice) {
   const bubble = guideBubbleEl();
   const body = document.getElementById("guideBody");
   const wrap = document.getElementById("guide");
   if (!bubble || !body || !wrap) return;
-  if (typeof recIsActive === "function" && recIsActive()) { heldVoice = { at: Date.now(), run: () => guideSay(mood, customText) }; return; }
+  if (typeof recIsActive === "function" && recIsActive()) { heldVoice = { at: Date.now(), run: () => guideSay(mood, customText, extraVoice) }; return; }
   const lines = customText ? [customText] : (GUIDE_LINES[mood] ? GUIDE_LINES[mood]() : ["🐪"]);
   const text = guideFill(lines[Math.floor(Math.random() * lines.length)]);
   bubble.textContent = text;
@@ -109,19 +112,10 @@ function guideSay(mood, customText) {
   wrap.classList.add(GUIDE_ANIM[mood] || "bob");
   clearTimeout(guideSay.hideTimer);
   guideSay.hideTimer = setTimeout(() => guideHidePanel(), 6000);
-  if (guideVoiceOn()) speakPlainArabic(text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "").trim());
+  if (guideVoiceOn()) speakPlainArabic([text, ...(extraVoice || [])]);
 }
-function speakPlainArabic(text) {
-  if (!("speechSynthesis" in window) || !text) return;
-  if (audioBusy()) return;   // لا يتكلم ناجي فوق تسجيل أو صوت آخر
-  try {
-    const u = new SpeechSynthesisUtterance(ttsText(text));
-    u.lang = "ar-SA"; u.rate = speechRate(); u.pitch = 1.15;
-    const ar = window.speechSynthesis.getVoices().find(x => x.lang && x.lang.toLowerCase().startsWith("ar"));
-    if (ar) u.voice = ar;
-    window.speechSynthesis.speak(u);
-  } catch(e) {}
-}
+/* صوت ناجي: لا يتكلم فوق تسجيل أو صوت آخر */
+function speakPlainArabic(text) { return voicePlay(text, { polite: true, silent: true }); }
 
 /* النقر على ناجي يعطي تشجيعاً عشوائياً */
 function guideTap() {
@@ -148,13 +142,13 @@ function guideBubbleEl() {
   }
   return f;
 }
-function guidePanel(text, actions, targetEl) {
+function guidePanel(text, actions, targetEl, extraVoice) {
   const bubble = guideBubbleEl();
   if (!bubble) return;
   // لا تغطّي الفقاعة نموذج إنشاء الطفل أو الرقم السري
   if (document.querySelector("#userEditorPopup.active, #pinPopup.active")) return;
   // ولا تظهر أثناء تسجيل الطفل: تُحجز حتى ينتهي
-  if (typeof recIsActive === "function" && recIsActive()) { heldVoice = { at: Date.now(), run: () => guidePanel(text, actions, targetEl) }; return; }
+  if (typeof recIsActive === "function" && recIsActive()) { heldVoice = { at: Date.now(), run: () => guidePanel(text, actions, targetEl, extraVoice) }; return; }
   text = guideFill(text);
   document.querySelectorAll(".guide-target").forEach(el => el.classList.remove("guide-target"));
   if (targetEl) targetEl.classList.add("guide-target");
@@ -181,7 +175,7 @@ function guidePanel(text, actions, targetEl) {
     document.body.classList.add("guide-open");
     guideSay.hideTimer = setTimeout(() => guideHidePanel(), 25000);
   }
-  if (guideVoiceOn()) speakPlainArabic(text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "").trim());
+  if (guideVoiceOn()) speakPlainArabic([text, ...(extraVoice || [])]);
 }
 /* عروض ناجي ذات الأزرار (المعنى، ساعدني) تُخفى عند الإجابة أو الانتقال، فلا تحجب زر «التالي» */
 function guideHideOffers() {
@@ -207,7 +201,7 @@ function guideShowActions(greet) {
   if (!content.journeyData || !content.journeyData.length) return;
   guideHidePanel();
   if (getPrefs().vacation) {
-    guidePanel("ناجي في إجازة 🏖️ يعود حين تُفعّله من الإعدادات.", []);
+    guidePanel(kidLine("vacation"), []);
     return;
   }
   guideTouchToday();
@@ -257,7 +251,7 @@ function guideCheckStuck() {
   if (guideHintKey === cur.verse.id) return;
   guideHintKey = cur.verse.id;
   lastActivity = Date.now();
-  guidePanel(gForm("{N}، تحتاج مساعدة؟ استمع للبيت أولاً، ثم رتّب كلماته.", "{N}، تحتاجين مساعدة؟ استمعي للبيت أولاً، ثم رتّبي كلماته."),
+  guidePanel(kidLine("needHelp"),
     [{ label: "🔊 استمع للبيت", run: () => playVerseAndStory(cur.verse, false) }],
     document.getElementById("speakFullBtn"));
 }
@@ -267,7 +261,7 @@ async function guideOnRecorded(kind) {
   if (kind !== "verse" || typeof recAllForUser !== "function") return;
   const n = (await recAllForUser(activeUserId)).length;
   if (n === 1) guideAwardBadge("firstRec");
-  if (n === 1) guideSay("mastery", gForm("{N}، أول بيت سجّلتَه بصوتك! 🎙️ هكذا يصير الحفظ لك 🐪", "{N}، أول بيت سجّلتِه بصوتك! 🎙️ هكذا يصير الحفظ لك 🐪"));
+  if (n === 1) guideSay("mastery", kidLine("firstRec"));
   else if (n % 5 === 0) guideSay("mastery", gForm(`{N}، سجّلتَ ${n} أبيات بصوتك! 🌟`, `{N}، سجّلتِ ${n} أبيات بصوتك! 🌟`));
 }
 
