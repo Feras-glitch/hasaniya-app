@@ -594,3 +594,13 @@ body.reduce-motion .rec-bar .rec-btn.recording{animation:none}
 .seq-main .action-btn{flex:1;max-width:220px;font-size:1.1rem}
 .seq-nav{justify-content:center;flex-wrap:wrap}
 body.night .pv-summary,body.night .pv-seq{background:#2a2a34;color:#eceff1}
+/* v102: وضع الطفل الصغير — أزرار أكبر وأقل، ويُخفى ما للكبار */
+.small-kid-row{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:10px;padding:8px;border-radius:10px;background:#f6f8ff}
+body.small-kid #sourcesWrap,body.small-kid #khilafWrap,body.small-kid .more-menu,body.small-kid #toolsBtn,body.small-kid #browsePanel,body.small-kid .guide-charms{display:none!important}
+body.small-kid .word-btn{font-size:1.35rem;padding:14px 18px;min-height:56px}
+body.small-kid .action-btn{font-size:1.15rem;padding:14px 18px;min-height:54px}
+body.small-kid .tool-btn{font-size:1.05rem;padding:10px 14px;min-height:46px}
+body.small-kid .say-btn{width:46px;height:46px;min-width:46px;font-size:1.3rem}
+body.small-kid .opt-wrap .say-btn{width:42px;height:42px;min-width:42px}
+body.small-kid .verse-text,body.small-kid .intro-verse,body.small-kid #fullVerseText{font-size:1.45rem;line-height:2.1}
+body.small-kid .story-text{font-size:1.15rem;line-height:2}

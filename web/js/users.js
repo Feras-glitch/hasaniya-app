@@ -20,7 +20,11 @@ function switchUser(id) {
 function updateUserChip() {
   document.getElementById("userAvatar").innerHTML = avatarHTML(getCurrentUser(), "chip-photo");
   document.getElementById("userName").textContent = getUserName();
+  applyKidMode();
 }
+/* v102: وضع الطفل الصغير (لمن لا يقرأ): أزرار أكبر وأقل، والألغاز بالاختيار. يفعّله الوالد لكل طفل بالرقم السري */
+function isSmallKid() { const u = getCurrentUser(); return !!(u && u.small); }
+function applyKidMode() { document.body.classList.toggle("small-kid", isSmallKid()); }
 
 function showUsersModal() {
   const list = document.getElementById("usersList");
@@ -61,6 +65,7 @@ function openUserEditor(id, opts = {}) {
   editGender = u && !editOnboarding ? (u.gender || null) : null;
   editPhoto = u && !editOnboarding ? (u.photo || null) : null;
   editShowPhoto = u && !editOnboarding ? (u.showPhoto !== false) : true;
+  editSmall = !!(u && !editOnboarding && u.small);
   renderEditorExtras();
   const grid = document.getElementById("avatarGrid");
   const currentAvatar = u ? u.avatar : AVATARS[0];
@@ -87,10 +92,10 @@ function saveUserEditor() {
 
   if (editingUserId) {
     const u = getUserById(editingUserId);
-    if (u) { u.name = name; u.avatar = avatar; u.gender = editGender; u.photo = editPhoto; u.showPhoto = editShowPhoto; }
+    if (u) { u.name = name; u.avatar = avatar; u.gender = editGender; u.photo = editPhoto; u.showPhoto = editShowPhoto; u.small = editSmall; }
   } else {
     const u = createNewUser(name, avatar);
-    u.gender = editGender; u.photo = editPhoto; u.showPhoto = editShowPhoto;
+    u.gender = editGender; u.photo = editPhoto; u.showPhoto = editShowPhoto; u.small = editSmall;
     users.push(u);
     if (users.length === 1) { activeUserId = u.id; state = u.state; }
   }
@@ -124,7 +129,7 @@ function deleteUser(id) {
 }
 
 /* ---------- الجنس والصورة في نافذة بيانات الطفل ---------- */
-let editGender = null, editPhoto = null, editShowPhoto = true;
+let editGender = null, editPhoto = null, editShowPhoto = true, editSmall = false;
 function renderEditorExtras() {
   document.getElementById("genderRow").innerHTML = `
     <button class="word-btn ${editGender === "boy" ? "selected" : ""}" onclick="setEditGender('boy')">👦 ولد</button>
@@ -133,7 +138,18 @@ function renderEditorExtras() {
     ? `<img class="editor-photo" src="${editPhoto}" alt=""><button class="tool-btn" onclick="removeEditorPhoto()">🗑 إزالة الصورة</button>`
     : `<span style="color:#888">لا توجد صورة</span>`;
   renderShowPhotoRow();
+  renderSmallKidRow();
 }
+function renderSmallKidRow() {
+  let row = document.getElementById("smallKidRow");
+  const after = document.getElementById("showPhotoRow");
+  if (!row && after) { row = document.createElement("div"); row.id = "smallKidRow"; row.className = "small-kid-row"; after.insertAdjacentElement("afterend", row); }
+  if (!row) return;
+  row.innerHTML = `<span>🧒 وضع الطفل الصغير (لا يقرأ بعد): ${editSmall ? "مفعّل" : "متوقف"}</span>
+    <button class="tool-btn" type="button" id="smallKidBtn" onclick="toggleEditSmall()">${editSmall ? "إيقاف" : "تفعيل"} 🔐</button>`;
+}
+/* التغيير يطلب الرقم السري، ويُحفظ مع بيانات الطفل */
+function toggleEditSmall() { requirePin(() => { editSmall = !editSmall; renderSmallKidRow(); }, "وضع الطفل الصغير يضبطه الوالد"); }
 function setEditGender(g) { editGender = g; renderEditorExtras(); }
 async function pickEditorPhoto(file) {
   if (!file) return;

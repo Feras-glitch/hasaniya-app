@@ -112,7 +112,7 @@ function guideSay(mood, customText, extraVoice) {
   wrap.classList.add(GUIDE_ANIM[mood] || "bob");
   clearTimeout(guideSay.hideTimer);
   guideSay.hideTimer = setTimeout(() => guideHidePanel(), 6000);
-  if (guideVoiceOn()) speakPlainArabic([text, ...(extraVoice || [])]);
+  if (guideVoiceOn()) speakPlainArabic(extraVoice && extraVoice.say ? extraVoice.say : [text, ...(extraVoice || [])]);
 }
 /* صوت ناجي: لا يتكلم فوق تسجيل أو صوت آخر */
 function speakPlainArabic(text) { return voicePlay(text, { polite: true, silent: true }); }
@@ -175,7 +175,7 @@ function guidePanel(text, actions, targetEl, extraVoice) {
     document.body.classList.add("guide-open");
     guideSay.hideTimer = setTimeout(() => guideHidePanel(), 25000);
   }
-  if (guideVoiceOn()) speakPlainArabic([text, ...(extraVoice || [])]);
+  if (guideVoiceOn()) speakPlainArabic(extraVoice && extraVoice.say ? extraVoice.say : [text, ...(extraVoice || [])]);
 }
 /* عروض ناجي ذات الأزرار (المعنى، ساعدني) تُخفى عند الإجابة أو الانتقال، فلا تحجب زر «التالي» */
 function guideHideOffers() {
@@ -209,6 +209,8 @@ function guideShowActions(greet) {
   const name = getUserName();
   const acts = [];
   let text, target = null;
+  /* say: ما يُسمع بدل النص (الأرقام تبقى مكتوبة، والمسموع جمل ثابتة قابلة للتسجيل) */
+  let say = [];
   const open = guideOpenStation();
   if (open) {
     const idx = content.journeyData.indexOf(open);
@@ -217,10 +219,12 @@ function guideShowActions(greet) {
     const left = open.verses.length - pos;
     text = `المحطة الحالية: ${open.title}. ` + (pos > 0 ? `توقّفنا عند البيت ${pos + 1}، ` : "") +
       `وبقي ${left} ${left === 1 ? "بيت" : "أبيات"}.`;
+    say = [kidLine("currentStation"), open.title, ...(pos > 0 ? [kidLine("resumeHere")] : []), kidLine("letsContinue")];
     acts.push({ label: "▶ تابع الرحلة", run: () => resumeJourney() });
     if (!guideChallenge) acts.push({ label: "⏱ تحدي 5 دقائق", run: () => guideStartChallenge() });
   } else {
-    text = gForm("{N}، أتممتَ كل المحطات! 🏆", "{N}، أتممتِ كل المحطات! 🏆");
+    text = kidLine("allStationsGuide");
+    say = [guideFill(text)];
     acts.push({ label: "🏆 شهادة الرحلة", run: () => certSave(JOURNEY_CERT) });
   }
   if (state.recentDone) {
@@ -233,13 +237,15 @@ function guideShowActions(greet) {
   const due = leitnerDueVerses().length;
   if (due) {
     text += ` عندي ${due} ${due === 1 ? "بطاقة تنتظر" : "بطاقات تنتظر"} مراجعتك.`;
+    say.push(kidLine("cardsWaiting"));
     acts.push({ label: "🗃️ راجع البطاقات", run: () => startLeitnerReview() });
   }
   if (learnedVerses("all").length >= 2) acts.push({ label: "🔁 سمّع ما حفظت", run: () => openRecPopup({ mode: "child", range: "all" }) });
   acts.push({ label: "📖 دفتر الرحلة", run: () => openGuideJournal() });
-  if (guideNudgeDue()) text = "اشتقتُ لصوتك! " + text;
-  if (guideCheckStreak()) text += " 🏅 وسام جديد: ثلاثة أيام متتالية!";
-  guidePanel((greet ? `${guideGreeting()}أهلاً {N}! ` : "") + text, acts.slice(0, 5), target);
+  if (guideNudgeDue()) { text = kidLine("missedYou") + " " + text; say.unshift(kidLine("missedYou")); }
+  if (guideCheckStreak()) { text += " " + kidLine("streakBadge"); say.push(kidLine("streakBadge")); }
+  if (greet) say.unshift(guideGreeting().trim(), guideFill(kidLine("helloN")));
+  guidePanel((greet ? `${guideGreeting()}${kidLine("helloN")} ` : "") + text, acts.slice(0, 5), target, { say });
 }
 /* مساعدة محددة لبيت يتعثر فيه الطفل */
 let guideHintKey = null;
@@ -262,7 +268,7 @@ async function guideOnRecorded(kind) {
   const n = (await recAllForUser(activeUserId)).length;
   if (n === 1) guideAwardBadge("firstRec");
   if (n === 1) guideSay("mastery", kidLine("firstRec"));
-  else if (n % 5 === 0) guideSay("mastery", gForm(`{N}، سجّلتَ ${n} أبيات بصوتك! 🌟`, `{N}، سجّلتِ ${n} أبيات بصوتك! 🌟`));
+  else if (n % 5 === 0) guideSay("mastery", gForm(`{N}، سجّلتَ ${n} أبيات بصوتك! 🌟`, `{N}، سجّلتِ ${n} أبيات بصوتك! 🌟`), { say: [guideFill(kidLine("recMore"))] });
 }
 
 let lastActivity = Date.now();

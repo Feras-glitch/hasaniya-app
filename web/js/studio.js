@@ -16,6 +16,7 @@ function openParentVoice() {
   sel.value = String(state.selectedStation || 0);
   const kind = document.getElementById("pvKind");
   kind.innerHTML = VOICE_SECTIONS.map(s => `<option value="${s.id}">${escapeHtml(s.title)}</option>`).join("");
+  kind.value = "verse";
   document.getElementById("vpAuthor").value = vpAuthorName();
   pvSeq = null;
   document.getElementById("pvPopup").classList.add("active");
@@ -32,11 +33,12 @@ function pvItem(kind, id) {
   }
   return null;
 }
+const PV_NO_STATION = ["names", "guide", "titles"];
 function pvSection() { return document.getElementById("pvKind").value || "verse"; }
 function pvCurrentList() {
   const sec = pvSection();
   const stv = document.getElementById("pvStation").value;
-  return voiceRegistry().items.filter(it => it.section === sec && (sec === "guide" || stv === "all" || it.station === +stv));
+  return voiceRegistry().items.filter(it => it.section === sec && (PV_NO_STATION.includes(sec) || stv === "all" || it.station === +stv));
 }
 function pvMaxMs(it) { return it.kind === "story" ? 180000 : (it.section === "expl" || it.section === "quizex" || it.section === "disc") ? 120000 : 60000; }
 function pvFmtMin(sec) {
@@ -73,7 +75,7 @@ async function renderParentVoice() {
   ob.style.display = orphans ? "" : "none";
   ob.textContent = `🧹 حذف ${orphans} تسجيلاً لنصوص تغيّرت`;
   const sec = pvSection();
-  document.getElementById("pvStation").style.display = sec === "guide" ? "none" : "";
+  document.getElementById("pvStation").style.display = PV_NO_STATION.includes(sec) ? "none" : "";
   if (pvSeq) { body.style.display = "none"; return pvSeqRender(have); }
   document.getElementById("pvSeq").style.display = "none";
   body.style.display = "";

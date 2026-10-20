@@ -132,5 +132,6 @@ function finishExercise() {
     <p style="font-size:1.2rem"><strong>${score} / ${total}</strong></p>
     <p style="color:#666">${escapeHtml(kidLine(score === total ? "exGreat" : "exKeep"))}</p>
     <button class="action-btn btn-info" style="width:100%" onclick="showExercises()">تمرين آخر</button>`);
+  autoSay(kidLine(score === total ? "exGreat" : "exKeep"));
   exState = null;
 }

@@ -55,7 +55,27 @@ const KID_LINES = {
   foundMe: ["وجدتَني {N}! 🎉 أضفتُ ختماً خاصاً إلى دفترك", "وجدتِني {N}! 🎉 أضفتُ ختماً خاصاً إلى دفترك"],
   vacation: ["ناجي في إجازة 🏖️ يعود حين تُفعّله من الإعدادات."],
   needHelp: ["{N}، تحتاج مساعدة؟ استمع للبيت أولاً، ثم رتّب كلماته.", "{N}، تحتاجين مساعدة؟ استمعي للبيت أولاً، ثم رتّبي كلماته."],
-  firstRec: ["{N}، أول بيت سجّلتَه بصوتك! 🎙️ هكذا يصير الحفظ لك 🐪", "{N}، أول بيت سجّلتِه بصوتك! 🎙️ هكذا يصير الحفظ لك 🐪"]
+  firstRec: ["{N}، أول بيت سجّلتَه بصوتك! 🎙️ هكذا يصير الحفظ لك 🐪", "{N}، أول بيت سجّلتِه بصوتك! 🎙️ هكذا يصير الحفظ لك 🐪"],
+  // v102: ما يُسمع بدل الرسائل التي فيها أرقام (الرقم يبقى مكتوباً على الشاشة)
+  quizAll: ["أجبتَ عن كل الأسئلة، أحسنتَ!", "أجبتِ عن كل الأسئلة، أحسنتِ!"],
+  quizSome: ["أجبتَ عن بعض الأسئلة، وسنراجع الباقي معاً", "أجبتِ عن بعض الأسئلة، وسنراجع الباقي معاً"],
+  quizNone: ["لا بأس، سنراجع هذه الأسئلة معاً"],
+  challengeDone: ["انتهى التحدي {N}! أحسنتَ العمل في خمس دقائق 🎉", "انتهى التحدي {N}! أحسنتِ العمل في خمس دقائق 🎉"],
+  recMore: ["{N}، سجّلتَ أبياتاً جديدة بصوتك! 🌟", "{N}، سجّلتِ أبياتاً جديدة بصوتك! 🌟"],
+  newBadge: ["وسام جديد:"],
+  greetMorning: ["صباح الخير!"],
+  greetEvening: ["مساء الخير!"],
+  greetNight: ["مساء النور!"],
+  greetFriday: ["جمعة مباركة!"],
+  helloN: ["أهلاً {N}!"],
+  missedYou: ["اشتقتُ لصوتك!"],
+  currentStation: ["المحطة الحالية:"],
+  resumeHere: ["توقّفنا في وسط هذه المحطة."],
+  letsContinue: ["هيا نكمل الرحلة 🐪"],
+  cardsWaiting: ["عندي بطاقات تنتظر مراجعتك."],
+  streakBadge: ["🏅 وسام جديد: ثلاثة أيام متتالية!"],
+  allStationsGuide: ["{N}، أتممتَ كل المحطات! 🏆", "{N}، أتممتِ كل المحطات! 🏆"],
+  riddlePick: ["اختر الجواب الصحيح", "اختاري الجواب الصحيح"]
 };
 function kidLine(k) {
   const L = KID_LINES[k];
@@ -80,8 +100,10 @@ function voiceBody(text, voc) {
 
 /* ---------- سجل الأصوات: كل نص قابل للتسجيل، مقسّماً أقساماً بترتيب الأولوية ---------- */
 const VOICE_SECTIONS = [
+  { id: "names", title: "👧 أسماء الأطفال" },
   { id: "verse", title: "📖 الأبيات" },
   { id: "guide", title: "🐪 التعليمات ورسائل ناجي" },
+  { id: "titles", title: "🏷️ أسماء المحطات والأوسمة" },
   { id: "quiz", title: "❓ أسئلة الاختبار" },
   { id: "opt", title: "🔘 خيارات الأسئلة" },
   { id: "quizex", title: "💡 تعقيب الأسئلة" },
@@ -106,9 +128,16 @@ function voiceFixedLines() {
 }
 let voiceRegCache = null, voiceMatchCache = null;
 function voiceCacheReset() { voiceRegCache = null; voiceMatchCache = null; }
+/* النداء باسم كل طفل على الجهاز، و«يا صديقي/يا صديقتي» لمن لم يُكتب اسمه */
+function voiceNameLines() {
+  const names = (typeof users !== "undefined" && Array.isArray(users) ? users : [])
+    .map(u => u && String(u.name || "").trim()).filter(n => n && n !== "طفلي").map(n => "يا " + n);
+  return [...new Set(names), "يا صديقي", "يا صديقتي"];
+}
 function voiceRegistry() {
   const J = (content && content.journeyData) || [];
-  if (voiceRegCache && voiceRegCache.src === J) return voiceRegCache;
+  const nk = voiceNameLines().join("|");
+  if (voiceRegCache && voiceRegCache.src === J && voiceRegCache.nk === nk) return voiceRegCache;
   const items = [], seen = new Set();
   const add = it => { const k = it.section + "|" + it.key; if (seen.has(k)) return; seen.add(k); items.push(it); };
   const line = (section, text, station) => {
@@ -116,9 +145,15 @@ function voiceRegistry() {
     if (t) add({ section, kind: "line", id: lineId(t), key: lineKey(t), text: t, station });
   };
   const sIndex = id => J.findIndex(s => s.id === id);
+  voiceNameLines().forEach(t => line("names", t, -1));
   J.forEach((st, si) => st.verses.forEach((v, vi) =>
     add({ section: "verse", kind: "verse", id: v.id, key: authorKey("verse", v.id), text: v.fullVerse, station: si, n: vi + 1 })));
   voiceFixedLines().forEach(t => line("guide", t, -1));
+  J.forEach((st, si) => line("titles", st.title, si));
+  [typeof CUSTOM_BADGES !== "undefined" ? Object.values(CUSTOM_BADGES) : [], typeof GUIDE_BADGES !== "undefined" ? Object.values(GUIDE_BADGES) : []]
+    .forEach(list => list.forEach(b => { if (b && b.name) line("titles", b.name, -1); }));
+  /* الإنجازات تظهر في نافذة تُقرأ: الاسم والوصف */
+  (typeof ACHIEVEMENTS !== "undefined" ? ACHIEVEMENTS : []).forEach(a => { if (a.name) line("titles", a.name, -1); if (a.desc) line("titles", a.desc, -1); });
   J.forEach((st, si) => {
     const qs = (typeof QUIZZES !== "undefined" && QUIZZES[st.id]) || [];
     qs.forEach(q => line("quiz", q.q, si));
@@ -134,7 +169,7 @@ function voiceRegistry() {
   J.forEach((st, si) => ((typeof DISCUSSION !== "undefined" && DISCUSSION[st.id]) || []).forEach(q => line("disc", q, si)));
   const byKey = new Map();
   items.forEach(it => { if (!byKey.has(it.key)) byKey.set(it.key, it); });
-  voiceRegCache = { src: J, items, byKey };
+  voiceRegCache = { src: J, nk, items, byKey };
   return voiceRegCache;
 }
 /* التسجيل صالح للعرض: موجود، وبصمته تطابق النص الحالي */
@@ -183,10 +218,13 @@ async function voiceResolve(text) {
   const voc = typeof guideVocative === "function" ? guideVocative() : "";
   const hasVoc = !!voc && clean.includes(voc);
   const body = hasVoc ? voiceBody(clean, voc) : clean;
-  if (!body) return [{ rec: null, text: clean }];
-  const rec = await voiceLineRec(body);
-  if (!rec) return [{ rec: null, text: clean }];       // بلا تسجيل: الجملة كاملة بالقارئ الآلي، أطبع نطقاً
-  return hasVoc ? [{ rec: null, text: voc }, { rec, text: body }] : [{ rec, text: body }];
+  /* v102: اسم الطفل يسجّله الوالد مرة واحدة («يا عمر») في الاستوديو */
+  const vrec = hasVoc ? await voiceLineRec(voc) : null;
+  const rec = body ? await voiceLineRec(body) : null;
+  if (!rec && !vrec) return [{ rec: null, text: clean }];   // بلا تسجيل: الجملة كاملة بالقارئ الآلي، أطبع نطقاً
+  if (!hasVoc) return [{ rec, text: body }];
+  if (!body) return [{ rec: vrec, text: voc }];
+  return [{ rec: vrec, text: voc }, { rec, text: body }];
 }
 
 /* ---------- التشغيل ---------- */
@@ -212,26 +250,30 @@ function voiceTTS(token, text, wait) {
    opts.polite: لا يقطع صوتاً جارياً (فقاعات ناجي والرسائل)
    opts.silent: إن كان التسجيل جارياً يسكت دون تنبيه (القراءة التلقائية)
    opts.wait: يُحلّ بعد نهاية النطق الآلي الأخير أيضاً (تعقيب الأسئلة قبل الانتقال) */
-let voiceResolvingTok = -1;
+/* voicePoliteTok: رسالة لطيفة (ناجي أو تنبيه) تُسمع الآن؛ الرسالة الأحدث تحل محلها،
+   أما البيت والقصة وما يضغطه الطفل فلا تقطعها رسالة */
+let voicePoliteTok = -1;
 async function voicePlay(texts, opts = {}) {
   const list = (Array.isArray(texts) ? texts : [texts]).map(t => String(t == null ? "" : t)).filter(t => cleanSpeech(t));
   if (!list.length) return;
   if (recIsActive()) { if (!opts.silent) kidToast(kidLine("stopRecFirst"), "error"); return; }
-  if (opts.polite) { if (audioBusy() || voiceResolvingTok === seqToken) return; }
-  else audioStopAll();
+  if (opts.polite) {
+    if (voicePoliteTok === seqToken) audioStopAll();
+    else if (audioBusy()) return;
+  } else audioStopAll();
   const token = seqToken;
-  voiceResolvingTok = token;
+  if (opts.polite) voicePoliteTok = token;
   let segs = [];
-  try { for (const t of list) segs = segs.concat(await voiceResolve(t)); }
-  finally { if (voiceResolvingTok === token) voiceResolvingTok = -1; }
+  for (const t of list) segs = segs.concat(await voiceResolve(t));
   if (token !== seqToken || recIsActive()) return;
-  if (opts.polite && audioBusy()) return;
+  if (opts.polite && voicePoliteTok !== token) return;
   for (let i = 0; i < segs.length; i++) {
     if (token !== seqToken) break;
     const s = segs[i];
     if (s.rec) await playPart(token, s.rec, s.text);
     else await voiceTTS(token, s.text, !!opts.wait || segs.slice(i + 1).some(x => x.rec));
   }
+  if (voicePoliteTok === token) voicePoliteTok = -1;
 }
 
 /* ---------- خيارات الأسئلة: كل خيار بزر 🔊 خاص به بجانبه ---------- */

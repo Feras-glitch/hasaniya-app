@@ -52,7 +52,8 @@ function finishQuiz() {
   if (score > 0 && firstCreditToday("quiz|" + (station && station.id))) addPoints(score * 5);
   document.getElementById("quizPopup").classList.remove("active");
   quizState = null;
-  kidToast(`اختبار الفهم: ${score} / ${items.length}`, score === items.length ? "success" : "");
+  kidToast(`اختبار الفهم: ${score} / ${items.length}`, score === items.length ? "success" : "",
+    [kidLine(score === items.length ? "quizAll" : score ? "quizSome" : "quizNone")]);
   onDone();
 }
 

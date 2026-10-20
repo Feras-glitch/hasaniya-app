@@ -71,7 +71,7 @@ function awardBadge(id) {
   state.customBadges[id] = Date.now();
   saveState();
   const b = CUSTOM_BADGES[id];
-  kidToast(`${b.icon} وسام جديد: ${b.name}`, "success");
+  kidToast(`${b.icon} ${kidLine("newBadge")} ${b.name}`, "success", [kidLine("newBadge"), b.name]);
 }
 function markStoryRead(vid) {
   if (!state) return;

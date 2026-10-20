@@ -67,8 +67,37 @@ function rateRecall(ok) {
   recallQ.i++;
   renderRecall();
 }
+/* v102: في وضع الطفل الصغير يُختار الجواب من ثلاثة تُسمع، بدل الكتابة */
+function riddleChoices(r) {
+  const others = [...new Set(RIDDLES.map(x => x.answer).filter(a => stripAl(a) !== stripAl(r.answer)))].sort(() => Math.random() - .5).slice(0, 2);
+  return [r.answer, ...others].sort(() => Math.random() - .5);
+}
+function pickRiddle(btn, chosen) {
+  const r = recallQ.items[recallQ.i];
+  if (stripAl(chosen) === stripAl(r.answer)) {
+    document.querySelectorAll("#hubBody .word-btn").forEach(b => b.disabled = true);
+    btn.classList.add("success");
+    document.getElementById("riddleIn").value = chosen;
+    checkRiddle();
+  } else {
+    btn.classList.add("fail"); btn.disabled = true;
+    document.getElementById("riddleMsg").innerHTML = `<span style="color:var(--danger)">${escapeHtml(kidLine("tryAgain"))}</span>`;
+    playFail(); autoSayNow(kidLine("tryAgain"));
+  }
+}
 function renderRiddle() {
   const q = recallQ, r = q.items[q.i];
+  if (isSmallKid()) {
+    const opts = riddleChoices(r);
+    openHub(`🧩 لغز ${q.i + 1} من ${q.items.length}`, `
+      <p style="font-size:1.1rem;line-height:1.9">${sayBtnHTML([r.riddle, kidLine("riddlePick"), ...opts], "استمع للغز")} ${escapeHtml(r.riddle)}</p>
+      <input id="riddleIn" type="hidden">
+      <div class="word-bank">${optionsHTML(opts, o => `pickRiddle(this,'${escapeForAttr(o)}')`)}</div>
+      <div id="riddleMsg" style="min-height:26px;font-weight:bold;margin:8px 0"></div>
+      <div id="riddleBtns" class="hub-actions"></div>`);
+    autoSayNow([r.riddle, kidLine("riddlePick"), ...opts]);
+    return;
+  }
   openHub(`🧩 لغز ${q.i + 1} من ${q.items.length}`, `
     <p style="font-size:1.1rem;line-height:1.9">${sayBtnHTML(r.riddle, "استمع للغز")} ${escapeHtml(r.riddle)}</p>
     <input id="riddleIn" class="ask-input" placeholder="اكتب جوابك">

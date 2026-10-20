@@ -43,9 +43,9 @@ function completedCount() {
 /* ---------- التحية حسب الوقت ---------- */
 function guideGreeting() {
   const now = new Date();
-  if (now.getDay() === 5) return "جمعة مباركة! ";
+  if (now.getDay() === 5) return kidLine("greetFriday") + " ";
   const h = now.getHours();
-  return h < 12 ? "صباح الخير! " : h < 18 ? "مساء الخير! " : "مساء النور! ";
+  return kidLine(h < 12 ? "greetMorning" : h < 18 ? "greetEvening" : "greetNight") + " ";
 }
 
 /* ---------- المزاج: يعكس ما يحدث فعلاً ---------- */
@@ -219,7 +219,7 @@ function guideChallengeTick() {
     const n = guideChallenge.count;
     guideChallenge = null; box.remove();
     playSuccess(); guideSetMood("proud", 8000);
-    guidePanel(`انتهى التحدي {N}! ${gForm("أنجزتَ", "أنجزتِ")} ${n} ${n === 1 ? "بيتاً" : "أبيات"} في خمس دقائق 🎉`, [{ label: "📖 دفتر الرحلة", run: () => openGuideJournal() }]);
+    guidePanel(`انتهى التحدي {N}! ${gForm("أنجزتَ", "أنجزتِ")} ${n} ${n === 1 ? "بيتاً" : "أبيات"} في خمس دقائق 🎉`, [{ label: "📖 دفتر الرحلة", run: () => openGuideJournal() }], null, { say: [guideFill(kidLine("challengeDone"))] });
     return;
   }
   const m = Math.floor(left / 60000), sec = Math.floor((left % 60000) / 1000);

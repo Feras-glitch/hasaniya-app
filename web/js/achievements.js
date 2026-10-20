@@ -34,6 +34,7 @@ function showNewAchievement(a) {
   document.getElementById("newAchDesc").textContent = a.desc;
   document.getElementById("newAchievementPopup").classList.add("active");
   playSuccess(); launchConfetti();
+  if (typeof autoSay === "function") autoSay([a.name, a.desc]);
 }
 
 /* v87: ثلاثة مؤشرات منفصلة بدل درجة واحدة مخلوطة:
