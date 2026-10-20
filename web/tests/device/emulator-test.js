@@ -10,21 +10,26 @@ const PKG = 'com.hasaniya.app';
 const OUT = process.env.OUT_DIR || 'device-results';
 fs.mkdirSync(OUT, { recursive: true });
 const results = [];
-const rec = (n, name, ok, detail, soft) => { results.push({ n, name, ok, detail: String(detail || ''), soft: !!soft }); console.log(`${ok ? '✔' : soft ? '⚠' : '✘'} [${n}] ${name} ${detail || ''}`); };
+const rec = (n, name, ok, detail, soft) => { results.push({ n, name, ok, detail: String(detail || ''), soft: !!soft }); console.log(`${ok ? '✔' : soft ? '⚠' : '✘'} [${n}] ${name} ${detail || ''}`); console.log(`::${ok ? 'notice' : soft ? 'warning' : 'error'}::[${n}] ${name} ${String(detail || '').slice(0, 200)}`); };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+/* كل خطوة لها مهلة: لا يعلق الاختبار كله إن تعطّلت خطوة واحدة */
+const within = (ms, p, what) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('انتهت المهلة (' + (ms / 1000) + ' ث): ' + (what || ''))), ms))]);
+const note = m => console.log('::notice::' + m);
 
 (async () => {
   const [device] = await android.devices();
   if (!device) { console.log('لا يوجد هاتف متصل'); process.exit(1); }
-  const sh = async c => (await device.shell(c)).toString();
+  const sh = async c => (await within(30000, device.shell(c), c)).toString();
   const shot = async name => { try { await device.screenshot({ path: path.join(OUT, name + '.png') }); } catch (e) {} };
   const resumed = async () => (await sh('dumpsys activity activities')).split('\n').filter(l => /ResumedActivity/.test(l)).join(' ');
   const appOnTop = async () => (await resumed()).includes(PKG + '/');
   const launch = async () => {
-    await sh(`am start -W -n ${PKG}/.MainActivity`);
-    const wv = await device.webView({ pkg: PKG }, { timeout: 60000 });
+    // ننتظر زوال أي صفحة قديمة للتطبيق (بعد إغلاق قسري أو تحديث) حتى لا نتصل بصفحة ميتة
+    for (let i = 0; i < 20 && device.webViews().some(w => w.pkg() === PKG); i++) await sleep(500);
+    await sh(`am start -n ${PKG}/.MainActivity`);
+    const wv = await within(90000, device.webView({ pkg: PKG }, { timeout: 80000 }), 'الاتصال بصفحة التطبيق');
     const page = await wv.page();
-    await page.waitForFunction(() => typeof content !== 'undefined' && content.journeyData && content.journeyData.length > 0, null, { timeout: 30000 });
+    await within(40000, page.waitForFunction(() => typeof content !== 'undefined' && content.journeyData && content.journeyData.length > 0, null, { timeout: 30000 }), 'تحميل التطبيق');
     await sleep(800);
     return page;
   };
@@ -44,6 +49,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   /* تجهيز طفل بتقدّم */
   await page.evaluate(() => {
     const u = getCurrentUser(); u.name = 'تجربة'; u.gender = 'boy';
+    // إنهاء الإعداد الأول كما يفعل الوالد، حتى لا تُفتح نافذة الإعداد من جديد
+    try { vpPref('onboarded', true); } catch (e) {}
     document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
     markStationCompleted(content.journeyData[0]); state.points = 777;
     content.journeyData[0].verses.forEach(v => { state.seenVerses[v.id] = true; });
@@ -53,9 +60,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   /* 2) زر الرجوع: يغلق النافذة أولاً */
   try {
-    await page.evaluate(() => openReviewHub()); await sleep(500);
+    const pre = await page.evaluate(() => [...document.querySelectorAll('.modal-overlay.active')].map(m => m.id));
+    if (pre.length) note('نوافذ مفتوحة قبل اختبار الرجوع: ' + pre.join(','));
+    await page.evaluate(() => { document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active')); openReviewHub(); }); await sleep(500);
     await back();
-    const st = await page.evaluate(() => ({ hub: document.getElementById('hubPopup').classList.contains('active') }));
+    const st = await page.evaluate(() => ({ hub: document.getElementById('hubPopup').classList.contains('active'), open: [...document.querySelectorAll('.modal-overlay.active')].map(m => m.id).join(',') }));
     rec(40, 'زر الرجوع يغلق النافذة ولا يخرج', !st.hub && await appOnTop(), JSON.stringify(st));
     await page.evaluate(() => startStation(0)); await sleep(800);
     await back();
@@ -142,7 +151,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   /* 9) الإغلاق القسري وإعادة الفتح دون إنترنت */
   try {
-    await sh('svc wifi disable'); await sh('svc data disable');
+    note('دون إنترنت: وضع الطيران ثم إغلاق قسري');
+    await sh('cmd connectivity airplane-mode enable').catch(e => note(e.message));
     await sh(`am force-stop ${PKG}`); await sleep(1500);
     page = await launch();
     const s = await page.evaluate(() => ({ pts: state.points, s1: state.stationStatus.s1, name: getCurrentUser().name, scenes: Object.keys(SCENES).length }));
@@ -150,13 +160,15 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await shot('06_offline_relaunch');
     rec(3, 'يعمل دون إنترنت بعد إغلاقه قسراً', s.s1 === 'completed' && img, JSON.stringify(s));
     rec(43, 'الإغلاق القسري لا يفقد التقدّم', s.pts === 777 && s.name === 'تجربة', JSON.stringify(s));
-    await sh('svc wifi enable'); await sh('svc data enable');
+    await sh('cmd connectivity airplane-mode disable').catch(() => {});
   } catch (e) { rec(43, 'الإغلاق وإعادة الفتح', false, e.message); }
 
   /* 10) تثبيت تحديث فوق النسخة الحالية */
   try {
     const v1 = (await sh(`dumpsys package ${PKG}`)).match(/versionCode=(\d+)/);
-    await device.installApk(fs.readFileSync(process.env.APK_V2), { args: ['-r'] });
+    note('تثبيت التحديث');
+    await sh(`am force-stop ${PKG}`);
+    await within(120000, device.installApk(fs.readFileSync(process.env.APK_V2), { args: ['-r'] }), 'تثبيت التحديث');
     const v2 = (await sh(`dumpsys package ${PKG}`)).match(/versionCode=(\d+)/);
     page = await launch();
     const s = await page.evaluate(() => ({ pts: state.points, s1: state.stationStatus.s1, name: getCurrentUser().name }));
@@ -167,7 +179,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   } catch (e) { rec(51, 'التحديث فوق نسخة مثبّتة', false, e.message); }
 
   rec(0, 'لا أخطاء برمجية في الصفحة', errors.length === 0, errors.slice(0, 3).join(' | '));
-  await device.close();
+  await within(10000, device.close(), 'إغلاق الاتصال').catch(() => {});
 
   /* التقرير */
   const hard = results.filter(r => !r.ok && !r.soft), soft = results.filter(r => !r.ok && r.soft);

@@ -12,7 +12,7 @@ on:
 jobs:
   emulator:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v5
 
@@ -86,7 +86,7 @@ jobs:
           arch: x86_64
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-boot-anim -camera-back none -camera-front none
-          script: node web/tests/device/emulator-test.js
+          script: timeout 1200 node web/tests/device/emulator-test.js
 
       - uses: actions/upload-artifact@v4
         if: always()
