@@ -3,7 +3,7 @@ const { chromium } = require("playwright");
 const path = require("path");
 const closeAch = p => p.evaluate(() => document.getElementById("newAchievementPopup").classList.remove("active"));
 (async () => {
-  const b = await chromium.launch({ executablePath: process.env.CHROME || "/opt/pw-browsers/chromium", args:["--no-sandbox"] }).catch(()=>chromium.launch({args:["--no-sandbox"]}));
+  const b = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || process.env.CHROME || "/opt/pw-browsers/chromium", args:["--no-sandbox"] }).catch(()=>chromium.launch({args:["--no-sandbox"]}));
   const p = await b.newPage(); const errs = [];
   p.on("pageerror", e => errs.push("pageerror: " + e.message));
   p.on("console", m => { if (m.type()==="error") errs.push("console: " + m.text()); });

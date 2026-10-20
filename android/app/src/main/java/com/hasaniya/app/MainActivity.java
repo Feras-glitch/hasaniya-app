@@ -40,6 +40,11 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // نسخة الاختبار فقط (debuggable): تسمح للاختبار الآلي على الهاتف الافتراضي بقراءة الصفحة.
+        // النسخة التي تُوزَّع (release) غير debuggable، فلا يُفعَّل فيها هذا.
+        if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            WebView.setWebContentsDebuggingEnabled(true);
+        }
         web = new WebView(this);
         setContentView(web);
 

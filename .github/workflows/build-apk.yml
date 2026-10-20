@@ -1,5 +1,5 @@
 # بناء تطبيق أندرويد للمنظومة الحسنية
-# - يشغّل اختبارات المحتوى والمنطق أولاً، ولا يبني إن فشل أحدها.
+# - يشغّل كل الاختبارات أولاً (المحتوى والمنطق والمتصفح)، ولا يبني إن فشل أحدها.
 # - ينسخ web/ إلى داخل تطبيق أندرويد (لا تُحفظ نسخة مكررة في المستودع).
 # - يوقّع النسخة بالمفتاح الثابت من الأسرار؛ وإن لم تُضَف الأسرار بعد يبني نسخة تجريبية ويحذّر.
 name: Build APK
@@ -20,8 +20,14 @@ jobs:
         with:
           node-version: 20
 
-      - name: Run tests
-        run: node web/tests/run-all.js
+      - name: Run tests (content, logic and browser)
+        run: |
+          npm install --no-save --no-package-lock playwright@1.49.1
+          npx playwright install --with-deps chromium
+          python3 web/tools/build_standalone.py "$RUNNER_TEMP/hasaniya.html"
+          export CHROMIUM_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          export HASANIYA_URL="file://$RUNNER_TEMP/hasaniya.html"
+          node web/tests/run-all.js --e2e
 
       - name: Copy web app into Android assets
         run: |

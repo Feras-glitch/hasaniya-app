@@ -8,7 +8,7 @@
    6) ناجي لا ينادي «يا طفلي» ولا يغطي نموذج إنشاء الطفل
    7) كل بيت له موضع فصل صحيح بين الشطرين */
 const { chromium } = require('playwright');
-const URL = 'file:///home/claude/hasaniya-desktop/standalone/hasaniya.html';
+const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/standalone/hasaniya.html');
 (async () => {
   const b = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium', args: ['--no-sandbox'] });
   const bad = []; const need = (m, ok) => { if (!ok) bad.push(m); };

@@ -1,6 +1,6 @@
 /* اختبار v91: «فائدة علمية للوالد» تظهر تحت المصادر، وخريطة الرحلة والملصقات تعمل بعد تقسيم المحطات */
 const { chromium } = require('playwright');
-const URL = 'file:///home/claude/hasaniya-desktop/standalone/hasaniya.html';
+const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/standalone/hasaniya.html');
 (async () => {
   const b = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium', args: ['--no-sandbox'] });
   const bad = []; const need = (m, ok) => { if (!ok) bad.push(m); };

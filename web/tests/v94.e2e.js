@@ -9,7 +9,7 @@
    8) مشاركة تقرير الأسبوع على أندرويد
    9) «رتّب بالنقر» في بيت فيه كلمة مكررة */
 const { chromium } = require('playwright');
-const URL = 'file:///home/claude/hasaniya-desktop/standalone/hasaniya.html';
+const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/standalone/hasaniya.html');
 const OLD_STATE = {
   version: 13,
   stationStatus: { s1: 'completed', s2: 'completed', s3: 'completed', s4: 'completed', s5: 'completed', s6: 'completed', s7: 'completed', s8: 'completed', s9: 'completed', s10: 'completed', s11: 'completed', s12: 'current' },

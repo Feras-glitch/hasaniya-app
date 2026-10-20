@@ -1,7 +1,7 @@
 /* اختبار v87: ملفات هجومية فعلية: تسميع خبيث، ZIP كاذب الحجم، تقدّم ناقص، تقييم ملوَّث، تخزين تالف، ومؤشر الإتقان */
 const { chromium } = require('playwright');
 const zlib = require('zlib');
-const URL = 'file:///home/claude/hasaniya-desktop/standalone/hasaniya.html';
+const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/standalone/hasaniya.html');
 function crc32(buf) { let c, t = []; for (let n = 0; n < 256; n++) { c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } let r = 0xFFFFFFFF; for (const b of buf) r = t[(r ^ b) & 255] ^ (r >>> 8); return (r ^ 0xFFFFFFFF) >>> 0; }
 /* يبني zip من ملف واحد مضغوط deflate، مع إمكانية تزوير الحجم المعلن */
 function makeZip(name, data, declared) {

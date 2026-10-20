@@ -10,8 +10,8 @@ android {
         applicationId "com.hasaniya.app"
         minSdk 26
         targetSdk 34
-        versionCode 98
-        versionName "98.0"
+        versionCode 99
+        versionName "99.0"
     }
 
     /* التوقيع: المفتاح يأتي من أسرار GitHub (انظر SIGNING-AR.md في جذر المستودع)،
@@ -33,6 +33,15 @@ android {
             minifyEnabled false
             if (ks) signingConfig signingConfigs.release
         }
+        // نسخة الاختبار على الهاتف الافتراضي: بالمفتاح نفسه، ليُختبر تثبيت تحديث فوق نسخة سابقة
+        debug {
+            if (ks) signingConfig signingConfigs.release
+        }
+    }
+
+    // لاختبار التحديث فقط: يرفع رقم النسخة واحداً دون تعديل الملف
+    if (System.getenv("HASANIYA_VERSION_BUMP")) {
+        defaultConfig.versionCode = defaultConfig.versionCode + 1
     }
 
     compileOptions {

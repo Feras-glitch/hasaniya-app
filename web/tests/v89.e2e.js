@@ -1,6 +1,6 @@
 /* اختبار v89: تحقق المحرّر (معرّف مكرر، ترتيب لا يطابق الكلمات، استيراد ناقص)، ضبط/تغيير/إزالة الرقم السري، لوحة الصف مع ملفات عدائية، أسماء طويلة */
 const { chromium } = require('playwright');
-const URL = 'file:///home/claude/hasaniya-desktop/standalone/hasaniya.html';
+const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/standalone/hasaniya.html');
 (async () => {
   const b = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium', args: ['--no-sandbox'] });
   const bad = []; const need = (m, ok) => { if (!ok) bad.push(m); };

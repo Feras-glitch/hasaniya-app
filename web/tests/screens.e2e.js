@@ -1,9 +1,9 @@
 const { chromium } = require('playwright');
 (async () => {
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox'] });
+  const b = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium', args: ['--no-sandbox'] });
   const p = await b.newPage({ viewport: { width: 390, height: 780 } });
   const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d => d.accept());
-  await p.goto('file:///home/claude/hasaniya-desktop/standalone/hasaniya.html');
+  await p.goto((process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/standalone/hasaniya.html'));
   await p.waitForTimeout(800);
   // أول تشغيل يفتح محرر "أهلاً" لاختيار الجنس؛ نكمله هنا ثم نكمل الاختبار
   await p.evaluate(() => { const u = getCurrentUser(); if (u && !u.gender) { u.gender = 'boy'; saveState(); } closePopup('userEditorPopup'); });

@@ -4,7 +4,7 @@ const { chromium } = require('playwright');
   const b = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium', args: ['--no-sandbox'] });
   const p = await (await b.newContext()).newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message));
-  await p.goto('file:///home/claude/hasaniya-desktop/standalone/hasaniya.html');
+  await p.goto((process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/standalone/hasaniya.html'));
   await p.waitForTimeout(800);
   const R = await p.evaluate(async () => {
     const created = [], revoked = [];

@@ -4,7 +4,7 @@ const { chromium } = require('playwright');
   const b = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium', args: ['--no-sandbox'] });
   const p = await (await b.newContext({ viewport: { width: 390, height: 780 } })).newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d => d.accept());
-  await p.goto('file:///home/claude/hasaniya-desktop/standalone/hasaniya.html'); await p.waitForTimeout(900);
+  await p.goto((process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/standalone/hasaniya.html')); await p.waitForTimeout(900);
   const R = await p.evaluate(async () => {
     const w = ms => new Promise(r => setTimeout(r, ms)); const o = {};
     const u = getCurrentUser(); if (u && !u.gender) { u.gender = 'girl'; saveState(); } closePopup('userEditorPopup');

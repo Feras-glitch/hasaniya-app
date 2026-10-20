@@ -6,7 +6,7 @@ const { chromium } = require('playwright');
   const ctx = await b.newContext({ viewport: { width: 390, height: 780 } });
   const p = await ctx.newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d => d.accept());
-  await p.goto('file:///home/claude/hasaniya-desktop/standalone/hasaniya.html');
+  await p.goto((process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/standalone/hasaniya.html'));
   await p.waitForTimeout(800);
   await p.evaluate(() => { const u = getCurrentUser(); if (u && !u.gender) { u.gender = 'boy'; saveState(); } closePopup('userEditorPopup'); });
   const R = {};

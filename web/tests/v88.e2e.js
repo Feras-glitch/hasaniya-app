@@ -1,6 +1,6 @@
 /* اختبار v88: فقاعة ناجي لا تحجب «التالي»، تنبيه فشل الحفظ، حدّ دفعة حزم الصوت، قفل الرقم السري، تكرار المعرّفات */
 const { chromium } = require('playwright');
-const URL = 'file:///home/claude/hasaniya-desktop/standalone/hasaniya.html';
+const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/standalone/hasaniya.html');
 (async () => {
   const b = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium', args: ['--no-sandbox'] });
   const bad = []; const need = (m, ok) => { if (!ok) bad.push(m); };
