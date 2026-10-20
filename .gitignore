@@ -1,0 +1,13 @@
+# أندرويد
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+android/app/src/main/assets/www/
+# مفاتيح التوقيع لا تُرفع أبداً
+*.jks
+*.keystore
+# ملفات النظام
+.DS_Store
+node_modules/

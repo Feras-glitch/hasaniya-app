@@ -1,0 +1,312 @@
+/* المرشد «ناجي» 🐪: يتحرك ويتكلم ويشجّع الطفل في المواقف المختلفة */
+
+const GUIDE_NAME = "ناجي";
+/* {N} تُستبدل باسم الطفل مع «يا» (انظر guideFill). الأفعال تتبع جنس الطفل */
+const GUIDE_LINES = {
+  welcome: () => [
+    "أهلاً بك في رحلة السيرة {N}! هيا نبدأ 🌙",
+    gForm("أهلاً {N}! سنسافر معاً عبر السيرة 🐪", "أهلاً {N}! سنسافر معاً عبر السيرة 🐪")
+  ],
+  mastery: () => [
+    gForm("ممتاز {N}! أتقنتَ البيت 🌟", "ممتاز {N}! أتقنتِ البيت 🌟"),
+    "هكذا تُحفظ القصيدة بيتاً بيتاً، ثم نُسمّعها كلها معاً 🔁"
+  ],
+  station: () => [
+    gForm("أحسنتَ {N}! فُتحت محطة جديدة 🎉", "أحسنتِ {N}! فُتحت محطة جديدة 🎉"),
+    "الرحلة تزداد جمالاً، هيا نكمل 🐪"
+  ],
+  wrong: () => [
+    gForm("لا بأس {N}، الخطأ جزء من التعلم. حاول مرة أخرى 💛", "لا بأس {N}، الخطأ جزء من التعلم. حاولي مرة أخرى 💛"),
+    gForm("{N}، أنت قادر، فكّر قليلاً ثم جرّب 🌿", "{N}، أنتِ قادرة، فكّري قليلاً ثم جرّبي 🌿")
+  ],
+  review: () => [
+    gForm("{N}، سمّع القصيدة كلها مرة واحدة، فالتكرار يثبّت الحفظ 🔁", "{N}، سمّعي القصيدة كلها مرة واحدة، فالتكرار يثبّت الحفظ 🔁"),
+    "التسميع المتصل يربط الأبيات ببعضها 📜"
+  ],
+  ask: () => [gForm("{N}، ماذا حدث هنا؟ اختر الإجابة الصحيحة 🐪", "{N}، ماذا حدث هنا؟ اختاري الإجابة الصحيحة 🐪")],
+  finale: () => [
+    gForm("أتممتَ الرحلة كاملة {N}! 🏆", "أتممتِ الرحلة كاملة {N}! 🏆"),
+    gForm("لقد حفظتَ القصيدة وعرفتَ السيرة، أنا فخور بك 🐪", "لقد حفظتِ القصيدة وعرفتِ السيرة، أنا فخورة بك 🐪")
+  ],
+  back: () => [
+    "اشتقتُ إليك {N}! هيا نُكمل الرحلة معاً 💛",
+    "نمتُ قليلاً وانتظرتك، هيا نُكمل 🐪"
+  ]
+};
+const GUIDE_ANIM = { mastery: "jump", station: "spin", wrong: "shake", review: "bob", welcome: "bob", back: "jump", ask: "bob", finale: "spin" };
+
+/* لباس ناجي يتغيّر مع تقدم الرحلة */
+const GUIDE_OUTFITS = [
+  { at: 1, icon: "🧣", name: "وشاح الصحراء" },
+  { at: 3, icon: "🎒", name: "حقيبة السفر" },
+  { at: 5, icon: "🧭", name: "البوصلة" },
+  { at: 7, icon: "🏮", name: "الفانوس" },
+  { at: 9, icon: "👑", name: "تاج الإتقان" }
+];
+function renderGuideOutfit() {
+  const el = document.getElementById("guideOutfit");
+  if (!el) return;
+  const done = content.journeyData.filter(s => getStationStatus(s) === "completed").length;
+  const cur = [...GUIDE_OUTFITS].reverse().find(o => done >= o.at);
+  el.textContent = cur ? cur.icon : "";
+  el.title = cur ? cur.name : "";
+}
+function showFinale() {
+  const pop = document.getElementById("finalePopup");
+  if (!pop) return;
+  document.getElementById("finaleTitle").textContent = "🏆 " + guideVocative() + "، " + gForm("أتممتَ", "أتممتِ") + " الرحلة كاملة!";
+  document.getElementById("finaleText").textContent = gForm("حفظتَ القصيدة وعرفتَ السيرة من أولها إلى آخرها.", "حفظتِ القصيدة وعرفتِ السيرة من أولها إلى آخرها.");
+  guideDance(true);
+  guideSay("finale");
+  pop.classList.add("active");
+  launchConfetti();
+  setTimeout(() => guideDance(false), 4000);
+}
+
+function guideVoiceOn() { return getPrefs().guideVoice !== false; }
+
+/* الاسم في النداء: «يا اسم الطفل»، أو «يا صديقي» إن لم يكن الاسم مُدخلاً */
+function guideVocative() {
+  const u = getCurrentUser();
+  // الاسم الافتراضي «طفلي» قبل أن يكتب الوالد اسم الطفل لا يُنادى به
+  return "يا " + (u && u.name && u.name !== "طفلي" ? u.name : gForm("صديقي", "صديقتي"));
+}
+function guideFill(t) { return String(t).replace(/\{N\}/g, guideVocative()); }
+/* رسالة للطفل تبدأ باسمه: تنبيه أو تشجيع */
+function kidToast(msg, t) { showToast(guideVocative() + "، " + msg, t || ""); }
+
+function guideSay(mood, customText) {
+  const bubble = guideBubbleEl();
+  const body = document.getElementById("guideBody");
+  const wrap = document.getElementById("guide");
+  if (!bubble || !body || !wrap) return;
+  const lines = customText ? [customText] : (GUIDE_LINES[mood] ? GUIDE_LINES[mood]() : ["🐪"]);
+  const text = guideFill(lines[Math.floor(Math.random() * lines.length)]);
+  bubble.textContent = text;
+  bubble.classList.add("show");
+  wrap.classList.remove("jump", "shake", "spin", "bob");
+  void body.offsetWidth; // لإعادة تشغيل الحركة
+  wrap.classList.add(GUIDE_ANIM[mood] || "bob");
+  clearTimeout(guideSay.hideTimer);
+  guideSay.hideTimer = setTimeout(() => guideHidePanel(), 6000);
+  if (guideVoiceOn()) speakPlainArabic(text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "").trim());
+}
+function speakPlainArabic(text) {
+  if (!("speechSynthesis" in window) || !text) return;
+  if (audioBusy()) return;   // لا يتكلم ناجي فوق تسجيل أو صوت آخر
+  try {
+    const u = new SpeechSynthesisUtterance(ttsText(text));
+    u.lang = "ar-SA"; u.rate = speechRate(); u.pitch = 1.15;
+    const ar = window.speechSynthesis.getVoices().find(x => x.lang && x.lang.toLowerCase().startsWith("ar"));
+    if (ar) u.voice = ar;
+    window.speechSynthesis.speak(u);
+  } catch(e) {}
+}
+
+/* النقر على ناجي يعطي تشجيعاً عشوائياً */
+function guideTap() {
+  lastActivity = Date.now();
+  if (document.getElementById("guide").classList.contains("sleep")) {
+    guideSleep(false);
+    guideSay("back");
+    return;
+  }
+  guideShowActions();
+}
+
+/* ---------- لوحة ناجي: نص واحد وأزرار تفعل شيئاً فعلاً ---------- */
+/* فقاعة ناجي: في الخريطة تحت ناجي، وأثناء اللعب فقاعة عائمة أسفل الشاشة */
+function guideBubbleEl() {
+  const mapOn = document.getElementById("mapScreen") && getComputedStyle(document.getElementById("mapScreen")).display !== "none";
+  const modalOn = !!document.querySelector(".modal-overlay.active");
+  if (mapOn && !modalOn) return document.getElementById("guideBubble");
+  let f = document.getElementById("guideFloat");
+  if (!f) {
+    f = document.createElement("div");
+    f.id = "guideFloat"; f.className = "guide-bubble guide-float";
+    document.body.appendChild(f);
+  }
+  return f;
+}
+function guidePanel(text, actions, targetEl) {
+  const bubble = guideBubbleEl();
+  if (!bubble) return;
+  // لا تغطّي الفقاعة نموذج إنشاء الطفل أو الرقم السري
+  if (document.querySelector("#userEditorPopup.active, #pinPopup.active")) return;
+  text = guideFill(text);
+  document.querySelectorAll(".guide-target").forEach(el => el.classList.remove("guide-target"));
+  if (targetEl) targetEl.classList.add("guide-target");
+  bubble.innerHTML = "";
+  const close = document.createElement("button");
+  close.className = "guide-x"; close.textContent = "✕"; close.setAttribute("aria-label", "إغلاق");
+  close.onclick = ev => { ev.stopPropagation(); guideHidePanel(); };
+  const p = document.createElement("div"); p.className = "guide-text"; p.textContent = text;
+  bubble.appendChild(close); bubble.appendChild(p);
+  if (actions && actions.length) {
+    const row = document.createElement("div"); row.className = "guide-actions";
+    actions.forEach(a => {
+      const b = document.createElement("button");
+      b.className = "tool-btn guide-act"; b.textContent = a.label;
+      b.onclick = ev => { ev.stopPropagation(); guideHidePanel(); a.run(); };
+      row.appendChild(b);
+    });
+    bubble.appendChild(row);
+  }
+  clearTimeout(guideSay.hideTimer);
+  bubble.classList.add("show");
+  /* الفقاعة العائمة تحجز مساحة أسفل الصفحة، وتختفي وحدها بعد 25 ثانية إن لم يلمسها الطفل */
+  if (bubble.id === "guideFloat") {
+    document.body.classList.add("guide-open");
+    guideSay.hideTimer = setTimeout(() => guideHidePanel(), 25000);
+  }
+  if (guideVoiceOn()) speakPlainArabic(text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "").trim());
+}
+/* عروض ناجي ذات الأزرار (المعنى، ساعدني) تُخفى عند الإجابة أو الانتقال، فلا تحجب زر «التالي» */
+function guideHideOffers() {
+  const f = document.getElementById("guideFloat");
+  if (f && f.classList.contains("show") && f.querySelector(".guide-actions")) guideHidePanel();
+}
+function guideHidePanel() {
+  document.body.classList.remove("guide-open");
+  document.querySelectorAll(".guide-target").forEach(el => el.classList.remove("guide-target"));
+  ["guideBubble", "guideFloat"].forEach(id => {
+    const bubble = document.getElementById(id);
+    if (!bubble) return;
+    bubble.classList.remove("show");
+    bubble.innerHTML = "";
+  });
+}
+/* المحطة المفتوحة الآن (ليست مكتملة ولا مقفلة) */
+function guideOpenStation() {
+  return content.journeyData.find(s => { const st = getStationStatus(s); return st !== "completed" && st !== "locked"; }) || null;
+}
+/* ماذا يفعل الطفل الآن؟ يُبنى من حالة الرحلة الفعلية */
+function guideShowActions(greet) {
+  if (!content.journeyData || !content.journeyData.length) return;
+  guideHidePanel();
+  if (getPrefs().vacation) {
+    guidePanel("ناجي في إجازة 🏖️ يعود حين تُفعّله من الإعدادات.", []);
+    return;
+  }
+  guideTouchToday();
+  applyGuideHue();
+  const name = getUserName();
+  const acts = [];
+  let text, target = null;
+  const open = guideOpenStation();
+  if (open) {
+    const idx = content.journeyData.indexOf(open);
+    target = document.querySelectorAll(".station")[idx] || null;
+    const pos = state.versePositions[open.id] || 0;
+    const left = open.verses.length - pos;
+    text = `المحطة الحالية: ${open.title}. ` + (pos > 0 ? `توقّفنا عند البيت ${pos + 1}، ` : "") +
+      `وبقي ${left} ${left === 1 ? "بيت" : "أبيات"}.`;
+    acts.push({ label: "▶ تابع الرحلة", run: () => resumeJourney() });
+    if (!guideChallenge) acts.push({ label: "⏱ تحدي 5 دقائق", run: () => guideStartChallenge() });
+  } else {
+    text = gForm("{N}، أتممتَ كل المحطات! 🏆", "{N}، أتممتِ كل المحطات! 🏆");
+    acts.push({ label: "🏆 شهادة الرحلة", run: () => certSave(JOURNEY_CERT) });
+  }
+  if (state.recentDone) {
+    const si = content.journeyData.findIndex(s => s.id === state.recentDone);
+    if (si >= 0) acts.push({ label: "🎧 استمع للقصص", run: () => guidePlayStationStories(si) });
+    state.recentDone = null; saveState();
+  }
+  guideWalkerPlace(target);
+  guidePlaceHidden();
+  const due = leitnerDueVerses().length;
+  if (due) {
+    text += ` عندي ${due} ${due === 1 ? "بطاقة تنتظر" : "بطاقات تنتظر"} مراجعتك.`;
+    acts.push({ label: "🗃️ راجع البطاقات", run: () => startLeitnerReview() });
+  }
+  if (learnedVerses("all").length >= 2) acts.push({ label: "🔁 سمّع ما حفظت", run: () => openRecPopup({ mode: "child", range: "all" }) });
+  acts.push({ label: "📖 دفتر الرحلة", run: () => openGuideJournal() });
+  if (guideNudgeDue()) text = "اشتقتُ لصوتك! " + text;
+  if (guideCheckStreak()) text += " 🏅 وسام جديد: ثلاثة أيام متتالية!";
+  guidePanel((greet ? `${guideGreeting()}أهلاً {N}! ` : "") + text, acts.slice(0, 5), target);
+}
+/* مساعدة محددة لبيت يتعثر فيه الطفل */
+let guideHintKey = null;
+function guideCheckStuck() {
+  const gs = document.getElementById("gameScreen");
+  if (!gs || getComputedStyle(gs).display === "none") return;
+  if (Date.now() - lastActivity < 45000 || audioBusy()) return;
+  const cur = getCurrentVerse(); if (!cur) return;
+  if (guideHintKey === cur.verse.id) return;
+  guideHintKey = cur.verse.id;
+  lastActivity = Date.now();
+  guidePanel(gForm("{N}، تحتاج مساعدة؟ استمع للبيت أولاً، ثم رتّب كلماته.", "{N}، تحتاجين مساعدة؟ استمعي للبيت أولاً، ثم رتّبي كلماته."),
+    [{ label: "🔊 استمع للبيت", run: () => playVerseAndStory(cur.verse, false) }],
+    document.getElementById("speakFullBtn"));
+}
+
+/* احتفال حقيقي عند تسجيل الطفل: أول بيت، ثم كل خمسة أبيات */
+async function guideOnRecorded(kind) {
+  if (kind !== "verse" || typeof recAllForUser !== "function") return;
+  const n = (await recAllForUser(activeUserId)).length;
+  if (n === 1) guideAwardBadge("firstRec");
+  if (n === 1) guideSay("mastery", gForm("{N}، أول بيت سجّلتَه بصوتك! 🎙️ هكذا يصير الحفظ لك 🐪", "{N}، أول بيت سجّلتِه بصوتك! 🎙️ هكذا يصير الحفظ لك 🐪"));
+  else if (n % 5 === 0) guideSay("mastery", gForm(`{N}، سجّلتَ ${n} أبيات بصوتك! 🌟`, `{N}، سجّلتِ ${n} أبيات بصوتك! 🌟`));
+}
+
+let lastActivity = Date.now();
+function setupGuide() {
+  document.addEventListener("pointerdown", () => { lastActivity = Date.now(); });
+  // كلمة الترحيب مرة واحدة في كل جلسة، أو الاستيقاظ بعد الغياب
+  const away = guideCheckAbsence();
+  if (away) {
+    guideSleep(true);
+  } else {
+    try {
+      if (!sessionStorage.getItem("guideWelcomed")) {
+        sessionStorage.setItem("guideWelcomed", "1");
+        setTimeout(() => { if (document.getElementById("mapScreen").style.display !== "none") guideShowActions(true); }, 900);
+      }
+    } catch(e) {}
+  }
+  // إذا تعثّر الطفل في بيت (دون ضغط لفترة) يعرض ناجي مساعدة محددة لهذا البيت
+  setInterval(guideCheckStuck, 5000);
+  // ردّ فعل على كل إجابة خاطئة
+  if (typeof playFail === "function" && !playFail.guided) {
+    const original = playFail;
+    playFail = function () { original(); guideOnWrong(); };
+    playFail.guided = true;
+  }
+}
+document.addEventListener("DOMContentLoaded", setupGuide);
+
+/* ---------- الدفعة الأولى: الرقص، والنوم بعد الغياب، والحقيبة، وسؤال ما قبل المحطة ---------- */
+
+/* يرقص ناجي أثناء التسميع */
+function guideDance(on) {
+  const g = document.getElementById("guide");
+  if (g) g.classList.toggle("dance", !!on);
+}
+
+/* النوم بعد الغياب: إن لم يفتح الطفل التطبيق منذ يومين */
+const GUIDE_SEEN_KEY = "hasaniya_guide_seen";
+const GUIDE_AWAY_MS = 2 * 24 * 60 * 60 * 1000;
+function guideCheckAbsence() {
+  let last = 0;
+  try { last = +localStorage.getItem(GUIDE_SEEN_KEY) || 0; } catch(e) {}
+  try { localStorage.setItem(GUIDE_SEEN_KEY, String(Date.now())); } catch(e) {}
+  return last && (Date.now() - last > GUIDE_AWAY_MS);
+}
+function guideSleep(on) {
+  const g = document.getElementById("guide");
+  if (g) g.classList.toggle("sleep", !!on);
+}
+
+/* حقيبة ناجي: تُملأ برموز المحطات المكتملة */
+function renderGuideCharms() {
+  const el = document.getElementById("guideCharms");
+  if (!el) return;
+  const got = content.journeyData.filter(s => state.charms && state.charms[s.id]);
+  renderGuideOutfit();
+  el.innerHTML = got.length
+    ? `🎒 ${got.map(s => `<span class="charm" title="${escapeForAttr(s.title)}">${escapeHtml(s.icon)}</span>`).join("")}`
+    : `🎒 حقيبة ناجي فارغة، أكمل محطة لتملأها`;
+}
+
+/* أُلغي سؤال «أول كلمة» قبل المحطة: الطفل يرى البيت أولاً ثم يُسأل عنه داخل الدرس */
+function maybeWarmup(station, onDone) { onDone(); }

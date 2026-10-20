@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#d81b60">
+<title>المنظومة الحسنية — القسم الأول</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='42' fill='%23d81b60'/%3E%3Ctext x='96' y='130' font-size='120' text-anchor='middle' fill='white'%3E%D9%85%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div class="app-container">
+  <div class="header" id="mainHeader">
+    <div class="header-left">
+      <button id="backToMapBtn" class="icon-btn" onclick="showMap()" style="display:none" aria-label="رجوع">←</button>
+      <span id="appTitle">خريطة السيرة 🧭</span>
+    </div>
+    <div class="header-right">
+      <button class="user-chip" id="userChip" onclick="requirePin(showUsersModal,'إدارة المستخدمين')">
+        <span id="userAvatar">🦁</span>
+        <span class="user-name" id="userName">طفلي</span>
+      </button>
+      <span class="pill" id="pointsBadge">⭐ 0</span>
+      <span class="pill" id="streakBadge" style="display:none">🔥 0</span>
+      <span class="pill hidden" id="eventBadge">—</span>
+    </div>
+  </div>
+
+  <div id="progressBars" class="progress-stack" style="display:none">
+    <div class="progress-bar"><div class="progress-fill" id="progressVerse"></div></div>
+    <div class="progress-bar tall"><div class="progress-fill overall" id="progressOverall"></div><span class="camel" id="camel">🐪</span></div>
+  </div>
+
+  <div id="mapScreen">
+    <div class="guide-row">
+      <div class="guide" id="guide" onclick="guideTap()" title="اضغط على ناجي">
+        <span class="guide-body" id="guideBody">🐪</span>
+        <span class="guide-outfit" id="guideOutfit"></span>
+        <span class="guide-name">ناجي</span>
+      </div>
+      <div class="guide-bubble" id="guideBubble" onclick="guideTap()"></div>
+    </div>
+    <div class="guide-charms" id="guideCharms" onclick="openGuideJournal()" title="دفتر الرحلة"></div>
+    <div class="top-buttons">
+      <button class="action-btn btn-parent parent-entry" id="parentEntryBtn" onclick="parentEntry()">👨‍👩‍👧 للوالدين</button>
+      <button class="action-btn btn-gold" onclick="showInventory()">🎒 الألبوم</button>
+      <button class="action-btn btn-info" onclick="openReviewHub()" id="reviewHubBtn">🔁 مراجعة</button>
+      <button class="action-btn btn-warn" onclick="showTools()" id="toolsBtn">🧰 أدوات</button>
+    </div>
+    <details class="more-menu">
+      <summary>⋯ المزيد</summary>
+      <div class="top-buttons">
+        <button class="action-btn btn-gray" id="browseEntryBtn" onclick="openBrowseCode()" title="تصفّح" aria-label="تصفّح">🔐</button>
+      </div>
+    </details>
+    <div class="daily-card" id="dailyCard">
+      <div class="daily-info" id="dailyInfo"></div>
+      <button class="action-btn btn-success daily-main" id="dailyMainBtn" onclick="startDailyLesson()">📖 درس اليوم</button>
+    </div>
+    <div class="browse-panel" id="browsePanel" style="display:none">
+      <div class="bp-title">🔐 وضع التصفّح: اذهب إلى بيت</div>
+      <div class="bp-row">
+        <select id="jumpStation" onchange="fillJumpVerses()"></select>
+        <select id="jumpVerse"></select>
+        <button class="action-btn btn-info" onclick="goBrowseJump()">اذهب</button>
+      </div>
+    </div>
+    <div class="station-container" id="stationsArea"></div>
+  </div>
+
+  <div id="gameScreen">
+    <div class="card" id="gameArea"></div>
+    <div class="card tight">
+      <div class="full-verse-box" id="fullVerseBox">
+        <div class="text" id="fullVerseText"></div>
+        <div class="controls">
+          <button class="tool-btn" id="speakFullBtn">🔊 استمع مرة أخرى</button>
+        </div>
+      </div>
+      <div class="meaning-box" id="meaningBox"></div>
+      <div class="story-box" id="storyBox">
+        <img class="scene-img" id="storyImg" alt="" style="display:none">
+        <div class="story-header">
+          <button class="tool-btn" onclick="speakStory()" aria-label="استمع للقصة">🔊</button>
+          <button class="tool-btn" onclick="stopSpeech()" aria-label="أوقف القراءة">⏹</button>
+        </div>
+        <div class="story-text" id="storyText"></div>
+        <details class="grown-up" id="sourcesWrap">
+          <summary>📚 للوالدين: المصادر</summary>
+          <div class="story-source" id="storySource"></div>
+        </details>
+        <details class="grown-up" id="khilafWrap" style="display:none">
+          <summary>🤔 للكبار: خلاف العلماء</summary>
+          <div class="khilaf-box" id="khilafBox"></div>
+        </details>
+      </div>
+      <div class="buttons-area">
+        <button class="action-btn btn-success" id="nextBtn" onclick="nextVerse()" style="display:none">التالي ⬅️</button>
+        <button class="action-btn btn-warn" id="browseNextBtn" onclick="browseNext()" style="display:none">⏭ التالي (تصفّح)</button>
+        <button class="action-btn btn-gray" onclick="showMap()">🗺️ الخريطة</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="parentScreen">
+    <h2 style="color:var(--parent-border);margin-top:0;text-align:center" data-i18n="📊 تقرير المتابعة">📊 تقرير المتابعة</h2>
+    <p style="text-align:center;color:#666;margin:0 0 16px;font-size:.9rem">
+      <span data-i18n="الطفل الحالي:">الطفل الحالي:</span> <strong id="parentUserName">—</strong>
+    </p>
+    <div class="stats-grid">
+      <div class="stat-box"><div class="stat-number" id="statCompleted">0</div><div class="stat-label" data-i18n="محطات مكتملة">محطات مكتملة</div></div>
+      <div class="stat-box"><div class="stat-number" id="statMistakes" style="color:var(--danger)">0</div><div class="stat-label" data-i18n="كلمات للمراجعة">كلمات للمراجعة</div></div>
+      <div class="stat-box"><div class="stat-number" id="statPoints">0</div><div class="stat-label" data-i18n="مجموع النقاط">مجموع النقاط</div></div>
+      <div class="stat-box"><div class="stat-number" id="statTime">0د</div><div class="stat-label" data-i18n="وقت التدريب">وقت التدريب</div></div>
+      <div class="stat-box"><div class="stat-number" id="statAccuracy">—</div><div class="stat-label" data-i18n="نسبة الإنجاز">نسبة الإنجاز</div></div>
+      <div class="stat-box"><div class="stat-number" id="statAchievements">0/11</div><div class="stat-label" data-i18n="الإنجازات">الإنجازات</div></div>
+    </div>
+
+    <div id="parentIntro" class="parent-intro" style="display:none">
+      <strong data-i18n="أهلاً بك في وضع الأسرة 👋">أهلاً بك في وضع الأسرة 👋</strong>
+      <ol>
+        <li data-i18n="الأرقام أعلاه تُظهر تقدّم الطفل، وقسم «نقاط تحتاج إلى تكرار» يبيّن ما يحتاج مراجعة.">الأرقام أعلاه تُظهر تقدّم الطفل، وقسم «نقاط تحتاج إلى تكرار» يبيّن ما يحتاج مراجعة.</li>
+        <li data-i18n="التسجيلات تبقى على هذا الجهاز، ولا تُرسل إلا عندما تضغط زر الإرسال بنفسك.">التسجيلات تبقى على هذا الجهاز، ولا تُرسل إلا عندما تضغط زر الإرسال بنفسك.</li>
+        <li data-i18n="أزرار «التوثيق» و«عينة للمراجعة» تساعدك على التحقق من مصادر القصص، والتحرير والحذف يطلبان الرقم السري.">أزرار «التوثيق» و«عينة للمراجعة» تساعدك على التحقق من مصادر القصص، والتحرير والحذف يطلبان الرقم السري.</li>
+      </ol>
+      <button class="tool-btn" onclick="dismissParentIntro()" data-i18n="فهمت، ابدأ">فهمت، ابدأ</button>
+    </div>
+
+    <div class="parent-list-title" style="margin-top:20px" data-i18n="🎯 مستوى الإتقان">🎯 مستوى الإتقان</div>
+    <div id="masteryCard" style="background:#fff;padding:18px;border-radius:14px;border:2px solid var(--parent-border);text-align:center;margin-bottom:20px">
+      <div style="font-size:2.4rem" id="masteryStars">⭐</div>
+      <div style="font-size:1.6rem;font-weight:bold;color:var(--parent-border);margin:8px 0" id="masteryLevel">—</div>
+      <div style="font-size:2rem;font-weight:bold;color:var(--gold)" id="masteryPercent">0%</div>
+      <div style="background:#f0f0f0;height:14px;border-radius:7px;overflow:hidden;margin:12px 0">
+        <div id="masteryBar" style="background:linear-gradient(90deg,var(--primary),var(--gold));height:100%;width:0;transition:width .8s"></div>
+      </div>
+      <div id="masteryBreakdown" style="font-size:.82rem;color:#666;text-align:right;line-height:1.8;margin-top:12px"></div>
+    </div>
+
+    <div class="parent-list-title" data-i18n="🏅 تحدّي الأسرة هذا الأسبوع">🏅 تحدّي الأسرة هذا الأسبوع</div>
+    <div id="familyBoard"></div>
+    <div class="parent-list-title" data-i18n="📝 نقاط تحتاج إلى تكرار:">📝 نقاط تحتاج إلى تكرار:</div>
+    <div id="parentMistakesList"></div>
+    <div class="parent-actions">
+      <button class="action-btn btn-warn" onclick="requirePin(openEditor,'فتح محرر المحتوى')" data-i18n="✏️ تحرير">✏️ تحرير</button>
+      <button class="action-btn btn-parent" onclick="requirePin(showUsersModal,'إدارة المستخدمين')" data-i18n="👥 المستخدمون">👥 المستخدمون</button>
+      <button class="action-btn btn-info" onclick="shareResult()" data-i18n="📸 مشاركة">📸 مشاركة</button>
+      <button class="action-btn btn-info" onclick="exportReport()" data-i18n="📤 تقرير">📤 تقرير</button>
+      <button class="action-btn btn-warn" onclick="requirePin(managePin,'إدارة الرقم السري')" data-i18n="🔐 الرقم السري">🔐 الرقم السري</button>
+      <button class="action-btn btn-danger" onclick="requirePin(resetAll,'تصفير التقدم')" data-i18n="🔄 تصفير">🔄 تصفير</button>
+      <button class="action-btn btn-parent" onclick="openSettings()" data-i18n="⚙️ الإعدادات">⚙️ الإعدادات</button>
+      <button class="action-btn btn-info" onclick="showDocCoverage()" data-i18n="📋 التوثيق">📋 التوثيق</button>
+      <button class="action-btn btn-info" onclick="showReviewSample(false)" data-i18n="🔍 عينة للمراجعة">🔍 عينة للمراجعة</button>
+      <button class="action-btn btn-info" onclick="requirePin(openSignature,'توقيع الوالد')" data-i18n="✍️ توقيع الوالد">✍️ توقيع الوالد</button>
+      <button class="action-btn btn-info" onclick="showCertLog()" data-i18n="🎖️ سجل الشهادات">🎖️ سجل الشهادات</button>
+      <button class="action-btn btn-info" onclick="openParentVoice()" data-i18n="🎙️ صوت الوالد">🎙️ صوت الوالد</button>
+      <button class="action-btn btn-info" onclick="openParentFollow()">✅ متابعة الأبيات</button>
+      <button class="action-btn btn-info" onclick="openClassDashboard()" data-i18n="🏫 لوحة الصف">🏫 لوحة الصف</button>
+      <button class="action-btn btn-info" onclick="showWeeklyReport()" data-i18n="📝 تقرير الأسبوع">📝 تقرير الأسبوع</button>
+      <button class="action-btn btn-info" onclick="showDiscussion()" data-i18n="💬 أسئلة النقاش">💬 أسئلة النقاش</button>
+      <button class="action-btn btn-info" onclick="printTeacherReport()" data-i18n="🖨️ تقرير للمعلم">🖨️ تقرير للمعلم</button>
+      <button class="action-btn btn-info" onclick="exportBackup()" data-i18n="💾 نسخة احتياطية">💾 نسخة احتياطية</button>
+      <button class="action-btn btn-info" onclick="importBackupFile()" data-i18n="📥 استعادة نسخة">📥 استعادة نسخة</button>
+      <button class="action-btn btn-info" onclick="requirePin(showRecoveryHub,'استعادة نسخة احتياطية تلقائية')" data-i18n="🛟 استعادة تلقائية">🛟 استعادة تلقائية</button>
+      <button class="action-btn btn-gray" onclick="showMap()" data-i18n="العودة">العودة</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="pvPopup">
+    <div class="modal-content" style="max-width:600px;text-align:right">
+      <h2 style="color:var(--parent-border);margin-top:0;text-align:center">🎙️ صوت الوالد</h2>
+      <p class="rec-privacy">سجّل كل بيت وكل قصة بصوتك، أو ارفع ملفاً صوتياً جاهزاً. تبقى الملفات على هذا الجهاز، ولا تُرسل إلا عندما تضغط الإرسال بنفسك. وعند الاستماع يُشغَّل صوتك بدل القراءة الآلية.</p>
+      <div class="vp-box">
+        <div class="controls" style="flex-wrap:wrap">
+          <input id="vpAuthor" maxlength="40" placeholder="اسم المعلم أو الوالد" onchange="vpSetAuthor(this.value)" style="flex:1;min-width:160px;padding:8px;border-radius:10px;font-family:inherit">
+          <button class="tool-btn" onclick="requirePin(exportVoicePack,'تصدير حزمة الصوت يحتاج موافقة الوالد')">📦 تصدير حزمة الصوت</button>
+          <button class="tool-btn" onclick="openVoiceImport()">📥 استيراد حزمة</button>
+        </div>
+        <div id="vpStatus" class="rec-count"></div>
+        <small class="rec-count">تُقسَّم الحزمة إلى ملفات صغيرة (حتى 4 ميجابايت) لتصل إلى أجهزة أندرويد بسلام. يُسجَّل الصوت بجودة 24 كيلوبت/ث.</small>
+      </div>
+      <div class="controls" style="flex-wrap:wrap">
+        <select id="pvKind" onchange="renderParentVoice()" style="padding:8px;border-radius:10px;font-family:inherit"><option value="verse">📖 الأبيات</option><option value="story">📜 القصص</option></select>
+        <select id="pvStation" onchange="renderParentVoice()" style="flex:1;padding:8px;border-radius:10px;font-family:inherit"></select>
+      </div>
+      <div id="pvCount" class="rec-count"></div>
+      <div id="pvBody" style="max-height:52vh;overflow-y:auto"></div>
+      <button class="action-btn btn-gray" onclick="closePopup('pvPopup')" style="width:100%;margin-top:10px">إغلاق</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="vpExportPopup">
+    <div class="modal-content" style="max-width:560px;text-align:right">
+      <h2 style="color:var(--parent-border);margin-top:0;text-align:center">📦 تصدير حزمة الصوت</h2>
+      <p class="rec-privacy">راجع التقرير قبل التصدير. الحزمة لا تُرسل تلقائياً، بل تُحفظ ملفاتها لترسلها أنت.</p>
+      <label style="display:block;margin:6px 0;cursor:pointer"><input type="checkbox" id="vpOnlyReviewed" checked onchange="vpRefreshExportReport()"> المراجَع فقط (غير المراجَع يُستثنى)</label>
+      <label style="display:block;margin:6px 0;cursor:pointer"><input type="checkbox" id="vpDeltaOnly" onchange="vpRefreshExportReport()"> الجديد أو المعدّل منذ آخر تصدير فقط</label>
+      <div id="vpReportBody" style="max-height:48vh;overflow-y:auto;font-size:.92rem;line-height:1.8;margin-top:8px"></div>
+      <button class="action-btn btn-success" id="vpDoExportBtn" onclick="vpDoExport()" style="width:100%;margin-top:10px">📦 تصدير الآن</button>
+      <button class="action-btn btn-gray" onclick="closePopup('vpExportPopup')" style="width:100%;margin-top:8px">إغلاق</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="vpImportPopup">
+    <div class="modal-content" style="max-width:520px;text-align:right">
+      <h2 style="color:var(--parent-border);margin-top:0;text-align:center">📥 استيراد حزمة الصوت</h2>
+      <p class="rec-privacy">اختر ملفات الحزمة (zip) التي أرسلها لك ولي الأمر أو المعلم. يمكنك اختيار أكثر من ملف معاً. بعدها تسمع الأبيات والقصص بصوتهم.</p>
+      <input type="file" id="vpImportFile" multiple accept=".zip,application/zip" onchange="importVoicePacks(this.files); this.value=''" style="width:100%;margin:8px 0">
+      <div id="vpPreview" style="font-size:.92rem;line-height:1.8"></div>
+      <button class="action-btn btn-success" id="vpCommitBtn" onclick="vpCommitVoicePacks()" style="display:none;width:100%;margin-top:8px">✔ استيراد التسجيلات المعروضة</button>
+      <div id="vpImportStatus" style="white-space:pre-line;font-size:.9rem;color:#444;min-height:1em;margin-top:6px"></div>
+      <button class="action-btn btn-gray" onclick="closePopup('vpImportPopup')" style="width:100%;margin-top:10px">تخطّي / إغلاق</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="followPopup">
+    <div class="modal-content" style="max-width:600px;text-align:right">
+      <h2 style="color:var(--parent-border);margin-top:0;text-align:center">✅ متابعة الأبيات</h2>
+      <p class="rec-privacy">لكل بيت ثلاث علامات: سمعه الطفل، قرأه، فهمه. تُحفظ على هذا الجهاز مع بيانات الطفل.</p>
+      <select id="fwStation" onchange="renderFollow()" style="width:100%;padding:8px;border-radius:10px;font-family:inherit"></select>
+      <div id="fwBody" style="max-height:50vh;overflow:auto;margin-top:8px"></div>
+      <button class="action-btn btn-gray" onclick="closePopup('followPopup')" style="width:100%;margin-top:10px">إغلاق</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="dashPopup">
+    <div class="modal-content" style="max-width:760px;text-align:right">
+      <h2 style="color:var(--parent-border);margin-top:0;text-align:center">🏫 لوحة الصف</h2>
+      <p class="rec-privacy">اختر ملف «النسخة الاحتياطية» (💾 نسخة احتياطية) لتظهر كل أطفال الجهاز مع أبياتهم المتعثرة، أو ملفات «تقرير الطفل» (📤 تقرير). تُقرأ على هذا الجهاز ولا تُرسل إلى أي مكان، ولا تُقرأ منها الصور ولا التوقيع.</p>
+      <input type="file" id="dashFiles" multiple accept=".json,application/json" onchange="importDashFiles(this.files); this.value=''" style="width:100%;margin:6px 0">
+      <div class="controls" style="flex-wrap:wrap">
+        <select id="dashSort" onchange="renderDashboard()" style="padding:8px;border-radius:10px;font-family:inherit"><option value="percent">ترتيب بالإتقان</option><option value="completed">ترتيب بالمحطات المكتملة</option><option value="name">ترتيب بالاسم</option></select>
+        <button class="tool-btn" onclick="clearDashboard()">🧹 مسح القائمة</button>
+      </div>
+      <div id="dashSummary" class="rec-count"></div>
+      <div id="dashBody" style="max-height:45vh;overflow:auto"></div>
+      <div id="dashDetail"></div>
+      <button class="action-btn btn-gray" onclick="closePopup('dashPopup')" style="width:100%;margin-top:10px">إغلاق</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="sigPopup">
+    <div class="modal-content" style="max-width:560px;text-align:right">
+      <h2 style="color:var(--parent-border);margin-top:0;text-align:center">✍️ توقيع الوالد</h2>
+      <p class="rec-privacy">ارسم التوقيع بالإصبع أو بالفأرة. يظهر في أسفل الشهادة، ويبقى على هذا الجهاز.</p>
+      <canvas id="sigCanvas" width="600" height="260" style="width:100%;background:#fff;border:2px dashed #bbb;border-radius:12px;touch-action:none"></canvas>
+      <div class="controls" style="margin-top:10px">
+        <button class="tool-btn" onclick="clearSignature()">🧹 مسح</button>
+        <button class="action-btn btn-success" onclick="saveSignature()">💾 حفظ التوقيع</button>
+      </div>
+      <button class="action-btn btn-gray" onclick="closePopup('sigPopup')" style="width:100%;margin-top:10px">إغلاق</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="quizPopup">
+    <div class="modal-content" style="text-align:right">
+      <h2 style="color:var(--primary);margin-top:0;text-align:center">🧩 اختبر فهمك</h2>
+      <div id="quizBody"></div>
+      <button id="quizSkipBtn" class="action-btn btn-gray" onclick="skipQuiz()" style="width:100%;margin-top:12px;display:none">تخطّي الاختبار ➡️</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="repeatPopup">
+    <div class="modal-content" style="max-width:560px;text-align:right">
+      <h2 style="color:var(--primary);margin-top:0;text-align:center">🔁 لنُكرّر هذه الأبيات</h2>
+      <div id="repeatBody" style="max-height:52vh;overflow-y:auto;line-height:2"></div>
+      <div class="controls" style="margin-top:12px"><button class="tool-btn" id="repeatSpeakBtn">🔊 اسمعها</button></div>
+      <button class="action-btn btn-success" id="repeatNextBtn" style="width:100%;margin-top:12px">متابعة ⬅️</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="recPopup">
+    <div class="modal-content" style="max-width:560px;text-align:right">
+      <h2 style="color:var(--primary);margin-top:0;text-align:center">🎤 تسجيلاتي</h2>
+      <select id="recMode" onchange="setRecMode(this.value)" style="width:100%;padding:8px;border-radius:10px;font-family:inherit;margin-bottom:8px">
+        <option value="child">🎤 تسجيلي للأبيات</option>
+        <option value="parent">👤 صوت الوالد للقصص</option>
+      </select>
+      <p id="recPrivacy" class="rec-privacy"></p>
+      <div class="rec-storage">
+        <span id="recStorage"></span>
+        <button class="tool-btn" id="recWipeBtn" onclick="requestWipeRecordings()" style="display:none">🗑 حذف كل التسجيلات (بالرقم السري)</button>
+      </div>
+
+      <div id="secBox" class="sec-box">
+        <div class="sec-title">🔁 التسميع المتصل: القصيدة من أولها إلى آخر ما حُفظ، في تسجيل واحد</div>
+        <select id="secRange" onchange="renderSectionStatus()" style="width:100%;padding:8px;border-radius:10px;font-family:inherit"></select>
+        <div id="secText" class="sec-text"></div>
+        <div id="secStatus" class="rec-count"></div>
+        <div class="controls">
+          <button class="tool-btn" onclick="playReview(currentRange())">▶ استمع للتسميع</button>
+          <button class="action-btn btn-success" id="secRecBtn" onclick="recSection()">⏺ سجّل التسميع المتصل</button>
+          <button class="tool-btn" id="secDelBtn" onclick="deleteSection()" style="display:none">🗑 حذف</button>
+        </div>
+      </div>
+
+      <select id="recStation" onchange="renderRecList()" style="width:100%;padding:8px;border-radius:10px;font-family:inherit;margin-top:8px"></select>
+      <div id="recCount" class="rec-count"></div>
+      <div id="recBody" style="max-height:40vh;overflow-y:auto"></div>
+      <div id="childExport">
+        <label class="rec-include"><input type="checkbox" id="recIncludePhoto"> أرفق صورة الطفل في الملف</label>
+        <div class="controls" style="margin-top:8px">
+          <button class="action-btn btn-success" onclick="requirePin(exportRecitation,'تصدير التسجيلات يحتاج موافقة الوالد')">📤 إرسال للوالد أو المعلم</button>
+        </div>
+      </div>
+      <button class="action-btn btn-gray" onclick="closePopup('recPopup')" style="width:100%;margin-top:10px">إغلاق</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="evalPopup">
+    <div class="modal-content" style="max-width:600px;text-align:right">
+      <h2 id="evalTitle" style="color:var(--parent-border);margin-top:0;text-align:center">🎧 تقييم</h2>
+      <input id="evaluatorName" placeholder="اسم المقيّم (الوالد أو المعلم)" maxlength="30" style="width:100%;padding:8px;border-radius:10px;margin-bottom:8px;font-family:inherit">
+      <div id="evalBody" style="max-height:55vh;overflow-y:auto"></div>
+      <button class="action-btn btn-success" onclick="saveEvaluation()" style="width:100%;margin-top:10px">💾 حفظ التقييم وتصديره</button>
+      <button class="action-btn btn-gray" onclick="closePopup('evalPopup')" style="width:100%;margin-top:8px">إغلاق</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="finalePopup">
+    <div class="modal-content" style="max-width:420px;text-align:center">
+      <h2 id="finaleTitle" style="color:var(--gold);margin-top:0">🏆 الرحلة كاملة!</h2>
+      <p id="finaleText"></p>
+      <div class="reward-big-icon">🐪</div>
+      <button class="action-btn btn-info" onclick="certSave(JOURNEY_CERT)" style="width:100%;margin-top:10px">🖼️ حفظ شهادة الرحلة كاملة</button>
+      <button class="action-btn btn-info" onclick="certPrint(JOURNEY_CERT)" style="width:100%;margin-top:8px">🖨️ طباعة شهادة الرحلة</button>
+      <button class="action-btn" onclick="closePopup('finalePopup')" style="width:100%;margin-top:8px">رائع!</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="settingsPopup">
+    <div class="modal-content" style="max-width:480px;text-align:right">
+      <h2 style="color:var(--parent-border);margin-top:0;text-align:center">⚙️ الإعدادات</h2>
+      <div id="settingsBody"></div>
+      <button class="action-btn btn-gray" onclick="closePopup('settingsPopup')" style="width:100%;margin-top:12px">إغلاق</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="poemPopup">
+    <div class="modal-content" style="max-width:560px;text-align:right">
+      <h2 style="color:var(--primary);margin-top:0;text-align:center">📜 أبيات المنظومة</h2>
+      <div id="poemBody" style="max-height:60vh;overflow-y:auto;line-height:2"></div>
+      <button class="action-btn btn-gray" onclick="closePopup('poemPopup')" style="width:100%;margin-top:12px">إغلاق</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="timelinePopup">
+    <div class="modal-content" style="max-width:520px">
+      <h2 style="color:var(--primary);margin-top:0">🕰️ رحلة السيرة</h2>
+      <div id="timelineList"></div>
+      <button class="action-btn btn-gray" onclick="closePopup('timelinePopup')" style="width:100%;margin-top:12px">إغلاق</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="hubPopup">
+    <div class="modal-content" style="max-width:520px;text-align:right">
+      <h2 id="hubTitle" style="color:var(--primary);margin-top:0;text-align:center"></h2>
+      <div id="hubBody"></div>
+      <button class="action-btn btn-gray" onclick="closePopup('hubPopup')" style="width:100%;margin-top:14px">إغلاق</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="rewardPopup">
+    <div class="modal-content">
+      <h2 style="color:var(--primary);margin-top:0">🎉 إنجاز رائع!</h2>
+      <div id="popupPhotoWrap"></div>
+      <p><span id="rewardVerb">أتممتَ</span> محطة <strong id="popupStationName"></strong> وحصلت على:</p>
+      <div class="reward-big-icon" id="popupRewardIcon"></div>
+      <h3 id="popupRewardName" style="color:var(--primary)"></h3>
+      <button class="action-btn btn-info" onclick="certSave(window.lastCompletedStation)" style="width:100%;margin-top:8px">🖼️ حفظ شهادة الإتقان</button>
+      <button class="action-btn btn-info" onclick="certPrint(window.lastCompletedStation)" style="width:100%;margin-top:8px">🖨️ طباعة الشهادة</button>
+      <button class="action-btn" onclick="closePopup('rewardPopup')" style="width:100%;margin-top:15px">استمر ➡️</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="inventoryPopup">
+    <div class="modal-content">
+      <h2 id="inventoryTitle" style="color:var(--primary);margin-top:0">🎒 ألبوم الملصقات</h2>
+      <div class="inventory-grid" id="inventoryGrid"></div>
+      <button class="action-btn btn-gray" onclick="closePopup('inventoryPopup')" style="width:100%;margin-top:20px">إغلاق</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="reviewPopup">
+    <div class="modal-content">
+      <h2 style="color:var(--danger);margin-top:0">🧠 ذاكرة الأخطاء</h2>
+      <p style="color:#666;font-size:.9rem">مرتبة بالأولوية</p>
+      <div id="mistakesList"></div>
+      <button class="action-btn btn-gray" onclick="closePopup('reviewPopup')" style="width:100%;margin-top:16px">إغلاق</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="achievementsPopup">
+    <div class="modal-content">
+      <h2 style="color:var(--gold);margin-top:0">🏆 الإنجازات</h2>
+      <div class="achievements-grid" id="achievementsGrid"></div>
+      <button class="action-btn btn-gray" onclick="closePopup('achievementsPopup')" style="width:100%;margin-top:20px">إغلاق</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="editorPopup">
+    <div class="modal-content" style="max-width:640px;text-align:right">
+      <h2 style="color:var(--primary);margin-top:0;text-align:center">✏️ محرّر المحتوى</h2>
+      <div class="editor-tabs">
+        <button class="editor-tab active" data-tab="stations" onclick="switchEditorTab('stations')">📚 المحطات</button>
+        <button class="editor-tab" data-tab="addStation" onclick="switchEditorTab('addStation')">➕ محطة</button>
+        <button class="editor-tab" data-tab="addVerse" onclick="switchEditorTab('addVerse')">➕ بيت</button>
+        <button class="editor-tab" data-tab="data" onclick="switchEditorTab('data')">📦 JSON</button>
+      </div>
+      <div class="editor-panel active" id="panel-stations"><div id="editorStationsList"></div></div>
+      <div class="editor-panel" id="panel-addStation">
+        <input type="hidden" id="stEditId">
+        <div class="form-grid">
+          <div class="form-row"><label>المعرّف</label><input id="stId" placeholder="s14"></div>
+          <div class="form-row"><label>الأيقونة</label><input id="stIcon" placeholder="🏛️"></div>
+        </div>
+        <div class="form-row"><label>العنوان</label><input id="stTitle" placeholder="اسم المحطة"></div>
+        <div class="form-grid">
+          <div class="form-row"><label>اسم المكافأة</label><input id="stRewardName" placeholder="سيف الإسلام"></div>
+          <div class="form-row"><label>أيقونة المكافأة</label><input id="stRewardIcon" placeholder="⚔️"></div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+          <button class="action-btn btn-success" onclick="saveStation()">💾 حفظ</button>
+          <button class="action-btn btn-gray" onclick="clearStationForm()" aria-label="مسح النموذج">مسح</button>
+        </div>
+      </div>
+      <div class="editor-panel" id="panel-addVerse">
+        <input type="hidden" id="vEditStationId"><input type="hidden" id="vEditVerseId">
+        <div class="form-row"><label>المحطة</label><select id="vStationSelect"></select></div>
+        <div class="form-grid">
+          <div class="form-row"><label>معرّف البيت</label><input id="vId" placeholder="s14v1"></div>
+          <div class="form-row"><label>النوع</label>
+            <select id="vType" onchange="onVerseTypeChange()">
+              <option value="word_order">ترتيب كلمات</option>
+              <option value="missing_choice">اختيار كلمة ناقصة</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row"><label>البيت كاملاً</label><textarea id="vFull"></textarea></div>
+        <div id="mcFields" style="display:none">
+          <div class="form-grid">
+            <div class="form-row"><label>الجزء قبل الكلمة</label><input id="vPart1"></div>
+            <div class="form-row"><label>الجزء بعد الكلمة</label><input id="vPart2"></div>
+          </div>
+          <div class="form-row"><label>الكلمة الصحيحة</label><input id="vCorrect"></div>
+          <div class="form-row"><label>الخيارات (افصل بفاصلة)</label><input id="vOptions"></div>
+        </div>
+        <div id="woFields">
+          <div class="form-row"><label>الكلمات مبعثرة (افصل بفاصلة)</label><input id="vWords"></div>
+          <div class="form-row"><label>الترتيب الصحيح (افصل بفاصلة)</label><input id="vOrder"></div>
+        </div>
+        <div class="form-row"><label>الحدث</label><input id="vEvent"></div>
+        <div class="form-row"><label>الشرح المبسّط</label><textarea id="vMeaning"></textarea></div>
+        <div class="form-row"><label>القصة الموثقة (اختياري)</label><textarea id="vStory" style="min-height:90px"></textarea></div>
+        <div class="form-row"><label>المصدر (اختياري)</label><input id="vSource" placeholder="صحيح البخاري (1234)"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+          <button class="action-btn btn-success" onclick="saveVerse()">💾 حفظ البيت</button>
+          <button class="action-btn btn-gray" onclick="clearVerseForm()">مسح</button>
+        </div>
+      </div>
+      <div class="editor-panel" id="panel-data">
+        <p style="font-size:.9rem;color:#666;margin-top:0">صدّر/استورد بيانات المنظومة كاملة.</p>
+        <div class="form-row">
+          <label>نص JSON</label>
+          <textarea id="jsonText" style="min-height:200px;font-family:monospace;font-size:.85rem;direction:ltr;text-align:left"></textarea>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px">
+          <button class="action-btn btn-info" onclick="loadJsonIntoTextarea()">📥 تحميل الحالي</button>
+          <button class="action-btn btn-warn" onclick="importJson()">📤 استيراد</button>
+          <button class="action-btn btn-success" onclick="downloadJourneyData()">⬇️ تنزيل</button>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:20px">
+        <button class="action-btn btn-gray" onclick="closePopup('editorPopup')">إغلاق</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="summaryPopup">
+    <div class="modal-content">
+      <div class="session-summary">
+        <div class="big" id="summaryIcon">🎯</div>
+        <h2 id="summaryTitle" style="color:var(--primary);margin:8px 0"></h2>
+        <div class="score" id="summaryScore"></div>
+        <p id="summaryMessage" style="color:#666"></p>
+        <button class="action-btn" onclick="closeSummary()" style="width:100%;margin-top:15px">تمام 👍</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="newAchievementPopup">
+    <div class="modal-content" style="max-width:380px">
+      <h2 style="color:var(--gold);margin-top:0">🎊 إنجاز جديد!</h2>
+      <div class="reward-big-icon" id="newAchIcon">🏆</div>
+      <h3 id="newAchName" style="color:var(--primary);margin:8px 0"></h3>
+      <p id="newAchDesc" style="color:#666;font-size:.9rem"></p>
+      <button class="action-btn" onclick="closePopup('newAchievementPopup')" style="width:100%;margin-top:12px">رائع!</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="sharePopup">
+    <div class="modal-content">
+      <h2 style="color:var(--primary);margin-top:0">📸 مشاركة النتيجة</h2>
+      <div class="share-canvas-wrap"><canvas id="shareCanvas" width="720" height="900"></canvas></div>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <button class="action-btn btn-success" onclick="downloadShare()">⬇️ تنزيل</button>
+        <button class="action-btn btn-info" onclick="nativeShare()">📤 مشاركة</button>
+        <button class="action-btn btn-gray" onclick="closePopup('sharePopup')">إغلاق</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="usersPopup">
+    <div class="modal-content" style="max-width:520px;text-align:right">
+      <h2 style="color:var(--parent-border);margin-top:0;text-align:center">👥 المستخدمون</h2>
+      <p style="text-align:center;color:#666;font-size:.85rem;margin-top:0">اختر الطفل الذي سيتدرّب الآن</p>
+      <div id="usersList"></div>
+      <button class="action-btn btn-success" onclick="openUserEditor(null)" style="width:100%;margin-top:12px">➕ إضافة طفل جديد</button>
+      <button class="action-btn btn-info" onclick="openVoiceImport()" style="width:100%;margin-top:8px">📥 استيراد حزمة الصوت</button>
+      <button class="action-btn btn-gray" onclick="closePopup('usersPopup')" style="width:100%;margin-top:8px">إغلاق</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="userEditorPopup">
+    <div class="modal-content" style="max-width:420px;text-align:right">
+      <input type="hidden" id="userEditId">
+      <h2 style="color:var(--parent-border);margin-top:0;text-align:center" id="userEditorTitle">👶 بيانات الطفل</h2>
+      <div class="form-row">
+        <label>الاسم</label>
+        <input id="userNameInput" placeholder="مثال: عمر" maxlength="20">
+      </div>
+      <div class="form-row">
+        <label>الجنس</label>
+        <div class="word-bank" id="genderRow"></div>
+      </div>
+      <div class="form-row">
+        <label>صورة الطفل (اختيارية، تبقى على هذا الجهاز)</label>
+        <div id="photoRow" class="photo-row"></div>
+    <div id="showPhotoRow"></div>
+        <input type="file" accept="image/*" id="photoInput" onchange="pickEditorPhoto(this.files[0])">
+      </div>
+      <div class="form-row">
+        <label>الرمز التعبيري</label>
+        <div class="avatar-grid" id="avatarGrid"></div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
+        <button class="action-btn btn-success" onclick="saveUserEditor()">💾 حفظ</button>
+        <button class="action-btn btn-gray" onclick="closePopup('userEditorPopup')">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="pinPopup">
+    <div class="modal-content" style="max-width:380px">
+      <h2 style="color:var(--parent-border);margin-top:0" id="pinTitle">🔐 الرقم السري</h2>
+      <p style="color:#666;font-size:.9rem;margin-top:0" id="pinSubtitle">أدخل رقمك السري</p>
+      <input id="pinInput" class="pin-input" type="password" inputmode="numeric" pattern="\d*" maxlength="6"
+             placeholder="••••" onkeydown="if(event.key==='Enter')submitPin()">
+      <div id="pinConfirmWrap" style="display:none;margin-top:12px">
+        <input id="pinConfirm" class="pin-input" type="password" inputmode="numeric" pattern="\d*" maxlength="6"
+               placeholder="تأكيد الرقم" onkeydown="if(event.key==='Enter')submitPin()">
+      </div>
+      <div id="pinError" style="color:var(--danger);font-weight:bold;margin-top:8px;min-height:20px"></div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
+        <button class="action-btn btn-success" onclick="submitPin()">تأكيد</button>
+        <button class="action-btn btn-gray" onclick="cancelPin()">إلغاء</button>
+      </div>
+      <button onclick="forgotPin()" style="background:none;border:none;color:#999;margin-top:14px;cursor:pointer;font-size:.82rem;text-decoration:underline;font-family:inherit">
+        نسيت الرقم؟
+      </button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="managePinPopup">
+    <div class="modal-content" style="max-width:400px">
+      <h2 style="color:var(--parent-border);margin-top:0">🔐 إدارة الرقم السري</h2>
+      <p style="color:#666;font-size:.9rem;margin-top:0" id="pinStatusText"></p>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px">
+        <button class="action-btn btn-info" onclick="changePin()" id="changePinBtn">تغيير الرقم السري</button>
+        <button class="action-btn btn-danger" onclick="removePin()" id="removePinBtn">إزالة الرقم السري</button>
+        <button class="action-btn btn-gray" onclick="closePopup('managePinPopup')">إغلاق</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<canvas id="confettiCanvas"></canvas>
+<div class="toast" id="toast"></div>
+
+<script src="js/android-shim.js"></script>
+<script src="js/config.js"></script>
+<script src="js/data/manzumah.js"></script>
+<script src="js/data/stories.js"></script>
+<script src="js/data/khilaf.js"></script>
+<script src="js/data/scenes.js"></script>
+<script src="js/data/explanations.js"></script>
+<script src="js/data/links.js"></script>
+<script src="js/data/quizzes.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/parser.js"></script>
+<script src="js/achievements.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/safety.js"></script>
+<script src="js/pin.js"></script>
+<script src="js/users.js"></script>
+<script src="js/progress.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/quiz.js"></script>
+<script src="js/data/riddles.js"></script>
+<script src="js/data/stickers.js"></script>
+<script src="js/leitner.js"></script>
+<script src="js/recall.js"></script>
+<script src="js/shadow.js"></script>
+<script src="js/ask.js"></script>
+<script src="js/journey.js"></script>
+<script src="js/print.js"></script>
+<script src="js/weekly.js"></script>
+<script src="js/tools.js"></script>
+<script src="js/profile.js"></script>
+<script src="js/recitation.js"></script>
+<script src="js/guide.js"></script>
+<script src="js/companion.js"></script>
+<script src="js/parent.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/upgrades.js"></script>
+<script src="js/places.js"></script>
+<script src="js/data/discussion.js"></script>
+<script src="js/data/places.js"></script>
+<script src="js/extras.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/exercises.js"></script>
+<script src="js/backup.js"></script>
+<script src="js/voicepack.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

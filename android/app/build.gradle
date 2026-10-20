@@ -1,0 +1,42 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.hasaniya.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.hasaniya.app"
+        minSdk 26
+        targetSdk 34
+        versionCode 98
+        versionName "98.0"
+    }
+
+    /* التوقيع: المفتاح يأتي من أسرار GitHub (انظر SIGNING-AR.md في جذر المستودع)،
+       ولا يُحفظ في المستودع أبداً. المفتاح نفسه في كل نسخة، فتُثبَّت كل نسخة فوق السابقة دون فقد البيانات. */
+    def ks = System.getenv("HASANIYA_KEYSTORE")
+    signingConfigs {
+        if (ks) {
+            release {
+                storeFile file(ks)
+                storePassword System.getenv("HASANIYA_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("HASANIYA_KEY_ALIAS")
+                keyPassword System.getenv("HASANIYA_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (ks) signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
