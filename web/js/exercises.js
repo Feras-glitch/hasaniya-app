@@ -99,9 +99,10 @@ function renderExercise() {
   const q = exState.qs[exState.i];
   exState.answered = false;
   openHub(`🧭 سؤال ${exState.i + 1} من ${exState.qs.length}`, `
-    <p style="white-space:pre-line;line-height:1.9;font-weight:bold">${escapeHtml(q.prompt)}</p>
+    <p style="white-space:pre-line;line-height:1.9;font-weight:bold">${sayBtnHTML(q.prompt.replace("_____", "فراغ") + "، " + q.options.join("، أو "), "استمع للسؤال")} ${escapeHtml(q.prompt)}</p>
     <div class="word-bank">${q.options.map((o, i) => `<button class="word-btn" onclick="answerExercise(${i}, this)">${escapeHtml(o)}</button>`).join("")}</div>
     <div id="exMsg" style="min-height:26px;font-weight:bold;margin-top:10px"></div>`);
+  autoSayNow(q.prompt.replace("_____", "فراغ") + "، " + q.options.join("، أو "));
 }
 function answerExercise(i, btn) {
   if (!exState || exState.answered) return;

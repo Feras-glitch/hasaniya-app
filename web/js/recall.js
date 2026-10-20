@@ -67,7 +67,7 @@ function rateRecall(ok) {
 function renderRiddle() {
   const q = recallQ, r = q.items[q.i];
   openHub(`🧩 لغز ${q.i + 1} من ${q.items.length}`, `
-    <p style="font-size:1.1rem;line-height:1.9">${escapeHtml(r.riddle)}</p>
+    <p style="font-size:1.1rem;line-height:1.9">${sayBtnHTML(r.riddle, "استمع للغز")} ${escapeHtml(r.riddle)}</p>
     <input id="riddleIn" class="ask-input" placeholder="اكتب جوابك">
     <div id="riddleMsg" style="min-height:26px;font-weight:bold;margin:8px 0"></div>
     <div id="riddleBtns" class="hub-actions">
@@ -75,6 +75,7 @@ function renderRiddle() {
       <button class="action-btn btn-gray" onclick="revealRiddle()">أظهر الجواب</button>
     </div>`);
   setTimeout(() => { const i = document.getElementById("riddleIn"); if (i) i.focus(); }, 100);
+  autoSayNow(r.riddle);
 }
 function checkRiddle() {
   const r = recallQ.items[recallQ.i];

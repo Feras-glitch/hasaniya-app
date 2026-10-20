@@ -63,7 +63,26 @@ function showFinale() {
   setTimeout(() => guideDance(false), 4000);
 }
 
-function guideVoiceOn() { return getPrefs().guideVoice !== false; }
+/* القراءة التلقائية (v100): يضبطها الوالد من شاشة الأسرة، ومفعّلة افتراضياً لمن لا يقرأ.
+   تشمل فقاعات ناجي ورسائل الطفل والتعليمات والأسئلة. لا تتكلم فوق التسجيل ولا فوق صوت آخر */
+function autoReadOn() { const p = getPrefs(); return p.autoRead !== false && p.guideVoice !== false; }
+function guideVoiceOn() { return autoReadOn(); }
+function cleanSpeech(t) { return String(t || "").replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, "").replace(/\s+/g, " ").trim(); }
+function autoSay(text) {
+  if (!autoReadOn() || (typeof recIsActive === "function" && recIsActive())) return;
+  const t = cleanSpeech(text); if (t) speakPlainArabic(t);
+}
+/* زر 🔊 بجانب أي نص: يقرؤه عند الضغط (لا أثناء التسجيل) */
+function sayText(t) { if (typeof recIsActive === "function" && recIsActive()) return; audioStopAll(); const c = cleanSpeech(t); if (c) speakPlainArabic(c); }
+function sayBtnHTML(t, label) { return `<button class="say-btn" type="button" aria-label="${escapeHtml(label || "استمع")}" onclick="sayText('${escapeForAttr(t)}')">🔊</button>`; }
+/* قراءة تلقائية لسؤال جديد: تقطع ما قبلها، لأن السؤال الجديد أهم من بقية الرسالة السابقة */
+function autoSayNow(text) { if (!autoReadOn() || (typeof recIsActive === "function" && recIsActive())) return; audioStopAll(); const c = cleanSpeech(text); if (c) speakPlainArabic(c); }
+/* فقاعة ظهرت أثناء التسجيل تُحجز ولا تُعرض، ثم تظهر بعد انتهائه إن لم يمضِ عليها وقت طويل */
+let heldVoice = null;
+function flushHeldVoice() {
+  const h = heldVoice; heldVoice = null;
+  if (h && Date.now() - h.at < 20000) setTimeout(() => h.run(), 400);
+}
 
 /* الاسم في النداء: «يا اسم الطفل»، أو «يا صديقي» إن لم يكن الاسم مُدخلاً */
 function guideVocative() {
@@ -73,13 +92,14 @@ function guideVocative() {
 }
 function guideFill(t) { return String(t).replace(/\{N\}/g, guideVocative()); }
 /* رسالة للطفل تبدأ باسمه: تنبيه أو تشجيع */
-function kidToast(msg, t) { showToast(guideVocative() + "، " + msg, t || ""); }
+function kidToast(msg, t) { const m = guideVocative() + "، " + msg; showToast(m, t || ""); autoSay(m); }
 
 function guideSay(mood, customText) {
   const bubble = guideBubbleEl();
   const body = document.getElementById("guideBody");
   const wrap = document.getElementById("guide");
   if (!bubble || !body || !wrap) return;
+  if (typeof recIsActive === "function" && recIsActive()) { heldVoice = { at: Date.now(), run: () => guideSay(mood, customText) }; return; }
   const lines = customText ? [customText] : (GUIDE_LINES[mood] ? GUIDE_LINES[mood]() : ["🐪"]);
   const text = guideFill(lines[Math.floor(Math.random() * lines.length)]);
   bubble.textContent = text;
@@ -133,6 +153,8 @@ function guidePanel(text, actions, targetEl) {
   if (!bubble) return;
   // لا تغطّي الفقاعة نموذج إنشاء الطفل أو الرقم السري
   if (document.querySelector("#userEditorPopup.active, #pinPopup.active")) return;
+  // ولا تظهر أثناء تسجيل الطفل: تُحجز حتى ينتهي
+  if (typeof recIsActive === "function" && recIsActive()) { heldVoice = { at: Date.now(), run: () => guidePanel(text, actions, targetEl) }; return; }
   text = guideFill(text);
   document.querySelectorAll(".guide-target").forEach(el => el.classList.remove("guide-target"));
   if (targetEl) targetEl.classList.add("guide-target");

@@ -1,0 +1,24 @@
+{
+  "name": "hasaniya",
+  "productName": "المنظومة الحسنية",
+  "version": "100.0.0",
+  "description": "المنظومة الحسنية في السيرة النبوية، تطبيق مستقل بلا خادم",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^37.3.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.hasaniya.app",
+    "productName": "المنظومة الحسنية",
+    "files": ["main.js", "package.json", "app/**/*"],
+    "directories": { "output": "dist" },
+    "win": { "target": "portable" },
+    "linux": { "target": "AppImage" }
+  }
+}

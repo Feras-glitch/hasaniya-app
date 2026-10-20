@@ -185,6 +185,7 @@ function reloadVerseLater(ms) {
 }
 function loadVerse() {
   verseLoadToken++;
+  if (recIsActive()) recStop();
   if ("speechSynthesis" in window) window.speechSynthesis.cancel();
   stopMediaStream();
   const cur = getCurrentVerse();
@@ -252,19 +253,18 @@ function loadVerse() {
   if (shown.type === "missing_choice") renderMissingChoice(shown, gameArea, prefix);
   else if (verse.type === "word_order") renderWordOrder(verse, gameArea, prefix, firstTime);
   else gameArea.innerHTML = "<p>نوع غير مدعوم</p>";
+  updateRecBar();
 }
 
-/* شريط الأدوات: زرّان ظاهران يكفيان الطفل الصغير، والباقي تحت «⋯» */
+/* شريط البيت: ثلاثة أزرار ظاهرة دائماً، والطفل يتحكم بكل خطوة
+   🔊 استمع: يُسمع البيت (صوت المعلم إن وُجد، وإلا القارئ الآلي)، ويُعطَّل أثناء التسجيل
+   🎤 سجّل / ⏹ أوقف: يبدأ التسجيل ويوقفه، والضغط مرة أخرى يعيد التسجيل ويستبدل السابق
+   ▶ صوتي: يظهر بعد أن يسجّل الطفل البيت */
 function renderToolbar(verse) {
-  return `<div class="verse-toolbar">
-    <button class="tool-btn" onclick="speak('${escapeForAttr(verse.fullVerse)}')">🔊 استمع</button>
-    <button class="tool-btn" onclick="startShadow()">📖 ردّد معي</button>
-    <details class="tool-more"><summary class="tool-btn" aria-label="أدوات أخرى">⋯</summary>
-      <div class="tool-more-row">
-        <button class="tool-btn" id="recordBtn" onclick="toggleRecording()">🎤 سجّل صوتك</button>
-        <button class="tool-btn" onclick="startTapOrder()">👆 رتّب بالنقر</button>
-      </div>
-    </details>
+  return `<div class="verse-toolbar rec-bar" id="recBar">
+    <button class="tool-btn big-btn" id="listenBtn" onclick="listenVerse()">🔊 استمع</button>
+    <button class="tool-btn big-btn rec-btn" id="recordBtn" onclick="recordVerse()">🎤 سجّل</button>
+    <button class="tool-btn big-btn" id="mineBtn" onclick="playMyVerse()" style="display:none">▶ صوتي</button>
   </div>
   <div id="shadowResult" class="shadow-result"></div>`;
 }
@@ -322,6 +322,7 @@ function startOrderAfterIntro() {
   if (typeof audioStopAll === "function") audioStopAll();
   const i = document.getElementById("verseIntro"); if (i) i.remove();
   const o = document.getElementById("orderPart"); if (o) o.style.display = "";
+  if (typeof autoSay === "function") autoSay("رتّب كلمات البيت من ذاكرتك");
 }
 function checkChoice(btn, selected) {
   const cur = getCurrentVerse(); if (!cur) return;
@@ -435,7 +436,13 @@ function showFullVerse(verse) {
   const unlocked = verse.story && state.storyUnlocked && state.storyUnlocked[verse.id];
   playVerseAndStory(verse, !!(unlocked || noCredit()));
   const mb = document.getElementById("meaningBox");
-  if (verse.meaning) { mb.innerText = verse.meaning; mb.style.display = "block"; }
+  if (verse.meaning) {
+    mb.textContent = "";
+    const sp = document.createElement("button"); sp.className = "say-btn"; sp.textContent = "🔊"; sp.setAttribute("aria-label", "استمع للشرح");
+    sp.onclick = () => { if (!recIsActive() && audioBegin()) speakPlainArabic(verse.meaning); };
+    mb.appendChild(sp); mb.appendChild(document.createTextNode(" " + verse.meaning));
+    mb.style.display = "block";
+  }
   if (verse.story) {
     if (noCredit() || (state.storyUnlocked && state.storyUnlocked[verse.id])) {
       renderStoryContent(verse);
@@ -693,4 +700,36 @@ function makeMissingVariant(verse) {
   if (distract.length < 2) return null;
   return Object.assign({}, verse, {type: "missing_choice", textPart1: words.slice(0, i).join(" "),
     textPart2: words.slice(i + 1).join(" "), correctWord: correct, options: [correct, ...distract]});
+}
+
+/* ---------- شريط البيت: استمع / سجّل / صوتي ---------- */
+function barVerse() { const c = getCurrentVerse(); return c ? c.verse : null; }
+function listenVerse() {
+  const v = barVerse(); if (!v || recIsActive()) return;
+  if (typeof playVerseAndStory === "function") playVerseAndStory(v, false); else speak(v.fullVerse);
+}
+async function recordVerse() {
+  const v = barVerse(); if (!v) return;
+  if (recIsActive()) { recStop(); return; }
+  audioStopAll();
+  if (typeof guideHidePanel === "function") guideHidePanel();
+  await recToggle(v.id, () => { updateRecBar(); if (typeof flushHeldVoice === "function") flushHeldVoice(); });
+  updateRecBar();
+}
+function playMyVerse() { const v = barVerse(); if (v && !recIsActive()) recPlay(v.id); }
+/* حالة الأزرار: أثناء التسجيل «أوقف» أحمر نابض و«استمع» معطّل؛ «صوتي» يظهر إن وُجد تسجيل */
+async function updateRecBar() {
+  const rb = document.getElementById("recordBtn"), lb = document.getElementById("listenBtn"), mb = document.getElementById("mineBtn");
+  if (!rb) return;
+  const on = recIsActive();
+  rb.textContent = on ? "⏹ أوقف" : "🎤 سجّل";
+  rb.classList.toggle("recording", on);
+  if (lb) lb.disabled = on;
+  if (mb) {
+    mb.disabled = on;
+    const v = barVerse();
+    let has = false;
+    try { has = !!(v && await recGet(recKey(v.id))); } catch (e) {}
+    mb.style.display = has ? "" : "none";
+  }
 }

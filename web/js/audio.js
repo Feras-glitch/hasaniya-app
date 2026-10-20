@@ -15,9 +15,9 @@ function playTone(f, d=.15, type="sine", delay=0) {
     g.gain.exponentialRampToValueAtTime(.001, t + d); o.stop(t + d);
   } catch(e) {}
 }
-function playSuccess() { playTone(523.25,.12,"sine",0); playTone(659.25,.12,"sine",.10); playTone(783.99,.25,"sine",.20); }
-function playFail() { playTone(220,.15,"triangle",0); playTone(165,.25,"triangle",.14); }
-function playClick() { playTone(880,.05,"sine",0); }
+function playSuccess() { if (recIsActive()) return; playTone(523.25,.12,"sine",0); playTone(659.25,.12,"sine",.10); playTone(783.99,.25,"sine",.20); }
+function playFail() { if (recIsActive()) return; playTone(220,.15,"triangle",0); playTone(165,.25,"triangle",.14); }
+function playClick() { if (recIsActive()) return; playTone(880,.05,"sine",0); }
 
 let confettiActive = false;
 let confettiResizeHandler = null;
@@ -95,58 +95,14 @@ function speak(text) {
 }
 
 let mediaRecorder = null, recordedChunks = [], mediaStream = null;
-async function toggleRecording() {
-  if (mediaRecorder && mediaRecorder.state === "recording") { mediaRecorder.stop(); return; }
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    showToast(window.isSecureContext === false
-      ? "المتصفح يمنع الميكروفون لأن الملف فُتح من مكان غير آمن. الحل: تثبيت التطبيق على الجهاز"
-      : "التسجيل غير مدعوم", "error");
-    return;
-  }
-  stopMediaStream();
-  audioStopAll();
-  try {
-    mediaStream = await navigator.mediaDevices.getUserMedia({audio:true});
-    audioStopAll();
-    mediaRecorder = new MediaRecorder(mediaStream);
-    recordedChunks = [];
-    mediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) recordedChunks.push(e.data); };
-    mediaRecorder.onstop = () => {
-      try {
-        const blob = new Blob(recordedChunks, {type:"audio/webm"});
-        const url = URL.createObjectURL(blob);
-        let pb = document.getElementById("playbackAudio");
-        if (!pb) {
-          pb = document.createElement("audio");
-          pb.id = "playbackAudio";
-          pb.controls = true;
-          document.getElementById("gameArea").appendChild(pb);
-        } else if (pb.src && pb.src.startsWith("blob:")) {
-          try { URL.revokeObjectURL(pb.src); } catch(e) {}
-        }
-        pb.src = url;
-        pb.style.display = "block";
-      } catch(e) {}
-      stopMediaStream();
-      updateRecordBtn(false);
-    };
-    mediaRecorder.start(); updateRecordBtn(true);
-  } catch(e) {
-    showToast("تعذّر الوصول للميكروفون", "error");
-    stopMediaStream();
-  }
-}
+/* v100: التسجيل من شريط البيت (recordVerse) يحفظ تسجيل الطفل لكل بيت. يبقى هذا الاسم لمن يستدعيه */
+async function toggleRecording() { return recordVerse(); }
 function stopMediaStream() {
   if (mediaStream) {
     try { mediaStream.getTracks().forEach(t => t.stop()); } catch(e) {}
     mediaStream = null;
   }
   mediaRecorder = null;
-}
-function updateRecordBtn(rec) {
-  const b = document.getElementById("recordBtn"); if (!b) return;
-  if (rec) { b.classList.add("recording"); b.innerHTML = "⏹️ إيقاف"; }
-  else { b.classList.remove("recording"); b.innerHTML = "🎤 سجّل صوتك"; }
 }
 
 let toastTimer = null;

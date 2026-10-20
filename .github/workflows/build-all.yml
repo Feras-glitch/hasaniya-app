@@ -1,0 +1,154 @@
+# بناء كل نسخ المنظومة الحسنية من مصدر واحد (web/) مع كل رفع إلى main:
+#   1) كل الاختبارات (المحتوى والمنطق والمتصفح) — لا يُبنى شيء إن فشل أحدها
+#   2) أندرويد APK موقّع بالمفتاح الثابت
+#   3) ويندوز ولينكس (Electron)، ونسخة الملف الواحد، وملف الويب
+#   4) إصدار في صفحة Releases باسم رقم النسخة، فيه كل الملفات في مكان واحد
+name: Build all
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  ELECTRON_VERSION: 37.3.1
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+      - name: Run all tests
+        run: |
+          npm install --no-save --no-package-lock playwright@1.49.1
+          npx playwright install --with-deps chromium
+          python3 web/tools/build_standalone.py "$RUNNER_TEMP/hasaniya.html"
+          export CHROMIUM_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          export HASANIYA_URL="file://$RUNNER_TEMP/hasaniya.html"
+          node web/tests/run-all.js --e2e
+
+  android:
+    needs: test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Copy web app into Android assets
+        run: |
+          mkdir -p android/app/src/main/assets/www
+          cp -r web/index.html web/sw.js web/manifest.json web/css web/js web/img android/app/src/main/assets/www/
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Prepare Android SDK
+        run: |
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" --install "platforms;android-34" "build-tools;34.0.0" > /dev/null
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.9
+      - name: Restore signing key
+        id: key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.HASANIYA_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/hasaniya.jks"
+            echo "path=$RUNNER_TEMP/hasaniya.jks" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::لم تُضف أسرار التوقيع؛ ستُبنى نسخة تجريبية. انظر SIGNING-AR.md"
+          fi
+      - name: Build signed release APK
+        if: steps.key.outputs.path != ''
+        working-directory: android
+        env:
+          HASANIYA_KEYSTORE: ${{ steps.key.outputs.path }}
+          HASANIYA_KEYSTORE_PASSWORD: ${{ secrets.HASANIYA_KEYSTORE_PASSWORD }}
+          HASANIYA_KEY_ALIAS: ${{ secrets.HASANIYA_KEY_ALIAS }}
+          HASANIYA_KEY_PASSWORD: ${{ secrets.HASANIYA_KEY_PASSWORD }}
+        run: |
+          gradle assembleRelease --no-daemon
+          mkdir -p "$GITHUB_WORKSPACE/out" && cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/out/hasaniya.apk"
+      - name: Build debug APK (no signing key yet)
+        if: steps.key.outputs.path == ''
+        working-directory: android
+        run: |
+          gradle assembleDebug --no-daemon
+          mkdir -p "$GITHUB_WORKSPACE/out" && cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/out/hasaniya-debug.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hasaniya-apk
+          path: out/*.apk
+
+  packages:
+    needs: test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+      - name: Standalone file and web zip
+        run: |
+          mkdir -p out
+          python3 web/tools/build_standalone.py out/hasaniya-standalone.html
+          (cd web && zip -qr ../out/hasaniya-web.zip index.html sw.js manifest.json README.md css js img)
+      - name: Windows and Linux (Electron)
+        run: bash desktop/package.sh "$ELECTRON_VERSION" desk
+      - name: Check that the Linux version opens the app
+        run: |
+          npm install --no-save --no-package-lock playwright@1.49.1
+          sudo apt-get install -y xvfb > /dev/null
+          Xvfb :77 -screen 0 1024x768x24 &
+          sleep 2
+          DISPLAY=:77 desk/hasaniya-linux/Hasaniya --no-sandbox --remote-debugging-port=9333 > /dev/null 2>&1 &
+          node desktop/smoke.js
+      - name: Zip desktop versions
+        run: |
+          (cd desk/hasaniya-windows && zip -qry ../../out/hasaniya-windows.zip .)
+          (cd desk/hasaniya-linux && zip -qry ../../out/hasaniya-linux.zip .)
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hasaniya-packages
+          path: out/
+          retention-days: 2
+
+  release:
+    needs: [ android, packages ]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Version
+        id: ver
+        run: echo "v=$(grep -oP 'versionName "\K[^"]+' android/app/build.gradle)" >> "$GITHUB_OUTPUT"
+      - name: Publish all versions to Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v${{ steps.ver.outputs.v }}"
+          NOTES="المنظومة الحسنية — النسخة ${{ steps.ver.outputs.v }}
+          - أندرويد: hasaniya.apk
+          - ويندوز: hasaniya-windows.zip (فك الضغط ثم شغّل Hasaniya.exe)
+          - لينكس: hasaniya-linux.zip (فك الضغط ثم شغّل ./Hasaniya)
+          - ملف واحد يفتح في المتصفح: hasaniya-standalone.html
+          - ملفات الويب: hasaniya-web.zip
+          آخر تحديث: $(date -u '+%Y-%m-%d %H:%M') UTC"
+          ls -la dist
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+            gh release edit "$TAG" --notes "$NOTES" --target "$GITHUB_SHA"
+          else
+            gh release create "$TAG" dist/* --title "المنظومة الحسنية $TAG" --notes "$NOTES" --target "$GITHUB_SHA"
+          fi

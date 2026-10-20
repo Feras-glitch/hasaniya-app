@@ -45,6 +45,7 @@ function showParentScreen() {
   document.getElementById("mapScreen").style.display = "none";
   document.getElementById("gameScreen").style.display = "none";
   document.getElementById("parentScreen").style.display = "block";
+  renderAutoReadRow();
   document.getElementById("mainHeader").style.background = "var(--parent-border)";
   document.getElementById("appTitle").innerText = tParent("وضع الأسرة 👨‍👩‍👧");
   document.getElementById("backToMapBtn").style.display = "inline-block";
@@ -216,4 +217,18 @@ function setFollow(id, k, val) {
   const m = state.follow[id] || (state.follow[id] = {});
   m[k] = !!val;
   saveState();
+}
+
+/* القراءة التلقائية للطفل: قرار الوالد (v100) */
+function setAutoRead(on) {
+  const p = getPrefs(); p.autoRead = !!on; p.guideVoice = !!on;
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify(p)); } catch (e) {}
+  renderAutoReadRow();
+  showToast(on ? "القراءة التلقائية مفعّلة" : "القراءة التلقائية متوقفة", "success");
+}
+function renderAutoReadRow() {
+  const on = autoReadOn();
+  const a = document.getElementById("autoReadOn"), b = document.getElementById("autoReadOff");
+  if (a) a.classList.toggle("selected-pref", on);
+  if (b) b.classList.toggle("selected-pref", !on);
 }

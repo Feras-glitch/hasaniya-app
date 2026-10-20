@@ -14,9 +14,10 @@ function renderQuizQuestion() {
   const order = [it.correct, ...it.wrong].sort(() => Math.random() - .5);
   document.getElementById("quizBody").innerHTML = `
     <div style="color:#666;font-size:.85rem">سؤال ${i + 1} من ${items.length}</div>
-    <h3 style="margin:10px 0">${escapeHtml(it.q)}</h3>
+    <h3 style="margin:10px 0">${sayBtnHTML(it.q + "، " + order.join("، أو "), "استمع للسؤال")} ${escapeHtml(it.q)}</h3>
     <div class="word-bank">${order.map(o => `<button class="word-btn" onclick="answerQuiz(this,'${escapeForAttr(o)}')">${escapeHtml(o)}</button>`).join("")}</div>
     <p id="quizFeedback" style="min-height:24px;font-weight:bold"></p>`;
+  autoSayNow(it.q + "، " + order.join("، أو "));
 }
 function answerQuiz(btn, chosen) {
   const qs = quizState; if (!qs) return;

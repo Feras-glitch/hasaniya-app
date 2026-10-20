@@ -43,7 +43,7 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
     o.orderHidden = getComputedStyle(document.getElementById('orderPart')).display === 'none';
     document.getElementById('introGo').click(); await w(100);
     o.orderShown = getComputedStyle(document.getElementById('orderPart')).display !== 'none' && !document.getElementById('verseIntro');
-    o.toolsTucked = !!document.querySelector('.tool-more #recordBtn');
+    o.toolsTucked = !!document.querySelector('#recBar #listenBtn') && !!document.querySelector('#recBar #recordBtn') && !document.querySelector('.tool-more'); /* v100: شريط ظاهر بلا «⋯» */
     // 2) خطأ ثم خطأ ثم إكمال
     const v = getCurrentVerse().verse;
     const bank = () => [...document.querySelectorAll('#wordsBank .word-btn')];
@@ -95,7 +95,7 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
   need('موضع الفصل بين الشطرين', R.halves);
   need('لا تقديم للبيت الجديد', R.intro && R.introShatr === 2 && R.orderHidden);
   need('زر «أرتّبه الآن» لا يُظهر الترتيب', R.orderShown);
-  need('أدوات التسجيل والنقر ليست تحت «⋯»', R.toolsTucked);
+  need('شريط استمع/سجّل غير ظاهر أو بقيت «⋯»', R.toolsTucked);
   need('الكلمة الخاطئة لم ترتد وحدها', R.bounced && R.dzEmpty);
   need('عدد الأخطاء المسجلة: ' + R.mistakesAdded, R.mistakesAdded === 1);
   need('لم تُضأ الكلمة الصحيحة بعد خطأين', R.hintLit);

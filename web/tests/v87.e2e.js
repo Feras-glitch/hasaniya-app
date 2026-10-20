@@ -150,7 +150,8 @@ function makeZip(name, data, declared) {
   need('بيانات الأطفال التالفة لم تُحفظ خاماً', D.raw === '[{bad');
   need('زر الاستعادة غير موجود في وضع الوالد أو الواجهة فارغة', D.btn && D.hubRows >= 2 && D.hubText);
   await q.evaluate(() => { const i = safetyBackupList().findIndex(e => e.kind === 'آخر نسخة سليمة'); window.__reloaded = false; safetyRestore(i); });
-  await q.waitForTimeout(1500);
+  // ننتظر إعادة التحميل بعد الاستعادة بدل مهلة ثابتة (كانت تفشل أحياناً على جهاز بطيء)
+  await q.waitForTimeout(1500); await q.waitForLoadState('load').catch(() => {}); await q.waitForFunction(() => typeof state !== 'undefined' && state && state.points === 555, null, { timeout: 8000 }).catch(() => {});
   const E = await q.evaluate(() => ({ points: state.points }));
   console.log('after restore', JSON.stringify(E));
   need('الاستعادة من النسخة التلقائية لم ترجّع النقاط: ' + JSON.stringify(E), E.points === 555);

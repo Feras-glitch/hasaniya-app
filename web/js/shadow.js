@@ -39,16 +39,18 @@ function shuffleWords(arr) {
   }
   return a;
 }
-function startTapOrder() {
-  const out = document.getElementById("shadowResult");
-  const cur = getCurrentVerse(); if (!cur || !out) return;
-  let shuffled = cur.verse.words.map((w, i) => ({ w, i }));
+/* يعمل على بيت الدرس الحالي، أو على بيت يُمرَّر من صندوق التدريب ومعه المكان الذي يُعرض فيه */
+function startTapOrder(verse, outEl) {
+  if (!verse && TAP_STATE && TAP_STATE.hub) { verse = TAP_STATE.verse; outEl = TAP_STATE.out; }
+  const out = outEl || document.getElementById("shadowResult");
+  const v = verse || (getCurrentVerse() || {}).verse; if (!v || !out) return;
+  let shuffled = v.words.map((w, i) => ({ w, i }));
   // إن جاء الخلط مطابقاً للأصل نعيد الخلط، حتى لا يكون التمرين محلولاً من البداية
   for (let tries = 0; tries < 5; tries++) {
     shuffled = shuffleWords(shuffled);
     if (shuffled.some((x, k) => x.i !== k)) break;
   }
-  TAP_STATE = { verse: cur.verse, shuffled, picked: [] };
+  TAP_STATE = { verse: v, shuffled, picked: [], out, hub: !!outEl };
   renderTapOrder(out);
 }
 function renderTapOrder(out) {
@@ -64,7 +66,7 @@ function renderTapOrder(out) {
 function pickTapWord(k) {
   const st = TAP_STATE; if (!st || st.picked.includes(k)) return;
   st.picked.push(k);
-  const out = document.getElementById("shadowResult");
+  const out = st.out || document.getElementById("shadowResult");
   if (st.picked.length < st.shuffled.length) { renderTapOrder(out); return; }
   // التحقق بنص الكلمة لا برقمها: إن تكررت كلمة في البيت فتبديل النسختين ليس خطأً
   const got = st.picked.map(j => st.shuffled[j].w);
@@ -84,4 +86,14 @@ function pickTapWord(k) {
       : "الكلمات الحمراء في غير مكانها. جرّب مرة أخرى"}
     ${credit}
     <div class="controls" style="margin-top:8px"><button class="tool-btn" onclick="startTapOrder()">↺ ابدأ من جديد</button></div>`;
+}
+
+/* «رتّب بالنقر» في صندوق التدريب: بيت عشوائي مما رآه الطفل */
+function startTapOrderHub() {
+  const seen = content.journeyData.flatMap(st => st.verses).filter(v => state.seenVerses && state.seenVerses[v.id]);
+  if (!seen.length) { kidToast("ابدأ الرحلة أولاً، ثم تدرّب هنا على ما حفظت", "error"); return; }
+  const v = seen[Math.floor(Math.random() * seen.length)];
+  openHub("👆 رتّب بالنقر", `<div class="verse-text" style="font-size:1rem;color:#666">${escapeHtml(v.event || "")}</div><div id="tapHub"></div>
+    <div class="controls" style="margin-top:8px"><button class="tool-btn" onclick="startTapOrderHub()">🎲 بيت آخر</button></div>`);
+  startTapOrder(v, document.getElementById("tapHub"));
 }

@@ -101,7 +101,7 @@ function askEventBeforeStory(v) {
   const opts = eventChoicesFor(v);
   guideSay("ask", gForm("{N}، ماذا حدث هنا؟ اختر الإجابة الصحيحة 🐪", "{N}، ماذا حدث هنا؟ اختاري الإجابة الصحيحة 🐪"));
   document.getElementById("storyText").innerHTML = `
-    <div style="font-weight:bold;margin-bottom:8px">🧩 قبل القصة: ما الحدث الذي يصفه هذا البيت؟</div>
+    <div style="font-weight:bold;margin-bottom:8px">${sayBtnHTML("ما الحدث الذي يصفه هذا البيت؟ " + opts.join("، أو "), "استمع للسؤال")} 🧩 قبل القصة: ما الحدث الذي يصفه هذا البيت؟</div>
     <div class="word-bank">${opts.map(o => `<button class="word-btn" onclick="answerEventQ(this,'${escapeForAttr(o)}','${v.id}')">${escapeHtml(o)}</button>`).join("")}</div>`;
   document.getElementById("sourcesWrap").style.display = "none";
   document.getElementById("khilafWrap").style.display = "none";
@@ -222,8 +222,6 @@ function renderSettings() {
       ${btn("حسب الجهاز", p.reduceMotion === null || p.reduceMotion === undefined, "setPref('reduceMotion',null)")}${btn("إيقاف", p.reduceMotion === false, "setPref('reduceMotion',false)")}${btn("تشغيل", p.reduceMotion === true, "setPref('reduceMotion',true)")}</div></div>
     <div class="set-row"><div class="set-label">🌐 لغة واجهة الأسرة (المحتوى يبقى عربياً)</div><div class="word-bank">
       ${btn("العربية", p.parentLang !== "en", "setPref('parentLang','ar')")}${btn("English", p.parentLang === "en", "setPref('parentLang','en')")}</div></div>
-    <div class="set-row"><div class="set-label">🐪 صوت ناجي المرشد</div><div class="word-bank">
-      ${btn("تشغيل", p.guideVoice !== false, "setPref('guideVoice',true)")}${btn("إيقاف", p.guideVoice === false, "setPref('guideVoice',false)")}</div></div>
     <div class="set-row"><div class="set-label">🏖️ وضع الإجازة لناجي</div><div class="word-bank">
       ${btn("إيقاف", !p.vacation, "setPref('vacation',false)")}${btn("تشغيل", !!p.vacation, "setPref('vacation',true)")}</div></div>
     <div class="set-row"><div class="set-label">🔔 تذكير لطيف بعد الغياب</div><div class="word-bank">
@@ -313,6 +311,7 @@ function showTrainHub() {
     ${tile("showExercises", "🧭", "تمارين")}
     ${tile("startHideLevels", "🧩", "إخفاء تدريجي")}
     ${tile("showRecallMenu", "🔑", "تذكّر")}
+    ${tile("startTapOrderHub", "👆", "رتّب بالنقر")}
   </div>`);
 }
 function showAchievementsHub() {

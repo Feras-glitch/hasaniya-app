@@ -567,3 +567,14 @@ body.text-big .verse-intro .intro-verse{font-size:1.75rem}
 body.night .verse-intro{background:#2a2620}
 @media (prefers-reduced-motion: reduce){.word-btn.bounce,.verse-intro{animation:none}}
 body.reduce-motion .word-btn.bounce,body.reduce-motion .verse-intro{animation:none}
+/* v100: شريط البيت (استمع / سجّل / صوتي)، وأزرار 🔊 بجانب النصوص، وإعداد القراءة التلقائية */
+.rec-bar{display:flex !important;flex-wrap:nowrap;justify-content:center;gap:10px;max-width:460px;margin:0 auto 14px}
+.rec-bar .big-btn{flex:1 1 0;min-height:58px;font-size:1.15rem;font-weight:bold;border-radius:16px;padding:8px 6px}
+.rec-bar .big-btn:disabled{opacity:.4;cursor:not-allowed}
+.rec-bar .rec-btn.recording{background:var(--danger,#e53935);color:#fff;border-color:var(--danger,#e53935);animation:recPulse 1.2s ease-in-out infinite}
+.say-btn{border:none;background:var(--secondary,#fff3e0);border-radius:50%;width:38px;height:38px;min-width:38px;font-size:1.1rem;cursor:pointer;vertical-align:middle;margin-inline-end:4px}
+.auto-read-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;background:#fff;border:2px solid var(--parent-border);border-radius:14px;padding:10px 14px;margin:0 0 16px;font-weight:bold}
+.auto-read-row .selected-pref{background:var(--parent-border);color:#fff}
+body.night .auto-read-row{background:#1e1e26}
+@media (max-width:360px){.rec-bar .big-btn{font-size:1rem;min-height:52px}}
+body.reduce-motion .rec-bar .rec-btn.recording{animation:none}

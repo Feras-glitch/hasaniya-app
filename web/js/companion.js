@@ -76,7 +76,7 @@ function guideOnWrong() {
     guideSetMood("think", 8000);
     guidePanel("{N}، هذا البيت يحتاج تمهّل. ماذا نفعل معاً؟", [
       { label: "🔊 استمع للبيت", run: () => playVerseAndStory(cur.verse, false) },
-      { label: "🎙️ سجّل صوتك", run: () => toggleRecording() }
+      { label: "🎙️ سجّل صوتك", run: () => recordVerse() }
     ], document.getElementById("recordBtn") || document.getElementById("speakFullBtn"));
     return;
   }
