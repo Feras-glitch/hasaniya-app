@@ -199,8 +199,11 @@ setTimeout(() => {
     const v1 = (await sh(`dumpsys package ${PKG}`)).match(/versionCode=(\d+)/);
     note('تثبيت التحديث');
     await sh(`am force-stop ${PKG}`);
-    await within(120000, device.installApk(fs.readFileSync(process.env.APK_V2), { args: ['-r'] }), 'تثبيت التحديث');
+    await within(120000, device.push(fs.readFileSync(process.env.APK_V2), '/data/local/tmp/v2.apk'), 'نسخ التحديث');
+    const inst = await within(120000, device.shell('pm install -r /data/local/tmp/v2.apk'), 'تثبيت التحديث');
+    note('نتيجة التثبيت: ' + inst.toString().trim());
     const v2 = (await sh(`dumpsys package ${PKG}`)).match(/versionCode=(\d+)/);
+    note('أرقام النسخة بعد التحديث: ' + ((await sh(`dumpsys package ${PKG}`)).match(/versionCode=\d+[^\n]*/g) || []).join(' ؛ '));
     page = await launch();
     const s = await page.evaluate(() => ({ pts: state.points, s1: state.stationStatus.s1, name: getCurrentUser().name }));
     await shot('07_after_update');
