@@ -10,7 +10,7 @@ const PKG = 'com.hasaniya.app';
 const OUT = process.env.OUT_DIR || 'device-results';
 fs.mkdirSync(OUT, { recursive: true });
 const results = [];
-const rec = (n, name, ok, detail, soft) => { results.push({ n, name, ok, detail: String(detail || ''), soft: !!soft }); console.log(`${ok ? '✔' : soft ? '⚠' : '✘'} [${n}] ${name} ${detail || ''}`); console.log(`::${ok ? 'notice' : soft ? 'warning' : 'error'}::[${n}] ${name} ${String(detail || '').slice(0, 200)}`); };
+const rec = (n, name, ok, detail, soft) => { results.push({ n, name, ok, detail: String(detail || ''), soft: !!soft }); console.log(`${ok ? '✔' : soft ? '⚠' : '✘'} [${n}] ${name} ${detail || ''}`); if (!ok) console.log(`::${soft ? 'warning' : 'error'}::[${n}] ${name} ${String(detail || '').slice(0, 200)}`); };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 /* كل خطوة لها مهلة: لا يعلق الاختبار كله إن تعطّلت خطوة واحدة */
 const within = (ms, p, what) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('انتهت المهلة (' + (ms / 1000) + ' ث): ' + (what || ''))), ms))]);
@@ -183,6 +183,8 @@ const note = m => console.log('::notice::' + m);
 
   /* التقرير */
   const hard = results.filter(r => !r.ok && !r.soft), soft = results.filter(r => !r.ok && r.soft);
+  // ملاحظة واحدة تجمع كل البنود (GitHub يعرض 10 ملاحظات فقط لكل خطوة)
+  console.log('::notice::' + results.map(r => `${r.ok ? '✔' : r.soft ? '⚠' : '✘'}${r.n}`).join(' '));
   const md = ['## اختبار الهاتف الافتراضي', '',
     hard.length ? `**فشل ${hard.length} بنداً**` : '**نجحت كل البنود الأساسية**', '',
     '| البند في قائمة الفحص | الاختبار | النتيجة | تفاصيل |', '|---|---|---|---|',

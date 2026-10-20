@@ -60,7 +60,7 @@ jobs:
         run: |
           gradle assembleDebug --no-daemon
           cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/v1.apk"
-          HASANIYA_VERSION_BUMP=1 gradle assembleDebug --no-daemon
+          gradle assembleDebug --no-daemon -PversionBump
           cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/v2.apk"
 
       - name: Enable KVM for the emulator
