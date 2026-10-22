@@ -9,10 +9,12 @@ self.addEventListener("install", e => {
   );
 });
 
+/* يمسح نسخه القديمة فقط (hasaniya-…): على نطاق github.io يعيش تطبيق «واحة اللسان العربي» في الأصل نفسه،
+   ومسح كل ذاكرة غير ذاكرته كان يمحو ذاكرة الواحة فتتوقف عن العمل دون إنترنت */
 self.addEventListener("activate", e => {
   e.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+      Promise.all(keys.filter(k => k.startsWith("hasaniya-") && k !== CACHE).map(k => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
 });
