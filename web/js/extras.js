@@ -41,7 +41,7 @@ th{background:#fce4ec} ul{margin:4px 0;padding-right:18px} .meta{color:#666;font
 <h2>ملخص</h2>
 <div>المحطات المكتملة: ${content.journeyData.filter(s => getStationStatus(s) === "completed").length} من ${content.journeyData.length}</div>
 <div>أبيات أُتقنت: ${mastered}</div>
-<div>تحدّي الأسبوع: ${Object.keys(w.done).length} من 5 (هذا الأسبوع)</div>
+<div>تحدّي الأسبوع: ${weeklyVerseIds(w.week).filter(id => w.done[id]).length} من ${weeklyVerseIds(w.week).length} (هذا الأسبوع)</div>
 <div>الأوسمة: ${escapeHtml(badges)}</div>
 <h2>المحطات</h2>
 <table><tr><th>#</th><th>المحطة</th><th>الحالة</th><th>تاريخ الختم</th></tr>${stationRows}</table>

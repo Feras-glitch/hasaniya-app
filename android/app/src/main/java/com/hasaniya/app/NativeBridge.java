@@ -27,15 +27,19 @@ public class NativeBridge {
     private boolean ttsReady = false;
     private boolean ttsWarned = false;
     private volatile boolean speaking = false;
+    /** حالة محرك النطق للصفحة: init (يبدأ)، ok، noarabic (لا عربية)، none (لا محرك) */
+    private volatile String ttsState = "init";
     private WebView printView;
 
     public NativeBridge(MainActivity act, WebView web) {
         this.act = act;
         this.web = web;
         tts = new TextToSpeech(act, status -> {
+            if (status != TextToSpeech.SUCCESS) ttsState = "none";
             if (status == TextToSpeech.SUCCESS) {
                 int r = tts.setLanguage(new Locale("ar"));
                 ttsReady = r != TextToSpeech.LANG_MISSING_DATA && r != TextToSpeech.LANG_NOT_SUPPORTED;
+                ttsState = ttsReady ? "ok" : "noarabic";
                 tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                     @Override public void onStart(String id) { speaking = true; js("window.__ttsEvent&&window.__ttsEvent('start'," + JSONObject.quote(id) + ")"); }
                     @Override public void onDone(String id) { speaking = false; js("window.__ttsEvent&&window.__ttsEvent('end'," + JSONObject.quote(id) + ")"); }
@@ -59,12 +63,15 @@ public class NativeBridge {
                     ttsWarned = true;
                     Toast.makeText(act, "صوت القراءة العربي غير مثبّت. ثبّته من إعدادات الجهاز > اللغة > تحويل النص إلى كلام", Toast.LENGTH_LONG).show();
                 }
-                js("window.__ttsEvent&&window.__ttsEvent('error'," + JSONObject.quote(id) + ")");
+                // سبب الخطأ يصل إلى الصفحة، فتُسكت القراءة الآلية وتنبّه الوالد بدل الصمت
+                String code = "noarabic".equals(ttsState) ? "language-unavailable" : "none".equals(ttsState) ? "synthesis-unavailable" : "interrupted";
+                js("window.__ttsEvent&&window.__ttsEvent('error'," + JSONObject.quote(id) + "," + JSONObject.quote(code) + ")");
                 return;
             }
             tts.setSpeechRate((float) Math.max(0.1, Math.min(3.0, rate)));
             tts.setPitch((float) Math.max(0.1, Math.min(2.0, pitch)));
-            tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, id);
+            // QUEUE_ADD مثل speechSynthesis في المتصفح: النطق الجديد ينتظر الذي قبله، والإيقاف عبر cancel()
+            tts.speak(text, TextToSpeech.QUEUE_ADD, null, id);
         });
     }
 
@@ -75,6 +82,17 @@ public class NativeBridge {
 
     @JavascriptInterface
     public boolean isSpeaking() { return speaking; }
+
+    @JavascriptInterface
+    public String ttsStatus() { return ttsState; }
+
+    /** ساعة لا يغيّرها المستخدم (منذ تشغيل الجهاز) وعدد مرات التشغيل: لمدة انتظار إلغاء الرقم السري */
+    @JavascriptInterface
+    public String clockInfo() {
+        int boot = -1;
+        try { boot = android.provider.Settings.Global.getInt(act.getContentResolver(), android.provider.Settings.Global.BOOT_COUNT); } catch (Exception e) { }
+        return "{\"mono\":" + android.os.SystemClock.elapsedRealtime() + ",\"boot\":" + boot + "}";
+    }
 
     public void stopSpeech() { cancel(); }
 
@@ -110,6 +128,26 @@ public class NativeBridge {
         if (old == null) return;
         long cutoff = System.currentTimeMillis() - 60L * 60L * 1000L;
         for (File f : old) { if (f.isFile() && f.lastModified() < cutoff) f.delete(); }
+    }
+
+    // ---------- البريد: رسالة جاهزة بشفرة استرجاع الرقم السري ----------
+    /** يفتح تطبيق البريد برسالة جاهزة؛ الوالد هو من يضغط «إرسال». التطبيق نفسه لا يتصل بالإنترنت. */
+    @JavascriptInterface
+    public void sendEmail(String to, String subject, String body) {
+        final String addr = to == null ? "" : to.trim();
+        if (!addr.matches("^[A-Za-z0-9._+-]{1,64}@[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}$")) return;
+        act.runOnUiThread(() -> {
+            String sub = subject == null ? "" : subject, txt = body == null ? "" : body;
+            // العنوان والنص في الرابط وفي الإضافات معاً: بعض تطبيقات البريد تقرأ أحدهما فقط
+            Intent i = new Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + addr + "?subject=" + Uri.encode(sub) + "&body=" + Uri.encode(txt)));
+            i.putExtra(Intent.EXTRA_SUBJECT, sub);
+            i.putExtra(Intent.EXTRA_TEXT, txt);
+            try {
+                act.startActivity(i);
+            } catch (android.content.ActivityNotFoundException e) {
+                Toast.makeText(act, "لا يوجد تطبيق بريد على هذا الجهاز. انسخ الشفرة واحفظها بنفسك", Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
     // ---------- Print ----------

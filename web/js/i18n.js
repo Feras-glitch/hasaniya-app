@@ -55,7 +55,9 @@ const PARENT_EN = {
   "متوسط": "Intermediate",
   "متقدم": "Advanced",
   "حافظ متقن": "Skilled memorizer",
-  "الطفل متقن للحفظ.": "The child has mastered the memorization."
+  "الطفل متقن للحفظ.": "The child has mastered the memorization.",
+  "لم يبدأ الطفل الحفظ بعد.": "The child has not started memorizing yet.",
+  "لا توجد أخطاء مسجّلة حتى الآن.": "No mistakes recorded so far."
 };
 let parentLang = "ar";
 

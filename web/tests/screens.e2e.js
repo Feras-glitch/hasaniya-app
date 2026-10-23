@@ -28,7 +28,7 @@ const { chromium } = require('playwright');
   // S3: الاختبار يُتخطّى بالزر ويكمل المحطة
   await p.evaluate(() => { window.__skipCalled = 0; startStationQuiz(content.journeyData[0], () => { window.__skipCalled++; }); });
   R.quizSkipInit = await act('quizPopup');
-  for (let q = 0; q < 2; q++) { await p.click('#quizBody .word-btn:not(:disabled)'); await p.waitForTimeout(1900); }
+  for (let q = 0; q < 2; q++) { await p.click('#quizBody .word-btn:not(:disabled)'); await p.click('#quizPopup .quiz-next'); await p.waitForTimeout(200); }
   await p.click('#quizSkipBtn'); await p.waitForTimeout(100);
   R.quizAfterSkip = await act('quizPopup');
   R.quizCb = await p.evaluate(() => window.__skipCalled);

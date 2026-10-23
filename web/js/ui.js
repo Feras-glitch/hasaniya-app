@@ -16,7 +16,12 @@ function appDismiss(id) {
   if (!el || !el.classList.contains("active")) return false;
   if (id === "rewardPopup") { closePopup(id); return true; }
   if (id === "pinPopup") { cancelPin(); return true; }
-  if (id === "recPopup") { closePopup(id); return true; }
+  if (id === "pinRecPopup") {
+    // الشفرة ظاهرة الآن ولن تظهر مرة أخرى: لا تُغلق بلمسة خاطئة
+    if (pinRecShownCode) { showToast("احفظ الشفرة ثم اضغط «تم»", "error"); return true; }
+    pinRecPendingCb = null; pinRecClose(); return true;
+  }
+  if (id === "recPopup" || id === "pvPopup") { closePopup(id); return true; }
   el.classList.remove("active");
   if (id === "hubPopup" && typeof placeHubClosed === "function") placeHubClosed();
   return true;

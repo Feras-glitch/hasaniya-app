@@ -27,20 +27,37 @@
       live[id] = u;
       B.speak(id, String(u.text), +u.rate || 1, +u.pitch || 1);
     },
-    cancel: function () { B.cancel(); },
+    /* v103: النطق صار يُصفّ (QUEUE_ADD)، فالإيقاف يُنهي كل ما في الصف، حتى لا يبقى «يتكلم» عالقاً */
+    cancel: function () {
+      B.cancel();
+      var pending = live; live = {};
+      Object.keys(pending).forEach(function (id) {
+        var u = pending[id];
+        if (u && typeof u.onerror === "function") { try { u.onerror({ type: "error", error: "interrupted" }); } catch (e) {} }
+      });
+    },
     pause: function () {},
     resume: function () {},
-    getVoices: function () { return voices; },
+    /* v103: إن لم يكن في محرك النطق عربية (أو لا محرك) تعرف الصفحة ذلك، فتُسكت القراءة وتنبّه الوالد */
+    getVoices: function () {
+      var st = "ok";
+      try { if (typeof B.ttsStatus === "function") st = String(B.ttsStatus()); } catch (e) {}
+      if (st === "noarabic") return [{ name: "Android TTS", lang: "en-US", default: true, localService: true, voiceURI: "android-tts-en" }];
+      if (st === "none") return [];
+      return voices;
+    },
     addEventListener: function () {},
     removeEventListener: function () {}
   };
-  window.__ttsEvent = function (type, id) {
+  window.__ttsEvent = function (type, id, code) {
     var u = live[id]; if (!u) return;
     if (type === "start") { if (typeof u.onstart === "function") u.onstart({ type: "start" }); return; }
     delete live[id];
     var h = type === "end" ? u.onend : u.onerror;
-    if (typeof h === "function") h({ type: type, error: type === "error" ? "interrupted" : undefined });
+    if (typeof h === "function") h({ type: type, error: type === "error" ? (code || "interrupted") : undefined });
   };
+  /* بعد إعادة تحميل الصفحة قد يبقى في صفّ أندرويد كلام قديم: يُوقف مرة عند البدء */
+  try { B.cancel(); } catch (e) {}
   define(window, "SpeechSynthesisUtterance", Utterance);
   define(window, "speechSynthesis", synth);
 

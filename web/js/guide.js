@@ -288,12 +288,7 @@ function setupGuide() {
   }
   // إذا تعثّر الطفل في بيت (دون ضغط لفترة) يعرض ناجي مساعدة محددة لهذا البيت
   setInterval(guideCheckStuck, 5000);
-  // ردّ فعل على كل إجابة خاطئة
-  if (typeof playFail === "function" && !playFail.guided) {
-    const original = playFail;
-    playFail = function () { original(); guideOnWrong(); };
-    playFail.guided = true;
-  }
+  // ردّ ناجي على الخطأ يأتي من الدرس نفسه (game.js) مرة واحدة لكل محاولة، لا من كل صوت خطأ في التطبيق
 }
 document.addEventListener("DOMContentLoaded", setupGuide);
 

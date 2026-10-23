@@ -110,7 +110,9 @@ function validateRecitationDoc(doc) {
   const items = []; let bytes = 0;
   for (const it of doc.items) {
     if (_isObj(it) && typeof it.verseId === "string" && typeof legacyVerseId === "function" && legacyMigrationApplies()) it.verseId = legacyVerseId(it.verseId);
-    if (!_isObj(it) || typeof it.verseId !== "string" || !verseIds.has(it.verseId)) return { ok: false, error: "تسجيل يشير إلى بيت غير موجود" };
+    /* v103: التسميع المتصل يُصدَّر بمعرّف "sec:all" أو "sec:station-3"، ويُقبل */
+    const isSec = _isObj(it) && typeof it.verseId === "string" && /^sec:(all|station-\d{1,2})$/.test(it.verseId);
+    if (!_isObj(it) || typeof it.verseId !== "string" || (!isSec && !verseIds.has(it.verseId))) return { ok: false, error: "تسجيل يشير إلى بيت غير موجود" };
     if (typeof it.mime !== "string" || !SAFE_AUDIO_MIME.test(it.mime)) return { ok: false, error: "نوع صوت غير مقبول في الملف" };
     if (typeof it.data !== "string" || !it.data.length || !SAFE_BASE64.test(it.data)) return { ok: false, error: "بيانات صوت غير صالحة في الملف" };
     bytes += it.data.length;
@@ -131,7 +133,8 @@ function validateEvaluationDoc(doc) {
   const ratings = {};
   for (const k0 of Object.keys(doc.ratings)) {
     const k = (typeof legacyVerseId === "function" && legacyMigrationApplies()) ? legacyVerseId(k0) : k0;
-    if (SAFE_BAD_KEYS.includes(k0) || !verseIds.has(k) || !_isObj(doc.ratings[k0])) continue;
+    const isSec = /^sec:(all|station-\d{1,2})$/.test(k0);   // v103: تقييم التسميع المتصل
+    if (SAFE_BAD_KEYS.includes(k0) || (!isSec && !verseIds.has(k)) || !_isObj(doc.ratings[k0])) continue;
     ratings[k] = sanitizeRating(doc.ratings[k0], evaluator, date);
   }
   if (!Object.keys(ratings).length) return { ok: false, error: "التقييم لا يطابق أبيات هذا التطبيق" };
@@ -170,7 +173,7 @@ function importProgressSafely(data) {
 
 /* ---------- نسخ احتياطية تلقائية قابلة للاستعادة ---------- */
 function _stripUsers(list) {
-  return (list || []).map(u => ({ id: u.id, name: u.name, avatar: u.avatar, gender: u.gender || null, createdAt: u.createdAt, state: u.state }));
+  return (list || []).map(u => ({ id: u.id, name: u.name, avatar: u.avatar, gender: u.gender || null, small: !!u.small, createdAt: u.createdAt, state: u.state }));
 }
 function safetyBackupList() {
   try { const a = JSON.parse(localStorage.getItem(SAFE_BACKUP_KEY) || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; }
@@ -213,21 +216,25 @@ function stashCorruptRaw(key, raw) {
   } catch (e) {}
 }
 
+const USER_ID_RESERVED = ["author", "meta", "x"];
 /* استعادة مستخدمين من قائمة نسخة احتياطية، بعد تنقية حالة كل طفل */
 function restoreUsersFromList(list) {
   if (!Array.isArray(list) || !list.length) return { ok: false, error: "النسخة فارغة" };
   const out = []; const seen = new Set();
   for (const u of list.slice(0, 50)) {
     if (!_isObj(u) || typeof u.name !== "string") continue;
+    // v103: معرّف بحروف غريبة قد يحقن كوداً في الأزرار، و«author» و«meta» محجوزان لحزمة الصوت: يُعطى الطفل معرّفاً جديداً
+    if (u.id != null && (!isSafeId(u.id) || USER_ID_RESERVED.includes(u.id))) u = Object.assign({}, u, { id: null });
     if (typeof u.id === "string" && seen.has(u.id)) continue; // معرّف مكرر: يُحتفظ بالأول فقط
     if (typeof u.id === "string") seen.add(u.id);
     const r = sanitizeImportedState(u.state || {});
     const st = r.ok ? r.state : normalizeUserState({});
     out.push({
-      id: typeof u.id === "string" && u.id ? u.id.slice(0, 60) : "u" + Date.now() + out.length,
+      id: typeof u.id === "string" && u.id ? u.id.slice(0, 60) : "u_" + Date.now() + "_" + out.length + Math.random().toString(36).slice(2, 6),
       name: u.name.slice(0, 30) || "طفلي", avatar: typeof u.avatar === "string" ? u.avatar.slice(0, 4) : "🦁",
       gender: u.gender === "girl" || u.gender === "boy" ? u.gender : null, createdAt: _num(u.createdAt, 0, 9e15, Date.now()),
-      photo: (typeof safeImg === "function" ? safeImg(u.photo) : null) || null, showPhoto: u.showPhoto !== false, parentSig: (typeof safeImg === "function" ? safeImg(u.parentSig) : null) || null, state: st
+      photo: (typeof safeImg === "function" ? safeImg(u.photo) : null) || null, showPhoto: u.showPhoto !== false, parentSig: (typeof safeImg === "function" ? safeImg(u.parentSig) : null) || null, state: st,
+      small: u.small === true
     });
   }
   if (!out.length) return { ok: false, error: "لا أطفال صالحون في النسخة" };

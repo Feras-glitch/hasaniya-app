@@ -130,6 +130,14 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+      - name: Require signed APK
+        run: |
+          # لا تُنشر نسخة للأهالي بتوقيع تجريبي: التحديث فوقها يفشل ويضطر الأهل إلى الحذف وضياع البيانات
+          if [ ! -f dist/hasaniya.apk ]; then
+            echo "::error::لم يُبنَ APK موقّع (أسرار التوقيع غير موجودة). لن يُنشر الإصدار."
+            exit 1
+          fi
+          rm -f dist/hasaniya-debug.apk
       - name: Version
         id: ver
         run: echo "v=$(grep -oP 'versionName "\K[^"]+' android/app/build.gradle)" >> "$GITHUB_OUTPUT"

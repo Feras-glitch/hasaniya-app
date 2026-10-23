@@ -69,6 +69,7 @@ function saveStation() {
   const rn = document.getElementById("stRewardName").value.trim() || "مكافأة";
   const ri = document.getElementById("stRewardIcon").value.trim() || "🏅";
   if (!id || !title) { showToast("المعرّف والعنوان مطلوبان", "error"); return; }
+  if (!isSafeId(id)) { showToast("المعرّف حروف إنجليزية وأرقام فقط، مثل s14", "error"); return; }
   const data = {id, title, icon, reward:{name:rn, icon:ri, unlocked:false}, verses:[]};
   if (editIdx === "") {
     if (content.journeyData.find(s => s.id === id)) { showToast("المعرّف مستخدم", "error"); return; }
@@ -76,8 +77,16 @@ function saveStation() {
     if (content.journeyData.length === 1) state.stationStatus[id] = "current";
   } else {
     const s = content.journeyData[+editIdx];
+    /* v103: تغيير معرّف المحطة لا يُسقط موضع الطفل فيها، ولا يُقبل معرّف مكرر */
+    if (id !== s.id && content.journeyData.some((x, i) => i !== +editIdx && x.id === id)) { showToast("المعرّف مستخدم", "error"); return; }
     data.verses = s.verses;
     data.reward.unlocked = !!state.rewardUnlocked[s.id];
+    if (id !== s.id && typeof users !== "undefined") users.forEach(u => {
+      const st = u.state || {};
+      ["versePositions", "stationStatus", "rewardUnlocked", "charms", "stampDates", "reflections"].forEach(k => {
+        if (st[k] && Object.prototype.hasOwnProperty.call(st[k], s.id)) { st[k][id] = st[k][s.id]; delete st[k][s.id]; }
+      });
+    });
     content.journeyData[+editIdx] = data;
   }
   saveState(); renderEditorStations(); refreshStationSelect(); clearStationForm();
@@ -140,6 +149,7 @@ function sameWordBag(a, b) {
 function verseProblem(v) {
   if (!v || typeof v !== "object") return "بيت غير صالح";
   if (typeof v.id !== "string" || !v.id.trim()) return "معرّف البيت مفقود";
+  if (!isSafeId(v.id)) return "معرّف بيت غير صالح: " + String(v.id).slice(0, 30);
   if (typeof v.fullVerse !== "string" || !v.fullVerse.trim()) return "نص البيت مفقود (" + v.id + ")";
   const strs = a => Array.isArray(a) && a.length >= 2 && a.every(x => typeof x === "string" && x.trim());
   if (v.type === "missing_choice") {
@@ -155,6 +165,7 @@ function journeyProblem(arr) {
   const sids = new Set(), vids = new Set();
   for (const s of arr) {
     if (!s || typeof s.id !== "string" || !s.id.trim() || typeof s.title !== "string" || !s.title.trim()) return "محطة بلا معرّف أو عنوان";
+    if (!isSafeId(s.id)) return "معرّف محطة غير صالح: " + String(s.id).slice(0, 30);
     if (sids.has(s.id)) return "معرّف محطة مكرر: " + s.id;
     sids.add(s.id);
     if (!Array.isArray(s.verses)) return "أبيات المحطة غير صالحة: " + s.id;

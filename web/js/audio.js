@@ -88,6 +88,7 @@ let mediaRecorder = null, recordedChunks = [], mediaStream = null;
 /* v100: التسجيل من شريط البيت (recordVerse) يحفظ تسجيل الطفل لكل بيت. يبقى هذا الاسم لمن يستدعيه */
 async function toggleRecording() { return recordVerse(); }
 function stopMediaStream() {
+  if (typeof recCancel === "function") recCancel();
   if (mediaStream) {
     try { mediaStream.getTracks().forEach(t => t.stop()); } catch(e) {}
     mediaStream = null;
@@ -113,6 +114,9 @@ function showToast(m, t="") {
    النص المعروض لا يتغيّر أبداً؛ هذه التهيئة تُطبَّق لحظة النطق فقط. */
 const TTS_STOP_MARKS = /[\u06D6-\u06ED]/g;
 function ttsWaqfWord(w) {
+  /* v103: لا وقف على ضمير المخاطَب (أحسنتَ/أحسنتِ، لكَ/لكِ): حذف حركته يجعل صيغة البنت صيغة الولد.
+     تاء الضمير يسبقها حرف ساكن (أحسنْتَ)، أما تاء الفعل مثل «سَكَتَ» فيسبقها حرف متحرك فيُوقف عليها */
+  if (/ك[\u064E\u0650]$/u.test(w) || /[\u0621-\u064A]\u0652?ت[\u064E\u0650]$/u.test(w)) return w;
   const m = w.match(/^(.*?[\u0621-\u064A])([\u064B-\u0652\u0670]*)$/u);
   if (!m) return w;
   let base = m[1];
@@ -176,8 +180,16 @@ function audioStopAll(except) {
 function audioBegin() {
   if (recIsActive()) { kidToast(kidLine("stopRecFirst"), "error"); return false; }
   audioStopAll();
+  audioMainMark();
   return true;
 }
+/* v103: صوت «رئيسي» (بيت، قصة، ما ضغطه الطفل) بدأ ولم يصدر صوته بعد (يُجلب من الذاكرة):
+   رسائل ناجي لا تبدأ في هذه اللحظة، فلا يتراكب صوتان */
+let audioMainTok = -1, audioMainAt = 0;
+function audioMainMark() { audioMainTok = seqToken; audioMainAt = Date.now(); }
+function audioMainPending() { return audioMainTok === seqToken && Date.now() - audioMainAt < 1500; }
+/* انتهى الصوت الأساسي: رسالة ناجي التالية لا تنتظر */
+function audioMainClear(token) { if (token === undefined || audioMainTok === token) audioMainTok = -1; }
 /* هل يوجد صوت يُسمع الآن؟ (يمنع ناجي من الكلام فوق الصوت) */
 function audioBusy() {
   if (recIsActive()) return true;

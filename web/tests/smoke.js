@@ -30,7 +30,8 @@ const closeAch = p => p.evaluate(() => document.getElementById("newAchievementPo
   for (let q = 0; q < 3; q++) {
     const txt = await p.evaluate(() => quizState.items[quizState.i].correct);
     await p.locator("#quizBody .word-btn", {hasText: txt}).first().click();
-    await p.waitForTimeout(1900);
+    await p.waitForSelector("#quizPopup .quiz-next", { state: "visible" });
+    await p.click("#quizPopup .quiz-next"); await p.waitForTimeout(150);
   }
   await p.waitForSelector("#rewardPopup.active");
   console.log("ظهرت المكافأة؛ نقاط:", await p.innerText("#pointsBadge"));
@@ -56,7 +57,9 @@ const closeAch = p => p.evaluate(() => document.getElementById("newAchievementPo
   // الشادو والتذكّر والسؤال
   await p.evaluate(() => { document.querySelectorAll(".modal-overlay.active").forEach(m => m.classList.remove("active")); startRecall("keyword"); });
   await p.waitForTimeout(150);
-  console.log("تذكّر بالكلمة المفتاح:", await p.locator("#recallBox, .modal-overlay.active").count() ? "نعم" : "لا");
+  const recallOpen = await p.locator("#recallBox, .modal-overlay.active").count();
+  console.log("تذكّر بالكلمة المفتاح:", recallOpen ? "نعم" : "لا");
+  if (!recallOpen) errs.push("لم يفتح التذكّر بالكلمة المفتاح");
   await p.evaluate(() => { document.querySelectorAll(".modal-overlay.active").forEach(m => m.classList.remove("active")); document.getElementById("askIn") || showAsk(); });
   await p.fill("#askIn", "من أرضع النبي؟"); await p.evaluate(() => runAsk());
   console.log("نتيجة السؤال:", (await p.innerText(".ask-verse").catch(()=>"—")).slice(0,50));

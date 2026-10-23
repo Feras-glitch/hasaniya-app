@@ -27,6 +27,7 @@ function dashRow(d, now = Date.now()) {
   const exported = Date.parse(d.exportedAt) || 0;
   return {
     name: String(d.user.name).slice(0, 30),
+    childId: isSafeId(d.user.id) ? d.user.id : "",
     avatar: String(d.user.avatar || "👤").slice(0, 4),
     percent: Math.max(0, Math.min(100, Math.round(d.mastery.percent))),
     completed: d.completedStations, total: d.totalStations,
@@ -59,6 +60,7 @@ function dashRowFromUser(u, when, now, lookup, mastery, totalStations) {
   const status = s.stationStatus && typeof s.stationStatus === "object" ? s.stationStatus : {};
   return {
     name: String(u.name).slice(0, 30),
+    childId: isSafeId(u.id) ? u.id : "",
     avatar: String(u.avatar || "👤").slice(0, 4),
     percent: Math.max(0, Math.min(100, Math.round(percent))),
     completed: Math.min(totalStations, Object.values(status).filter(v => v === "completed").length),
@@ -71,12 +73,15 @@ function dashRowFromUser(u, when, now, lookup, mastery, totalStations) {
     weak: dashWeakVerses(s, lookup), source: "نسخة", calcFailed
   };
 }
-/* الإبقاء على أحدث صف لكل طفل */
+/* الإبقاء على أحدث صف لكل طفل. الطفل يُعرف برقمه الخاص (طفلان باسم واحد لا يندمجان)،
+   والملف القديم بلا رقم يُلحق بالطفل الذي يحمل اسمه إن كان واحداً فقط */
 function dashMerge(rows) {
   const by = new Map();
-  for (const r of rows) {
-    const old = by.get(r.name);
-    if (!old || (r.exportedAt || "") > (old.exportedAt || "")) by.set(r.name, r);
+  const put = (k, r) => { const old = by.get(k); if (!old || (r.exportedAt || "") > (old.exportedAt || "")) by.set(k, r); };
+  rows.filter(r => r.childId).forEach(r => put("id:" + r.childId, r));
+  for (const r of rows.filter(r => !r.childId)) {
+    const same = [...by.entries()].filter(([k, x]) => k.startsWith("id:") && x.name === r.name);
+    put(same.length === 1 ? same[0][0] : "name:" + r.name, r);
   }
   return [...by.values()];
 }

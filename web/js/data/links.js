@@ -56,7 +56,36 @@ const QURAN_LINKS = {
 };
 
 const GLOSSARY = [
+  { term: "سَرْمَداً", meaning: "دائماً بلا انقطاع", ref: "s1v2" },
+  { term: "الوَرَى", meaning: "الخلق", ref: "s1v4" },
+  { term: "غُرّة", meaning: "غُرّة الشهر: أوّله", ref: "s2v2" },
+  { term: "الرّائِم", meaning: "العطوفة المحبّة", ref: "s2v5" },
   { term: "الأبواء", meaning: "موضع بين مكة والمدينة", ref: "s2v8" },
+  { term: "النِّحرير", meaning: "العالم الحاذق", ref: "s3v8" },
   { term: "بحيرى", meaning: "راهب في الشام رأى علامات النبوة عند النبي ﷺ في رحلته مع عمّه", ref: "s3v8" },
-  { term: "الغار", meaning: "غار ثور، دخله النبي ﷺ وأبو بكر رضي الله عنه في الهجرة", ref: "s11av5" }
+  { term: "الجبين الزاهي", meaning: "الجبهة المضيئة", ref: "s4v6" },
+  { term: "نَفْحُ الشَّذا", meaning: "انتشار الرائحة الطيبة", ref: "s4v7" },
+  { term: "صِيتُه", meaning: "ذِكره الحسن", ref: "s4v8" },
+  { term: "المستوحَشة", meaning: "التي صارت موحشة", ref: "s7v2" },
+  { term: "الجِوار", meaning: "الحماية", ref: "s7v6" },
+  { term: "الفَذّ", meaning: "الفريد", ref: "s8v1" },
+  { term: "الضَّنا", meaning: "التعب والمرض", ref: "s8v3" },
+  { term: "المبشَّر", meaning: "الذي بشّرت به الأنبياء", ref: "s10v10" },
+  { term: "توانى", meaning: "تأخّر وتكاسل", ref: "s10v13" },
+  { term: "مُلتفِعاً", meaning: "متغطّياً بثوبه", ref: "s11av3" },
+  { term: "الغار", meaning: "غار ثور، دخله النبي ﷺ وأبو بكر رضي الله عنه في الهجرة", ref: "s11av5" },
+  { term: "التمويه", meaning: "إخفاء الأثر لتضليل الطالب", ref: "s11av6" },
+  { term: "اقتصّهم", meaning: "تتبّع آثارهم", ref: "s11av9" },
+  { term: "ساخ", meaning: "غاص في الأرض", ref: "s11av11" },
+  { term: "خِرِّيت", meaning: "دليل ماهر بالطرق", ref: "s11bv1" },
+  { term: "أناخ", meaning: "أبرك البعير", ref: "s11bv2" },
+  { term: "جَمَّع", meaning: "صلّى الجمعة", ref: "s11bv5" },
+  { term: "ابتاع", meaning: "اشترى", ref: "s11bv6" },
+  { term: "وادَع", meaning: "صالح وعاهد", ref: "s12av1" },
+  { term: "الصَّولات", meaning: "الحملات", ref: "s12av6" },
+  { term: "أصرح القولين", meaning: "أوضحهما", ref: "s12bv2" },
+  { term: "ثنايا العام", meaning: "أثناؤه", ref: "s12bv3" },
+  { term: "الأغرّ", meaning: "المشرق الوجه الكريم", ref: "s12cv10" },
+  { term: "يصول", meaning: "يحمل على العدو بشجاعة", ref: "s13v3" },
+  { term: "يُجلي", meaning: "يُخرج من الديار", ref: "s13v11" }
 ];

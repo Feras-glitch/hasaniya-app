@@ -12,7 +12,7 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
   p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d => d.accept());
   await p.addInitScript(() => {
     window.__said = []; window.__played = [];
-    const fake = { speaking: false, pending: false, paused: false, speak(u) { window.__said.push(u.text); }, cancel() {}, getVoices() { return []; }, pause() {}, resume() {}, onvoiceschanged: null, addEventListener() {} };
+    const fake = { speaking: false, pending: false, paused: false, speak(u) { window.__said.push(u.text); setTimeout(() => { if (u.onend) u.onend({}); }, 5); }, cancel() {}, getVoices() { return [{ name: 'ar', lang: 'ar-SA' }]; }, pause() {}, resume() {}, onvoiceschanged: null, addEventListener() {} };
     Object.defineProperty(window, 'speechSynthesis', { configurable: true, get: () => fake });
   });
   await p.goto(URL); await p.waitForTimeout(900);
@@ -21,6 +21,8 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
     document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
     const u = getCurrentUser(); u.gender = 'boy'; u.name = 'عمر'; saveState();
     try { vpPref('onboarded', true); } catch (e) {}
+    /* v103: الصوت المعطوب يرجع إلى القراءة الآلية؛ التسجيلات الوهمية هنا ليست صوتاً حقيقياً فلا مصدر لها */
+    window.blobAudio = () => new Audio();
     window.audioPlayEl = a => { window.__played.push(1); liveAudios.add(a); setTimeout(() => { liveAudios.delete(a); if (a.onended) a.onended(); }, 20); return Promise.resolve(); };
     const blob = () => new Blob([new Uint8Array(3000).fill(5)], { type: 'audio/webm' });
     const putLine = async text => { const t = voicePretty(cleanSpeech(text)); await recPut({ key: lineKey(t), verseId: lineId(t), kind: 'line', uid: 'author', mime: 'audio/webm', blob: blob(), fp: lineId(t), text: t, at: Date.now() }); };
@@ -44,7 +46,9 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
     const panel = (document.getElementById('guideBubble').textContent || '');
     o.panelDigits = digits.test(panel);
     o.panelSaid = window.__said.join(' | ');
-    o.panelOk = !window.__said.some(t => digits.test(t)) && window.__said.some(t => /المحطة الحالي/.test(t)) && window.__said.some(t => normalizeArabic(voiceNorm(t)) === normalizeArabic(voiceNorm(content.journeyData[0].title))) && window.__said.some(t => /صباح|مساء|جمعة/.test(t));
+    // v103: الأجزاء الآلية المتتالية تُقرأ جملة واحدة
+    const saidAll = normalizeArabic(voiceNorm(window.__said.join(' ')));
+    o.panelOk = !window.__said.some(t => digits.test(t)) && /المحطه الحالي/.test(saidAll) && saidAll.includes(normalizeArabic(voiceNorm(content.journeyData[0].title))) && /صباح|مساء|جمعه/.test(saidAll);
     guideHidePanel();
     // 3) الأسماء والأوسمة
     const titles = voiceRegistry().items.filter(i => i.section === 'titles').map(i => i.text);
@@ -61,11 +65,12 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
     u.small = true; saveState(); updateUserChip();
     o.bodyClass = document.body.classList.contains('small-kid');
     o.toolsHidden = getComputedStyle(document.getElementById('toolsBtn')).display === 'none';
+    state.seenVerses = Object.assign(state.seenVerses || {}, { s1v1: true });   // v103: ألغاز الأبيات المرئية فقط
     reset(); startRecall('riddle'); await w(200);
     const r = recallQ.items[0];
     const ow = [...document.querySelectorAll('#hubBody .opt-wrap')];
     o.riddleChoices = ow.length === 3 && ow.some(x => x.textContent.includes(r.answer)) && !document.querySelector('#hubBody input:not([type=hidden])');
-    o.riddleSaid = window.__said.includes(r.riddle);
+    o.riddleSaid = window.__said.some(t => t.startsWith(r.riddle));
     const wrong = ow.map(x => x.querySelector('.word-btn')).find(x => stripAl(x.textContent) !== stripAl(r.answer));
     wrong.click(); await w(50);
     o.wrongDisabled = wrong.disabled && /حاول/.test(document.getElementById('riddleMsg').textContent);

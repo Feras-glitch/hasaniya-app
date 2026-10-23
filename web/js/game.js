@@ -343,6 +343,8 @@ function checkChoice(btn, selected) {
       recordVerseStat(verse.id, false);
       addMistake(activeVariant || verse, verse.correctWord, station.id);
     }
+    // ناجي يعدّ الخطأ (ومساعدته بعد الخطأ الثالث)، ثم تُسمع الكلمة الصحيحة فتحلّ محل ردّه
+    if (typeof guideOnWrong === "function") guideOnWrong();
     kidToast(kidLine("correctIs") + " " + verse.correctWord, "", [kidLine("correctIs"), verse.correctWord]);
     reloadVerseLater(1500);
   }
@@ -548,7 +550,10 @@ function askPlaceAfterLesson(visit, done) {
   placeHubDone = done;
   const token = done;
   const verse = vpFindVerse(visit.ref);
-  const others = Object.keys(GEO_PLACES).filter(n => n !== visit.place);
+  // أماكن متقاربة جداً (مكة وحراء والعقبة وثور) لا تصلح مشتّتاً بعضها لبعض
+  const at = GEO_PLACES[visit.place];
+  const near = (n) => at && GEO_PLACES[n] && Math.hypot(GEO_PLACES[n].lon - at.lon, GEO_PLACES[n].lat - at.lat) < 0.2;
+  const others = Object.keys(GEO_PLACES).filter(n => n !== visit.place && !near(n));
   const opts = shuffleWords([visit.place, ...shuffleWords(others).slice(0, 2)]);
   const body = document.getElementById("hubBody");
   document.getElementById("hubTitle").textContent = "📍 أين وقع هذا؟";

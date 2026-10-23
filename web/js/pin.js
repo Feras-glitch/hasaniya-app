@@ -89,6 +89,7 @@ function showPinModal(title, subtitle) {
   document.getElementById("pinInput").value = "";
   document.getElementById("pinConfirm").value = "";
   document.getElementById("pinConfirmWrap").style.display = pinMode === "set" ? "block" : "none";
+  const fb = document.getElementById("pinForgotBtn"); if (fb) fb.style.display = pinMode === "set" ? "none" : "";
   document.getElementById("pinError").textContent = "";
   document.getElementById("pinPopup").classList.add("active");
   setTimeout(() => { const i = document.getElementById("pinInput"); if (i) i.focus(); }, 100);
@@ -105,7 +106,14 @@ function pinLockMessage(ms) {
   const s = Math.ceil(ms / 1000), m = Math.floor(s / 60);
   return "محاولات كثيرة خاطئة. حاول بعد " + (m >= 1 ? m + " دقيقة" : s + " ثانية");
 }
+/* محاولة واحدة في كل مرة: الضغط المتكرر أثناء التحقق لا يتجاوز عدّاد المحاولات */
+let pinBusy = false;
 async function submitPin() {
+  if (pinBusy) return;
+  pinBusy = true;
+  try { await submitPinNow(); } finally { pinBusy = false; }
+}
+async function submitPinNow() {
   const pin = document.getElementById("pinInput").value.trim();
   const confirm = document.getElementById("pinConfirm").value.trim();
   const err = document.getElementById("pinError");
@@ -120,19 +128,26 @@ async function submitPin() {
     if (!nh) { err.textContent = "هذا المتصفح لا يدعم حفظ الرقم بأمان. افتح التطبيق من متصفح حديث أو من تطبيق الأندرويد"; return; }
     parentPinHash = nh;
     try { localStorage.setItem(STORAGE_PIN, parentPinHash); } catch(e) {}
+    if (typeof pinRecClearReset === "function") pinRecClearReset();   // من يضبط الرقم يعرفه: لا انتظار لإلغائه
     closePopup("pinPopup");
     showToast("تم ضبط الرقم السري", "success");
     updatePinStatus();
     const cb = pinCallback; pinCallback = null;
+    // بعد ضبط الرقم: شفرة الاسترجاع إن لم تكن موجودة، ثم ما طُلب
+    if (typeof pinRecMaybeOffer === "function" && pinRecMaybeOffer(cb)) return;
     if (cb) setTimeout(cb, 200);
     return;
   }
   const lock = pinLockState();
   if (lock.until > Date.now()) { err.textContent = pinLockMessage(lock.until - Date.now()); document.getElementById("pinInput").value = ""; return; }
   const ok = await verifyPin(pin);
-  if (ok) pinLockSave({ fails: 0, until: 0 });
+  if (ok) {
+    pinLockSave({ fails: 0, until: 0 });
+    // من أدخل الرقم صحيحاً يعرفه: طلب إلغاء الرقم بالانتظار يسقط (فلا يكمله طفل بدأه)
+    if (typeof pinRecClearReset === "function") pinRecClearReset();
+  }
   if (!ok && !pinUnavailable) {
-    const fails = lock.fails + 1;
+    const fails = pinLockState().fails + 1;
     const next = { fails, until: 0 };
     if (fails % 5 === 0) next.until = Date.now() + Math.min(15 * 60000, 60000 * Math.pow(2, fails / 5 - 1));
     pinLockSave(next);
@@ -148,6 +163,8 @@ async function submitPin() {
   closePopup("pinPopup");
   const cb = pinCallback; pinCallback = null;
   if (cb) setTimeout(cb, 100);
+  // من عنده رقم قديم بلا شفرة استرجاع: تُعرض عليه عند دخول منطقة الوالدين
+  if (typeof showParentScreen === "function" && cb === showParentScreen && typeof pinRecMaybeOffer === "function") setTimeout(() => pinRecMaybeOffer(), 700);
 }
 
 function cancelPin() {
@@ -155,20 +172,7 @@ function cancelPin() {
   closePopup("pinPopup");
 }
 
-function forgotPin() {
-  if (!confirm("لا يمكن استرجاع الرقم السري. الحل الوحيد هو حذف كل البيانات وإعادة ضبط التطبيق.\n\nهل تريد المتابعة؟")) return;
-  if (users && users.length && confirm("هل تريد تنزيل نسخة احتياطية لتقدّم الأطفال أولاً؟\n(موافق = تنزيل ثم متابعة المسح)")) {
-    exportBackup();
-  }
-  if (!confirm("تأكيد أخير: سيتم مسح كل شيء نهائياً من هذا الجهاز.")) return;
-  setTimeout(() => {
-    try {
-      [STORAGE_CONTENT, STORAGE_USERS, STORAGE_ACTIVE, STORAGE_PIN,
-       OLD_V12_CONTENT, OLD_V12_USERS, OLD_V12_ACTIVE, OLD_V12_PIN].forEach(k => localStorage.removeItem(k));
-    } catch(e) {}
-    location.reload();
-  }, 1500);
-}
+/* «نسيت الرقم؟» في js/pinrecovery.js: شفرة استرجاع من البريد، أو انتظار 48 ساعة. لا يُمسح شيء */
 
 function managePin() {
   updatePinStatus();
@@ -177,13 +181,23 @@ function managePin() {
 
 function updatePinStatus() {
   const t = document.getElementById("pinStatusText");
+  const rb = document.getElementById("pinRecBtn");
   if (hasPin()) {
-    t.textContent = "✅ الرقم السري مُفعَّل. المحرر والتصفير وإدارة المستخدمين محمية.";
+    const rec = typeof hasPinRecovery === "function" && hasPinRecovery();
+    t.textContent = "✅ الرقم السري مُفعَّل. المحرر والتصفير وإدارة المستخدمين محمية." +
+      (rec ? " 🔑 شفرة الاسترجاع محفوظة في بريدك." : " ⚠️ لا توجد شفرة استرجاع بعد.");
     document.getElementById("removePinBtn").style.display = "inline-block";
+    if (rb) { rb.style.display = ""; rb.textContent = rec ? "🔑 شفرة استرجاع جديدة" : "🔑 إنشاء شفرة الاسترجاع"; }
   } else {
     t.textContent = "⚠️ لا يوجد رقم سري حالياً. المناطق الحساسة غير محمية.";
     document.getElementById("removePinBtn").style.display = "none";
+    if (rb) rb.style.display = "none";
   }
+}
+
+function newRecoveryCode() {
+  closePopup("managePinPopup");
+  requirePin(() => setTimeout(() => pinRecSetup(), 200), "أدخل الرقم السري لإنشاء شفرة استرجاع");
 }
 
 function changePin() {
@@ -208,6 +222,7 @@ function removePin() {
     if (!confirm("إزالة الرقم السري؟ سيتمكن أي شخص من الوصول للمحرر والتصفير.")) return;
     parentPinHash = null;
     try { localStorage.removeItem(STORAGE_PIN); } catch(e) {}
+    if (typeof pinRecForget === "function") pinRecForget();
     showToast("تمت إزالة الرقم السري", "success");
     updatePinStatus();
   }, "أدخل الرقم الحالي");

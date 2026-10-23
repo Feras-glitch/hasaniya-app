@@ -288,10 +288,6 @@
   <div class="modal-overlay" id="recPopup">
     <div class="modal-content" style="max-width:560px;text-align:right">
       <h2 style="color:var(--primary);margin-top:0;text-align:center">🎤 تسجيلاتي</h2>
-      <select id="recMode" onchange="setRecMode(this.value)" style="width:100%;padding:8px;border-radius:10px;font-family:inherit;margin-bottom:8px">
-        <option value="child">🎤 تسجيلي للأبيات</option>
-        <option value="parent">👤 صوت الوالد للقصص</option>
-      </select>
       <p id="recPrivacy" class="rec-privacy"></p>
       <div class="rec-storage">
         <span id="recStorage"></span>
@@ -362,7 +358,7 @@
 
   <div class="modal-overlay" id="timelinePopup">
     <div class="modal-content" style="max-width:520px">
-      <h2 style="color:var(--primary);margin-top:0">🕰️ رحلة السيرة</h2>
+      <h2 style="color:var(--primary);margin-top:0">🕰️ ترتيب الأحداث في المنظومة</h2>
       <div id="timelineList"></div>
       <button class="action-btn btn-gray" onclick="closePopup('timelinePopup')" style="width:100%;margin-top:12px">إغلاق</button>
     </div>
@@ -581,7 +577,7 @@
         <button class="action-btn btn-success" onclick="submitPin()">تأكيد</button>
         <button class="action-btn btn-gray" onclick="cancelPin()">إلغاء</button>
       </div>
-      <button onclick="forgotPin()" style="background:none;border:none;color:#999;margin-top:14px;cursor:pointer;font-size:.82rem;text-decoration:underline;font-family:inherit">
+      <button id="pinForgotBtn" onclick="forgotPin()" style="background:none;border:none;color:#999;margin-top:14px;cursor:pointer;font-size:.82rem;text-decoration:underline;font-family:inherit">
         نسيت الرقم؟
       </button>
     </div>
@@ -593,11 +589,16 @@
       <p style="color:#666;font-size:.9rem;margin-top:0" id="pinStatusText"></p>
       <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px">
         <button class="action-btn btn-info" onclick="changePin()" id="changePinBtn">تغيير الرقم السري</button>
+        <button class="action-btn btn-info" onclick="newRecoveryCode()" id="pinRecBtn">🔑 إنشاء شفرة الاسترجاع</button>
         <button class="action-btn btn-danger" onclick="removePin()" id="removePinBtn">إزالة الرقم السري</button>
         <button class="action-btn btn-gray" onclick="closePopup('managePinPopup')">إغلاق</button>
       </div>
     </div>
   </div>
+</div>
+
+<div class="modal-overlay" id="pinRecPopup">
+  <div class="modal-content" style="max-width:420px;text-align:right" id="pinRecBody"></div>
 </div>
 
 <canvas id="confettiCanvas"></canvas>
@@ -618,6 +619,7 @@
 <script src="js/storage.js"></script>
 <script src="js/safety.js"></script>
 <script src="js/pin.js"></script>
+<script src="js/pinrecovery.js"></script>
 <script src="js/users.js"></script>
 <script src="js/progress.js"></script>
 <script src="js/audio.js"></script>

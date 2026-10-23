@@ -4,7 +4,7 @@ function exportBackup() {
     const data = {
       app: "hasaniya", format: 1, exportedAt: new Date().toISOString(),
       note: "هذه النسخة لا تشمل التسجيلات الصوتية، لأنها محفوظة في قاعدة منفصلة على الجهاز.",
-      users: users.map(u => ({ id: u.id, name: u.name, avatar: u.avatar, gender: u.gender || null, photo: u.photo || null, showPhoto: u.showPhoto !== false, parentSig: u.parentSig || null, createdAt: u.createdAt, state: u.state }))
+      users: users.map(u => ({ id: u.id, name: u.name, avatar: u.avatar, gender: u.gender || null, small: !!u.small, photo: u.photo || null, showPhoto: u.showPhoto !== false, parentSig: u.parentSig || null, createdAt: u.createdAt, state: u.state }))
     };
     const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
     const url = URL.createObjectURL(blob);

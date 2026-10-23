@@ -113,6 +113,9 @@ function deleteUser(id) {
   if (!u) return;
   if (!confirm(`حذف ملف "${u.name}" وكل تقدمه؟ لا يمكن التراجع.`)) return;
   users = users.filter(x => x.id !== id);
+  /* v103: تسجيلات صوت الطفل تُحذف معه (خصوصية)، ولا تبقى في ذاكرة الجهاز */
+  if (typeof recAllForUser === "function" && id !== "author" && id !== "meta")
+    recAllForUser(id).then(list => Promise.all(list.filter(r => !String(r.key).startsWith("author|") && !String(r.key).startsWith("meta|")).map(r => recDelete(r.key)))).catch(() => {});
   if (activeUserId === id) {
     activeUserId = users[0].id;
     state = users[0].state;

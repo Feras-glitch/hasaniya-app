@@ -11,7 +11,7 @@ const TOOLS = [
   {icon: "⚡", name: "التحديات", fn: "showChallengesHub"},
   {icon: "💬", name: "اسأل المنظومة", fn: "showAsk"},
   {icon: "🖨️", name: "بطاقات للطباعة", fn: "printAllCards"},
-  {icon: "🕰️", name: "الزمن", fn: "showTimeline"},
+  {icon: "🕰️", name: "ترتيب الأحداث", fn: "showTimeline"},
   {icon: "📜", name: "الأبيات", fn: "showPoem"},
   {icon: "🎤", name: "تسجيلاتي", fn: "openRecPopup"}
 ];
@@ -89,12 +89,24 @@ function khilafPick(id, i, btn) {
   document.getElementById("khilafReply").innerHTML =
     `${gForm("اخترتَ", "اخترتِ")} «${escapeHtml(k.sides[i].who)}». ${gForm("أحسنتَ", "أحسنتِ")} التفكير! اسأل نفسك: ما الدليل الذي يقوي هذا القول؟ وهل نعرف رأي الآخر؟ وإن لم تجد الجواب الحاسم، فقل: «لا أعرف بعد»، وهذه من الأمانة في العلم.`;
 }
+/* المشتّتات من محطات أخرى، ولا تشترك مع الجواب في كلمة مهمة، حتى لا يكون المشتّت صحيحاً أيضاً */
+const EVENT_STOP = new Set(["نبي", "رسول", "الله", "صلي", "عليه", "سلم", "اول", "بعد", "قبل", "مع", "الي", "في", "من", "عن", "علي", "ثم"]);
+function eventWords(e) {
+  return new Set(normalizeArabic(e).split(" ").map(t => t.replace(/^(و|ف|ب|ل)?ال/, "")).filter(t => t.length >= 3 && !EVENT_STOP.has(t)));
+}
 function eventChoicesFor(v) {
-  const others = [];
+  const mine = eventWords(v.event);
+  const home = content.journeyData.find(st => st.verses.some(x => x.id === v.id));
+  const far = [], near = [];
   content.journeyData.forEach(st => st.verses.forEach(x => {
-    if (x.id !== v.id && x.event && x.event !== v.event && !others.includes(x.event)) others.push(x.event);
+    if (x.id === v.id || !x.event || normalizeArabic(x.event) === normalizeArabic(v.event)) return;
+    if (far.includes(x.event) || near.includes(x.event)) return;
+    const overlap = [...eventWords(x.event)].some(t => mine.has(t));
+    (st !== home && !overlap ? far : near).push(x.event);
   }));
-  return [v.event, ...others.sort(() => Math.random() - .5).slice(0, 2)].sort(() => Math.random() - .5);
+  const pick = far.sort(() => Math.random() - .5).slice(0, 2);
+  if (pick.length < 2) pick.push(...near.sort(() => Math.random() - .5).slice(0, 2 - pick.length));
+  return [v.event, ...pick].sort(() => Math.random() - .5);
 }
 /* قبل القصة: سؤال واحد عن حدث البيت، ثم تظهر القصة مباشرة */
 function askEventBeforeStory(v) {
@@ -303,6 +315,7 @@ function openReviewHub() {
     ${tile("startReview", "🎯", "مراجعة الأخطاء", mistakes)}
     ${tile("showMistakesReview", "🧠", "عرض الأخطاء", mistakes)}
     ${tile("showLeitnerBoxes", "🗃️", "صناديق الحفظ", 0)}
+    ${typeof isSmallKid === "function" && isSmallKid() ? tile("startRiddles", "🧩", "الألغاز", 0) : ""}
   </div>`);
 }
 function showTrainHub() {

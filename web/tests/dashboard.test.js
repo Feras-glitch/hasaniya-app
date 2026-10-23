@@ -4,7 +4,8 @@ const path = require("path");
 const vm = require("vm");
 const assert = require("assert");
 const src = fs.readFileSync(path.join(__dirname, "..", "js", "dashboard.js"), "utf8");
-const D = vm.runInNewContext(src + "\n;({ dashValid, dashValidBackup, dashRow, dashRowFromUser, dashWeakVerses, dashMerge })", { Date, Math, Map, Number, String, Array, Object, isFinite, Date: Date });
+const D = vm.runInNewContext(src + "\n;({ dashValid, dashValidBackup, dashRow, dashRowFromUser, dashWeakVerses, dashMerge })", { Date, Math, Map, Number, String, Array, Object, isFinite, Date: Date,
+  isSafeId: s => typeof s === "string" && /^[A-Za-z0-9_-]{1,60}$/.test(s) });
 
 const report = (name, exportedAt, extra = {}) => Object.assign({
   exportedAt, user: { name, avatar: "🌸" }, mastery: { percent: 72.4, stars: 3, level: "x" },
@@ -35,6 +36,17 @@ const merged = D.dashMerge([
 ]);
 assert.strictEqual(merged.length, 2);
 assert.strictEqual(merged.find(x => x.name === "ليلى").completed, 6);
+// طفلان باسم واحد من بيتين مختلفين لا يندمجان، والتقرير القديم بلا رقم يُلحق بصاحب الاسم الوحيد
+const twins = D.dashMerge([
+  D.dashRow(report("محمد", "2026-10-05T00:00:00Z", { user: { name: "محمد", id: "u_1_aa" } })),
+  D.dashRow(report("محمد", "2026-10-06T00:00:00Z", { user: { name: "محمد", id: "u_2_bb" } })),
+  D.dashRow(report("سارة", "2026-10-07T00:00:00Z", { user: { name: "سارة", id: "u_3_cc" }, completedStations: 7 })),
+  D.dashRow(report("سارة", "2026-10-01T00:00:00Z"))
+]);
+assert.strictEqual(twins.filter(x => x.name === "محمد").length, 2);
+assert.strictEqual(twins.filter(x => x.name === "سارة").length, 1);
+assert.strictEqual(twins.find(x => x.name === "سارة").completed, 7);
+assert.strictEqual(D.dashRow(report("x", "2026-10-07T00:00:00Z", { user: { name: "x", id: "<bad>" } })).childId, "");
 // النسخة الاحتياطية
 const backup = { app: "hasaniya", format: 1, exportedAt: "2026-10-13T00:00:00Z", users: [
   { id: "a", name: "نور", avatar: "🌟", photo: "data:image/png;base64,AAAA", parentSig: "data:image/png;base64,AAAA",

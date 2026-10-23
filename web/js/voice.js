@@ -32,12 +32,12 @@ const KID_LINES = {
   correctIs: ["💡 الصحيح هو:"],
   answerIs: ["الجواب:"],
   allDone: ["🎉 أكملتَ كل المحطات", "🎉 أكملتِ كل المحطات"],
-  lessonDone: ["أحسنتَ! انتهى درس اليوم، ويبقى الباقي لغداً 🐪", "أحسنتِ! انتهى درس اليوم، ويبقى الباقي لغداً 🐪"],
+  lessonDone: ["أحسنتَ! انتهى درس اليوم، ويبقى الباقي للغد 🐪", "أحسنتِ! انتهى درس اليوم، ويبقى الباقي للغد 🐪"],
   noMistakes: ["لا توجد أخطاء، أحسنتَ!", "لا توجد أخطاء، أحسنتِ!"],
   weeklyDone: ["🏅 أتممتَ تحدّي الأسبوع!", "🏅 أتممتِ تحدّي الأسبوع!"],
-  reflectionSaved: ["حفظتَ تأمّلك، شكراً لك ✨", "حفظتِ تأمّلكِ، شكراً لكِ ✨"],
-  recallGreat: ["ممتاز! ذاكرتك قوية."],
-  recallKeep: ["كل مرة تُعيد فيها البيت تقوى ذاكرتك.", "كل مرة تُعيدين فيها البيت تقوى ذاكرتك."],
+  reflectionSaved: ["حفظتَ تأمّلَكَ، شكراً لَكَ ✨", "حفظتِ تأمّلَكِ، شكراً لَكِ ✨"],
+  recallGreat: ["ممتاز! ذاكرتُكَ قوية.", "ممتاز! ذاكرتُكِ قوية."],
+  recallKeep: ["كل مرة تُعيد فيها البيت تقوى ذاكرتُكَ.", "كل مرة تُعيدين فيها البيت تقوى ذاكرتُكِ."],
   exGreat: ["ممتاز!"],
   exKeep: ["كل تمرين يقوّي ما حفظته.", "كل تمرين يقوّي ما حفظتِه."],
   // تعليمات
@@ -47,11 +47,11 @@ const KID_LINES = {
   eventQ: ["قبل القصة: ما الحدث الذي يصفه هذا البيت؟"],
   // ناجي
   askEvent: ["{N}، ماذا حدث هنا؟ اختر الإجابة الصحيحة 🐪", "{N}، ماذا حدث هنا؟ اختاري الإجابة الصحيحة 🐪"],
-  hardVerse: ["{N}، هذا البيت يحتاج تمهّل. ماذا نفعل معاً؟"],
+  hardVerse: ["{N}، هذا البيت يحتاج إلى تمهّل. ماذا نفعل معاً؟"],
   newVerseMeaning: ["{N}، بيت جديد! هل تريد معرفة معناه قبل أن نقرأه؟", "{N}، بيت جديد! هل تريدين معرفة معناه قبل أن نقرأه؟"],
-  helperForgot: ["{N}، نسيتُ أول كلمة في هذا البيت! هل تساعدني؟"],
+  helperForgot: ["{N}، نسيتُ أول كلمة في هذا البيت! هل تساعدني؟", "{N}، نسيتُ أول كلمة في هذا البيت! هل تساعدينني؟"],
   helperNotThis: ["{N}، ليس هذا، جرّب مرة أخرى 🌿", "{N}، ليس هذا، جرّبي مرة أخرى 🌿"],
-  helperThanks: ["شكراً! ساعدتني فتذكّرتُ الآن 🐪"],
+  helperThanks: ["شكراً! ساعدتَني فتذكّرتُ الآن 🐪", "شكراً! ساعدتِني فتذكّرتُ الآن 🐪"],
   foundMe: ["وجدتَني {N}! 🎉 أضفتُ ختماً خاصاً إلى دفترك", "وجدتِني {N}! 🎉 أضفتُ ختماً خاصاً إلى دفترك"],
   vacation: ["ناجي في إجازة 🏖️ يعود حين تُفعّله من الإعدادات."],
   needHelp: ["{N}، تحتاج مساعدة؟ استمع للبيت أولاً، ثم رتّب كلماته.", "{N}، تحتاجين مساعدة؟ استمعي للبيت أولاً، ثم رتّبي كلماته."],
@@ -61,18 +61,18 @@ const KID_LINES = {
   quizSome: ["أجبتَ عن بعض الأسئلة، وسنراجع الباقي معاً", "أجبتِ عن بعض الأسئلة، وسنراجع الباقي معاً"],
   quizNone: ["لا بأس، سنراجع هذه الأسئلة معاً"],
   challengeDone: ["انتهى التحدي {N}! أحسنتَ العمل في خمس دقائق 🎉", "انتهى التحدي {N}! أحسنتِ العمل في خمس دقائق 🎉"],
-  recMore: ["{N}، سجّلتَ أبياتاً جديدة بصوتك! 🌟", "{N}، سجّلتِ أبياتاً جديدة بصوتك! 🌟"],
+  recMore: ["{N}، سجّلتَ أبياتاً جديدة بصوتِكَ! 🌟", "{N}، سجّلتِ أبياتاً جديدة بصوتِكِ! 🌟"],
   newBadge: ["وسام جديد:"],
   greetMorning: ["صباح الخير!"],
   greetEvening: ["مساء الخير!"],
-  greetNight: ["مساء النور!"],
+  greetNight: ["مساءٌ سعيد!"],
   greetFriday: ["جمعة مباركة!"],
   helloN: ["أهلاً {N}!"],
-  missedYou: ["اشتقتُ لصوتك!"],
+  missedYou: ["اشتقتُ لصوتِكَ!", "اشتقتُ لصوتِكِ!"],
   currentStation: ["المحطة الحالية:"],
   resumeHere: ["توقّفنا في وسط هذه المحطة."],
   letsContinue: ["هيا نكمل الرحلة 🐪"],
-  cardsWaiting: ["عندي بطاقات تنتظر مراجعتك."],
+  cardsWaiting: ["عندي بطاقات تنتظر مراجعتَكَ.", "عندي بطاقات تنتظر مراجعتَكِ."],
   streakBadge: ["🏅 وسام جديد: ثلاثة أيام متتالية!"],
   allStationsGuide: ["{N}، أتممتَ كل المحطات! 🏆", "{N}، أتممتِ كل المحطات! 🏆"],
   riddlePick: ["اختر الجواب الصحيح", "اختاري الجواب الصحيح"]
@@ -228,23 +228,77 @@ async function voiceResolve(text) {
 }
 
 /* ---------- التشغيل ---------- */
+/* ---------- هل على الجهاز صوت عربي؟ ----------
+   على لينكس لا أصوات أصلاً، وعلى ويندوز قد لا يوجد صوت عربي فيُقرأ النص بصوت إنجليزي مشوّه.
+   حينها لا نقرأ آلياً، ويُنبَّه الوالد (شاشة الأسرة والاستوديو) إلى حزمة الصوت أو تثبيت صوت عربي. */
+let voiceSynthFailed = false;
+const voiceBootAt = Date.now();
+function voiceEngineState() {
+  if (!("speechSynthesis" in window)) return "none";
+  if (voiceSynthFailed) return "failed";
+  let v = [];
+  try { v = window.speechSynthesis.getVoices() || []; } catch (e) {}
+  // قائمة الأصوات تصل بعد لحظة في بعض المتصفحات؛ فإن بقيت فارغة بعد ثوانٍ فلا صوت على الجهاز (لينكس مثلاً)
+  if (!v.length) return Date.now() - voiceBootAt > 3000 ? "none" : "loading";
+  return v.some(x => x.lang && x.lang.toLowerCase().startsWith("ar")) ? "ok" : "noarabic";
+}
+/* القراءة الآلية تُسكت فقط حين نعرف يقيناً أن الصوت العربي غير موجود */
+function voiceEngineMuted() { const s = voiceEngineState(); return s === "none" || s === "noarabic" || s === "failed"; }
+let voiceSynthFails = 0;
+function voiceNoteError(e) {
+  const err = e && e.error;
+  // «لا لغة» قاطع؛ أما فشل النطق فقد يكون عارضاً (صوت على الإنترنت مثلاً) فيُشترط تكراره
+  if (err === "language-unavailable") voiceSynthFailed = true;
+  else if (err === "synthesis-failed" || err === "synthesis-unavailable" || err === "voice-unavailable") { if (++voiceSynthFails >= 2) voiceSynthFailed = true; }
+}
+/* الصوت العربي المحلي أولاً (أصوات الإنترنت لا تعمل والتطبيق بلا اتصال) */
+function voiceArabic() {
+  let v = [];
+  try { v = window.speechSynthesis.getVoices() || []; } catch (e) {}
+  const ar = v.filter(x => x.lang && x.lang.toLowerCase().startsWith("ar"));
+  return ar.find(x => x.localService) || ar[0] || null;
+}
+/* سطر تنبيه للوالد إن كان الجهاز بلا صوت عربي (فارغ إن كان كل شيء سليماً) */
+function voiceMissingNotice() {
+  const s = voiceEngineState();
+  if (s === "ok" || s === "loading") return "";
+  return "⚠ لا يوجد على هذا الجهاز صوت عربي للقراءة الآلية، فكل ما لم يُسجَّل في «استوديو التسجيل» لن يُسمع. الحل: استورد حزمة صوت المعلم، أو سجّل بصوتك، أو ثبّت صوتاً عربياً من إعدادات الجهاز (تحويل النص إلى كلام).";
+}
+
 function voiceTTS(token, text, wait) {
   return new Promise(resolve => {
-    if (token !== seqToken || !("speechSynthesis" in window)) return resolve();
-    let u;
-    const done = () => { seqWaiters.delete(done); resolve(); };
+    if (token !== seqToken || !("speechSynthesis" in window) || voiceEngineMuted()) return resolve();
+    let u, guard = null, finished = false;
+    const done = () => { if (finished) return; finished = true; clearTimeout(guard); seqWaiters.delete(done); resolve(); };
     try {
       u = new SpeechSynthesisUtterance(ttsText(text));
       u.lang = "ar-SA"; u.rate = speechRate();
-      const ar = window.speechSynthesis.getVoices().find(x => x.lang && x.lang.toLowerCase().startsWith("ar"));
-      if (ar) u.voice = ar;
+      const ar = voiceArabic();
+      if (ar) try { u.voice = ar; } catch (e) {}
+      /* انتهى النطق: لم يعد الصوت الأساسي «منتظراً»، فرسالة ناجي التالية تُسمع */
+      u.onerror = e => { voiceNoteError(e); audioMainClear(token); done(); };
+      u.onend = () => { audioMainClear(token); done(); };
       /* لا يُنتظر نهاية النطق إن لم تكن على الجهاز أصوات: بعض المتصفحات لا تُعلن النهاية حينها */
       const canWait = wait && window.speechSynthesis.getVoices().length > 0;
-      if (canWait) { seqWaiters.add(done); u.onend = done; u.onerror = done; }
+      if (canWait) {
+        seqWaiters.add(done);
+        guard = setTimeout(done, 4000 + String(text || "").length * 150);   // مهلة قصوى إن لم تُعلن النهاية
+      }
       window.speechSynthesis.speak(u);
-      if (!canWait) resolve();
+      if (!canWait) { finished = true; resolve(); }
     } catch (e) { resolve(); }
   });
+}
+/* v103: الأجزاء الآلية المتتالية تُقرأ نطقاً واحداً. على أندرويد كل نطق جديد يقطع الذي قبله،
+   فكان السؤال وخياراته تُقطع ولا يُسمع إلا الخيار الأخير؛ والنطق الواحد أيضاً أطبع */
+function voiceMergeSegs(segs) {
+  const out = [];
+  for (const s of segs) {
+    const last = out[out.length - 1];
+    if (!s.rec && last && !last.rec) last.text = /[.،؛:؟!?]\s*$/.test(last.text) ? last.text + " " + s.text : last.text + "، " + s.text;
+    else out.push({ rec: s.rec, text: s.text });
+  }
+  return out;
 }
 /* يشغّل نصاً أو قائمة نصوص بالترتيب، ويُحلّ عند انتهائها أو إيقافها.
    opts.polite: لا يقطع صوتاً جارياً (فقاعات ناجي والرسائل)
@@ -258,22 +312,25 @@ async function voicePlay(texts, opts = {}) {
   if (!list.length) return;
   if (recIsActive()) { if (!opts.silent) kidToast(kidLine("stopRecFirst"), "error"); return; }
   if (opts.polite) {
+    if (audioMainPending()) return;          // بيت أو قصة بدأ ولم يُسمع بعد: لا تتراكب الرسالة معه
     if (voicePoliteTok === seqToken) audioStopAll();
     else if (audioBusy()) return;
-  } else audioStopAll();
+  } else { audioStopAll(); audioMainMark(); }
   const token = seqToken;
   if (opts.polite) voicePoliteTok = token;
   let segs = [];
   for (const t of list) segs = segs.concat(await voiceResolve(t));
   if (token !== seqToken || recIsActive()) return;
-  if (opts.polite && voicePoliteTok !== token) return;
+  if (opts.polite && (voicePoliteTok !== token || audioMainPending())) return;
+  segs = voiceMergeSegs(segs);
   for (let i = 0; i < segs.length; i++) {
     if (token !== seqToken) break;
     const s = segs[i];
-    if (s.rec) await playPart(token, s.rec, s.text);
+    if (s.rec) await playPart(token, s.rec, s.text, !!opts.polite);
     else await voiceTTS(token, s.text, !!opts.wait || segs.slice(i + 1).some(x => x.rec));
   }
   if (voicePoliteTok === token) voicePoliteTok = -1;
+  if (!opts.polite && token === seqToken && !audioBusy()) audioMainClear(token);
 }
 
 /* ---------- خيارات الأسئلة: كل خيار بزر 🔊 خاص به بجانبه ---------- */
@@ -284,6 +341,48 @@ function sleepMs(ms) { return new Promise(r => setTimeout(r, ms)); }
 /* تعقيب بعد الإجابة: يُقرأ ثم يُنتقل، دون أن يقطعه السؤال التالي (بحد أقصى) */
 function voiceFeedback(parts, minMs) {
   const spoken = autoReadOn() ? voicePlay(parts, { silent: true, wait: true }) : null;
-  const cap = 2500 + parts.join(" ").length * 110;
-  return Promise.all([sleepMs(minMs || 0), spoken ? Promise.race([spoken, sleepMs(Math.min(25000, cap))]) : null]);
+  const chars = parts.join(" ").length;
+  const cap = 2500 + chars * 110;
+  // بلا قراءة صوتية: وقت يكفي طفلاً ليقرأ التعقيب بنفسه (ويستطيع أن يضغط «التالي» قبله)
+  const readMs = Math.min(15000, 2000 + chars * 80);
+  return Promise.all([sleepMs(Math.max(minMs || 0, readMs)), spoken ? Promise.race([spoken, sleepMs(Math.min(25000, cap))]) : null]);
 }
+
+/* ---------- v103: نقل تسجيلات الرسائل التي تغيّر نصها ----------
+   التسجيل مربوط بنص الرسالة حرفاً حرفاً؛ فلما صُحّحت بعض الرسائل (للغد، يحتاج إلى، وحركات المخاطَب)
+   صار تسجيلها القديم بلا نص، ويصمت على جهاز بلا صوت عربي. يُنسخ مرة واحدة إلى النص الجديد (والقديم يبقى). */
+/* نص الرسالة في v102 لكل صيغة (ولد، بنت)، وتُنقل كل صيغة إلى نظيرتها في KID_LINES */
+const VOICE_LINES_OLD_102 = {
+  lessonDone: ["أحسنتَ! انتهى درس اليوم، ويبقى الباقي لغداً 🐪", "أحسنتِ! انتهى درس اليوم، ويبقى الباقي لغداً 🐪"],
+  reflectionSaved: ["حفظتَ تأمّلك، شكراً لك ✨", "حفظتِ تأمّلكِ، شكراً لكِ ✨"],
+  recallGreat: ["ممتاز! ذاكرتك قوية.", "ممتاز! ذاكرتك قوية."],
+  recallKeep: ["كل مرة تُعيد فيها البيت تقوى ذاكرتك.", "كل مرة تُعيدين فيها البيت تقوى ذاكرتك."],
+  hardVerse: ["{N}، هذا البيت يحتاج تمهّل. ماذا نفعل معاً؟", "{N}، هذا البيت يحتاج تمهّل. ماذا نفعل معاً؟"],
+  helperThanks: ["شكراً! ساعدتني فتذكّرتُ الآن 🐪", "شكراً! ساعدتني فتذكّرتُ الآن 🐪"],
+  missedYou: ["اشتقتُ لصوتك!", "اشتقتُ لصوتك!"],
+  cardsWaiting: ["عندي بطاقات تنتظر مراجعتك.", "عندي بطاقات تنتظر مراجعتك."],
+  recMore: ["{N}، سجّلتَ أبياتاً جديدة بصوتك! 🌟", "{N}، سجّلتِ أبياتاً جديدة بصوتك! 🌟"]
+};
+async function voiceMigrateLines103() {
+  if (typeof vpPref !== "function" || vpPref("lineMoves103")) return 0;
+  const body = t => voiceBody(String(t).replace(/\{N\}/g, VOICE_VOC), VOICE_VOC);
+  let moved = 0;
+  try {
+    for (const k of Object.keys(VOICE_LINES_OLD_102)) {
+      const arr = KID_LINES[k]; if (!arr) continue;
+      for (let g = 0; g < 2; g++) {
+        const src = await recGet(lineKey(body(VOICE_LINES_OLD_102[k][g])));
+        if (!src) continue;
+        const nb = body(arr[g] !== undefined ? arr[g] : arr[0]);
+        const key = lineKey(nb);
+        if (key === src.key || await recGet(key)) continue;
+        await recPut(Object.assign({}, src, { key, verseId: lineId(nb), fp: lineId(nb), text: nb }));
+        moved++;
+      }
+    }
+    vpPref("lineMoves103", true);
+  } catch (e) { return moved; }
+  if (moved) voiceCacheReset();
+  return moved;
+}
+if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded", () => setTimeout(() => { voiceMigrateLines103(); }, 1500));

@@ -12,6 +12,7 @@ function showRecallMenu() {
       <button class="hub-tile" onclick="startRecall('riddle')"><span>🧩</span>الألغاز</button>
     </div>`);
 }
+function startRiddles() { startRecall("riddle"); }
 function keywordOf(v) {
   let best = v.words[0];
   v.words.forEach(w => { if (normalizeArabic(w).length > normalizeArabic(best).length) best = w; });
@@ -22,7 +23,9 @@ function stripAl(s) { return normalizeArabic(s).replace(/^ال/, ""); }
 function startRecall(mode) {
   recallQ = {mode, i: 0, score: 0, items: []};
   if (mode === "riddle") {
-    recallQ.items = [...RIDDLES].sort(() => Math.random() - .5);
+    // ألغاز الأبيات التي رآها الطفل فقط، فلا يُسأل عن شيء لم يصل إليه
+    recallQ.items = RIDDLES.filter(r => state.seenVerses && state.seenVerses[r.ref]).sort(() => Math.random() - .5);
+    if (!recallQ.items.length) { kidToast(kidLine("needOneFirst"), "error"); return; }
   } else {
     const pool = [];
     content.journeyData.forEach((st, si) => st.verses.forEach((v, vi) => {
@@ -68,8 +71,15 @@ function rateRecall(ok) {
   renderRecall();
 }
 /* v102: في وضع الطفل الصغير يُختار الجواب من ثلاثة تُسمع، بدل الكتابة */
+/* الجواب المكتوب يُقبل إن طابق الجواب أو أحد ما في accept */
+function riddleAccepts(r, text) {
+  const got = stripAl(text);
+  return !!got && [r.answer, ...(r.accept || [])].some(a => stripAl(a) === got);
+}
+/* المشتّتات: أجوبة ألغاز أخرى، عدا ما يصدق على هذا اللغز (accept) أو يلتبس به (avoid) */
 function riddleChoices(r) {
-  const others = [...new Set(RIDDLES.map(x => x.answer).filter(a => stripAl(a) !== stripAl(r.answer)))].sort(() => Math.random() - .5).slice(0, 2);
+  const bad = new Set([r.answer, ...(r.accept || []), ...(r.avoid || [])].map(stripAl));
+  const others = [...new Set(RIDDLES.map(x => x.answer).filter(a => !bad.has(stripAl(a))))].sort(() => Math.random() - .5).slice(0, 2);
   return [r.answer, ...others].sort(() => Math.random() - .5);
 }
 function pickRiddle(btn, chosen) {
@@ -111,8 +121,7 @@ function renderRiddle() {
 }
 function checkRiddle() {
   const r = recallQ.items[recallQ.i];
-  const got = stripAl(document.getElementById("riddleIn").value);
-  if (got && got === stripAl(r.answer)) {
+  if (riddleAccepts(r, document.getElementById("riddleIn").value)) {
     recallQ.score++;
     if (!state.riddlesSolved) state.riddlesSolved = {};
     if (!state.riddlesSolved[r.station]) { state.riddlesSolved[r.station] = true; addPoints(5); }

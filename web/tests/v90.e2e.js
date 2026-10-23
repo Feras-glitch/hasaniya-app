@@ -20,7 +20,7 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
     startStationQuiz(content.journeyData[0], () => {}); await w(150);
     const sk = () => getComputedStyle(document.getElementById('quizSkipBtn')).display;
     o.skip0 = sk();
-    const answer = async () => { const btn = document.querySelector('#quizBody .word-btn:not(:disabled)'); btn.click(); await w(1900); };
+    const answer = async () => { const btn = document.querySelector('#quizBody .word-btn:not(:disabled)'); btn.click(); await w(100); const nx = document.querySelector('#quizPopup .quiz-next'); if (nx) nx.click(); await w(200); };
     await answer(); o.skip1 = sk();
     await answer(); o.skip2 = quizState ? sk() : 'finished';
     return o;

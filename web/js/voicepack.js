@@ -400,11 +400,17 @@ function openVoiceImport() {
   const cb = document.getElementById("vpCommitBtn"); if (cb) cb.style.display = "none";
   document.getElementById("vpImportPopup").classList.add("active");
 }
+/* وقت التسجيل من ملف خارجي: رقم معقول فقط، وإلا يُعدّ قديماً (0) فلا يطغى على تسجيل موجود */
+function vpClampAt(at) {
+  const n = Number(at);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.min(n, Date.now() + 86400000);
+}
 /* يقرأ الملفات ويحسب ما سيحدث لكل عنصر دون أن يكتب شيئاً */
 async function importVoicePacks(fileList) {
   const files = [...(fileList || [])].slice(0, VP_MAX_FILES);
   if (!files.length) return;
-  const staged = { items: [], errors: [], authors: new Set() };
+  const staged = { items: [], errors: [], authors: new Set(), unknown: 0 };
   let stagedBytes = 0;
   for (const f of files) {
     try {
@@ -424,8 +430,11 @@ async function importVoicePacks(fileList) {
         const data = entries.get(it.file);
         if (!ver || !data) { staged.errors.push(`${f.name}: عنصر لا يطابق المحتوى (${it.id})`); continue; }
         const key = authorKey(it.kind, it.id);
+        // سطر لا يوجد في هذه النسخة من التطبيق لا فائدة منه؛ عدا أسماء النداء («يا فلان») فقد يُضاف الطفل لاحقاً
+        if (it.kind === "line" && !voiceRegistry().byKey.has(key) && !/^يا [^\s،]{1,20}( [^\s،]{1,20}){0,2}$/u.test(String(it.text || "").trim())) { staged.unknown++; continue; }
+        it.at = vpClampAt(it.at);
         const existing = await recGet(key);
-        const action = !existing ? "add" : ((existing.at || 0) >= (it.at || 0) ? "same" : "replace");
+        const action = !existing ? "add" : ((existing.at || 0) >= it.at ? "same" : "replace");
         stagedBytes += data.length;
         staged.items.push({ action, key, it, data, author, stale: it.kind !== "line" && vpIsStale({ fp: it.fp }, it.kind, ver) });
       }
@@ -441,6 +450,7 @@ async function importVoicePacks(fileList) {
     <div><strong>المؤلف:</strong> ${escapeHtml(who)}</div>
     <div>📥 جديد: ${count("add")} · ♻️ يستبدل تسجيلاً أقدم: ${count("replace")} · ⏭️ موجود بنسخة أحدث: ${count("same")}</div>
     ${stale ? `<div style="color:#b26a00">⚠ ${stale} تسجيل لا يطابق النص الحالي فيُقرأ آلياً حتى يُعاد</div>` : ""}
+    ${staged.unknown ? `<div style="color:#b26a00">⏭️ نصوص غير موجودة في هذه النسخة من التطبيق: ${staged.unknown} تُتجاهل</div>` : ""}
     ${staged.errors.length ? `<div style="color:var(--danger)">${staged.errors.map(escapeHtml).join("<br>")}</div>` : ""}`;
   const cb = document.getElementById("vpCommitBtn");
   cb.style.display = count("add") + count("replace") ? "block" : "none";
@@ -453,7 +463,7 @@ async function vpCommitVoicePacks() {
     for (const x of vpStaged.items) {
       if (x.action !== "add" && x.action !== "replace") continue;
       const rec = { key: x.key, verseId: x.it.id, kind: x.it.kind, uid: "author", mime: x.it.mime,
-        blob: new Blob([x.data], { type: x.it.mime }), fp: x.it.fp || null, at: x.it.at || Date.now(),
+        blob: new Blob([x.data], { type: x.it.mime }), fp: x.it.fp || null, at: x.it.at || 1,
         source: x.it.source === "upload" ? "upload" : "rec", reviewed: !!x.it.reviewed, author: x.author };
       if (x.it.kind === "line") { rec.text = x.it.text; rec.fp = x.it.id; }
       await recPut(rec);

@@ -11,7 +11,7 @@ const path = require("path");
 const dir = __dirname;
 const withE2e = process.argv.includes("--e2e");
 const unit = fs.readdirSync(dir).filter(f => f.endsWith(".test.js")).sort();
-const browser = ["smoke.js", "screens.e2e.js", "v68.e2e.js", "v69.e2e.js", "v70.e2e.js", "v75.e2e.js", "v78.e2e.js", "v80.e2e.js", "v81.e2e.js", "v83.e2e.js", "v85.e2e.js", "v86.e2e.js", "v87.e2e.js", "v88.e2e.js", "v89.e2e.js", "v90.e2e.js", "v91.e2e.js", "v94.e2e.js", "v95.e2e.js", "v99.e2e.js", "v100.e2e.js", "v101.e2e.js", "v102.e2e.js"];
+const browser = ["smoke.js", "screens.e2e.js", "v68.e2e.js", "v69.e2e.js", "v70.e2e.js", "v75.e2e.js", "v78.e2e.js", "v80.e2e.js", "v81.e2e.js", "v83.e2e.js", "v85.e2e.js", "v86.e2e.js", "v87.e2e.js", "v88.e2e.js", "v89.e2e.js", "v90.e2e.js", "v91.e2e.js", "v94.e2e.js", "v95.e2e.js", "v99.e2e.js", "v100.e2e.js", "v101.e2e.js", "v102.e2e.js", "v103.e2e.js"];
 
 const runs = unit.map(f => ({ file: f, kind: "node" }));
 if (withE2e) browser.forEach(f => runs.push({ file: f, kind: "browser" }));

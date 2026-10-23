@@ -56,11 +56,17 @@ async function recAllForUser(uid) {
 const recKey = verseId => (activeUserId || "x") + "|" + verseId;
 
 /* ---------- التسجيل ---------- */
-let recState = { recorder: null, stream: null, verseId: null, chunks: [], timer: null, onDone: null };
+let recState = { recorder: null, stream: null, verseId: null, chunks: [], timer: null, onDone: null, gen: 0 };
 const REC_MAX_MS = 25000;
 
 async function recToggle(verseId, onDone, opts = {}) {
   if (recState.recorder) { recStop(); return; }
+  /* v103: ضغطة ثانية أثناء انتظار إذن الميكروفون كانت تفتح تيارين يبقى أحدهما مفتوحاً */
+  if (recState.starting) return;
+  recState.starting = true;
+  try { return await recStart(verseId, onDone, opts); } finally { recState.starting = false; }
+}
+async function recStart(verseId, onDone, opts) {
   if (!navigator.mediaDevices || !window.MediaRecorder) {
     showToast(window.isSecureContext === false
       ? "المتصفح يمنع الميكروفون لأن الملف فُتح من مكان غير آمن. الحل: تثبيت التطبيق على الجهاز"
@@ -68,9 +74,19 @@ async function recToggle(verseId, onDone, opts = {}) {
     return;
   }
   audioStopAll();
+  const gen = recState.gen || 0;
   try {
     recState.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch(e) { kidToast(kidLine("allowMic"), "error"); return; }
+  /* نافذة الإذن في أندرويد قد تُخفي الصفحة لحظة: ننتظر رجوعها قليلاً.
+     فإن بقيت مخفية، أو غادر الطفل الشاشة أثناء انتظار الإذن، لا يبدأ تسجيل */
+  if (document.hidden) await new Promise(r => {
+    const t = setTimeout(done, 2000);
+    function done() { clearTimeout(t); document.removeEventListener("visibilitychange", vis); r(); }
+    function vis() { if (!document.hidden) done(); }
+    document.addEventListener("visibilitychange", vis);
+  });
+  if (document.hidden || gen !== (recState.gen || 0)) { try { recState.stream.getTracks().forEach(t => t.stop()); } catch (e) {} recState.stream = null; return; }
   audioStopAll();
   const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus"
              : MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "";
@@ -91,7 +107,8 @@ async function recToggle(verseId, onDone, opts = {}) {
     recState.stream.getTracks().forEach(t => t.stop());
     clearTimeout(recState.timer);
     recState.recorder = null; recState.stream = null; recState.chunks = [];
-    if (blob.size > 0) {
+    const discard = recState.discard; recState.discard = false;
+    if (blob.size > 0 && !discard) {
       try {
         const row = { key: sk, verseId: rid || vid, kind, uid: isAuthor ? "author" : activeUserId, mime: type, blob, fp, source: src, at: Date.now() };
         if (rtext) row.text = rtext;
@@ -105,19 +122,27 @@ async function recToggle(verseId, onDone, opts = {}) {
   rec.start();
   audioStopAll();
   if (typeof guideSetMood === "function") guideSetMood("eager", 4000);
-  recState.timer = setTimeout(recStop, opts.maxMs || REC_MAX_MS);
+  recState.timer = setTimeout(() => { if (recState.recorder === rec) recStop(); }, opts.maxMs || REC_MAX_MS);
   if (onDone) onDone(verseId, true);
 }
 function recStop() {
   if (recState.recorder && recState.recorder.state !== "inactive") recState.recorder.stop();
 }
+/* v103: الخروج أثناء التسجيل (الخريطة، الرجوع، إخفاء التطبيق) يلغي التسجيل الناقص ويغلق الميكروفون،
+   فلا يستمر في الخلفية ولا يحلّ تسجيل ناقص أو صامت محل تسجيل جيد */
+function recCancel() {
+  // تسجيل ينتظر إذن الميكروفون يُلغى عند مغادرة الشاشة؛ أما اختفاء الصفحة خلف نافذة الإذن نفسها فلا يلغيه
+  if (!(document.hidden && recState.starting)) recState.gen = (recState.gen || 0) + 1;
+  if (recState.recorder && recState.recorder.state === "recording") {
+    recState.discard = true;
+    clearTimeout(recState.timer);
+    recState.recorder.stop();
+  }
+}
 function recIsRecording(verseId) { return recState.recorder && recState.verseId === verseId; }
 
-/* ---------- نافذة تسجيلاتي (طفل) وصوت الوالد (للقصص) ---------- */
-let recMode = "child";
+/* ---------- نافذة تسجيلاتي (للطفل فقط؛ صوت الوالد للقصص في استوديو الوالد خلف الرقم السري) ---------- */
 async function openRecPopup(opts = {}) {
-  recMode = opts.mode || "child";
-  document.getElementById("recMode").value = recMode;
   const sel = document.getElementById("recStation");
   sel.innerHTML = content.journeyData.map((st, i) => `<option value="${i}">${escapeHtml(st.title)}</option>`).join("");
   sel.value = String(state.selectedStation || 0);
@@ -125,43 +150,30 @@ async function openRecPopup(opts = {}) {
   rsel.innerHTML = `<option value="all">كل ما حُفظ حتى الآن</option>` +
     content.journeyData.map((st, i) => `<option value="station-${i}">${escapeHtml(st.title)}</option>`).join("");
   rsel.value = opts.range || "all";
-  applyRecMode();
+  document.getElementById("recPrivacy").textContent = "🔒 التسجيلات تبقى على هذا الجهاز، ولا تُرسل إلا عندما تضغط زر الإرسال بنفسك.";
+  renderRecList();
+  renderSectionStatus();
   renderStorageInfo();
   document.getElementById("recPopup").classList.add("active");
-}
-function setRecMode(m) { recMode = m; applyRecMode(); }
-function applyRecMode() {
-  const child = recMode === "child";
-  document.getElementById("recMode").value = recMode;
-  document.getElementById("secBox").style.display = child ? "block" : "none";
-  document.getElementById("childExport").style.display = child ? "block" : "none";
-  document.getElementById("recPrivacy").textContent = child
-    ? "🔒 التسجيلات تبقى على هذا الجهاز، ولا تُرسل إلا عندما تضغط زر الإرسال بنفسك."
-    : "🔒 صوت الوالد يبقى على هذا الجهاز، ويُسمَع بدلاً من القراءة الآلية للقصة.";
-  renderRecList();
-  if (child) renderSectionStatus();
 }
 async function renderRecList() {
   const si = +document.getElementById("recStation").value;
   const st = content.journeyData[si];
   const body = document.getElementById("recBody");
   if (!st) return;
-  const verses = recMode === "parent" ? st.verses.filter(v => v.story) : st.verses;
-  if (!verses.length) { body.innerHTML = `<p class="empty-state">لا توجد قصص في هذه المحطة.</p>`; document.getElementById("recCount").textContent = ""; return; }
+  const verses = st.verses;
   const rows = [];
   let done = 0;
   for (const [j, v] of verses.entries()) {
-    const key = recMode === "parent" ? authorKey("story", v.id) : recKey(v.id);
+    const key = recKey(v.id);
     const rec = await recGet(key);
     if (rec) done++;
     const ev = (state.recEval || {})[v.id];
     const evalHtml = ev ? `⭐ ${escapeHtml(String(ev.memory))}/5 · نطق ${escapeHtml(String(ev.pronunciation))}/5 · ترتيب ${escapeHtml(String(ev.order))}/5${ev.note ? `<div class="rec-note">📝 ${escapeHtml(ev.note)}</div>` : ""}` : "";
-    const label = recMode === "parent" ? "القصة" : v.fullVerse;
-    const recordFn = recMode === "parent" ? `recToggleParent('${escapeForAttr(v.id)}')` : `recToggleUi('${escapeForAttr(v.id)}')`;
     rows.push(`<div class="rec-row">
-      <div class="rec-text">${recMode === "parent" ? "📖 " : (j + 1) + ". "}${escapeHtml(recMode === "parent" ? (v.story || "").slice(0, 90) + "…" : label)}</div>
+      <div class="rec-text">${j + 1}. ${escapeHtml(v.fullVerse)}</div>
       <div class="rec-actions">
-        <button class="tool-btn" onclick="${recordFn}">${recIsRecording(recMode === "parent" ? "p:" + v.id : v.id) ? "⏹ أوقف" : (rec ? "🔁 أعد" : "⏺ سجّل")}</button>
+        <button class="tool-btn" onclick="recToggleUi('${escapeForAttr(v.id)}')">${recIsRecording(v.id) ? "⏹ أوقف" : (rec ? "🔁 أعد" : "⏺ سجّل")}</button>
         ${rec ? `<button class="tool-btn" onclick="recPlayKey('${escapeForAttr(key)}')">▶ استمع</button>
         <button class="tool-btn" onclick="recRemoveKey('${escapeForAttr(key)}')">🗑</button>` : ""}
       </div>
@@ -169,11 +181,7 @@ async function renderRecList() {
     </div>`);
   }
   body.innerHTML = rows.join("");
-  document.getElementById("recCount").textContent = `سُجّل ${done} من ${verses.length} ${recMode === "parent" ? "قصص" : "أبيات"}`;
-}
-function recToggleParent(verseId) {
-  const v = vpFindVerse(verseId);
-  recToggle("p:" + verseId, () => renderRecList(), { storeKey: authorKey("story", verseId), recId: verseId, kind: "story", maxMs: 180000, fp: textFingerprint(v ? v.story : ""), author: true });
+  document.getElementById("recCount").textContent = `سُجّل ${done} من ${verses.length} أبيات`;
 }
 async function recPlayKey(key) {
   if (!audioBegin()) return;
@@ -187,7 +195,7 @@ async function recRemoveKey(key) {
   if (!confirm("حذف هذا التسجيل؟")) return;
   await recDelete(key);
   renderRecList();
-  if (recMode === "child") renderSectionStatus();
+  renderSectionStatus();
   renderStorageInfo();
 }
 
@@ -221,7 +229,7 @@ async function wipeRecordings() {
     showToast(`تم حذف ${all.length} تسجيل`, "success");
   } catch(e) { showToast("تعذّر الحذف", "error"); }
   renderRecList();
-  if (recMode === "child") renderSectionStatus();
+  renderSectionStatus();
   renderStorageInfo();
 }
 
@@ -268,24 +276,35 @@ function stopSequence() {
   audioStopAll();
 }
 /* جزء واحد من التسميع: تسجيل الطفل أو نطق آلي. يُحلّ عند انتهائه أو عند الإيقاف */
-function playPart(token, rec, text) {
+/* v103: إن تعذّر تشغيل التسجيل (صيغة لا يفكّها الجهاز) يُقرأ النص آلياً بدل الصمت،
+   وللقراءة الآلية مهلة قصوى حتى لا تتعلق السلسلة إن لم يُعلن المحرك نهاية النطق */
+function playPart(token, rec, text, polite) {
   return new Promise(resolve => {
-    const done = () => { seqWaiters.delete(done); resolve(); };
+    let finished = false, guard = null, fellBack = false;
+    const mark = () => { if (!polite && token === seqToken) audioMainMark(); };
+    const done = () => { if (finished) return; finished = true; clearTimeout(guard); seqWaiters.delete(done); if (!polite) audioMainClear(token); resolve(); };
     if (token !== seqToken) return done();
     seqWaiters.add(done);
+    mark();
+    const tts = () => {
+      if (token !== seqToken || !("speechSynthesis" in window) || voiceEngineMuted()) return done();
+      try {
+        const u = new SpeechSynthesisUtterance(ttsText(text));
+        u.lang = "ar-SA"; u.rate = speechRate();
+        const ar = typeof voiceArabic === "function" ? voiceArabic() : null;
+        if (ar) try { u.voice = ar; } catch (e) {}
+        u.onend = done; u.onerror = e => { voiceNoteError(e); done(); };
+        window.speechSynthesis.speak(u);
+        guard = setTimeout(done, 4000 + String(text || "").length * 150);
+      } catch (e) { done(); }
+    };
     if (rec) {
       seqAudio = blobAudio(rec.blob);
-      seqAudio.onended = done; seqAudio.onerror = done;
-      audioPlayEl(seqAudio).catch(done);
-    } else {
-      if (!("speechSynthesis" in window)) return done();
-      const u = new SpeechSynthesisUtterance(ttsText(text));
-      u.lang = "ar-SA"; u.rate = speechRate();
-      const ar = window.speechSynthesis.getVoices().find(x => x.lang && x.lang.toLowerCase().startsWith("ar"));
-      if (ar) u.voice = ar;
-      u.onend = done; u.onerror = done;
-      window.speechSynthesis.speak(u);
-    }
+      seqAudio.onended = done;
+      const fallback = () => { if (finished || fellBack) return; fellBack = true; tts(); };
+      seqAudio.onerror = fallback;
+      audioPlayEl(seqAudio).catch(fallback);
+    } else tts();
   });
 }
 /* الأحدث يفوز: إذا بدأ صوت آخر أثناء الانتظار يُلغى هذا التشغيل */
@@ -395,6 +414,14 @@ async function exportRecitation() {
   for (const [i, pack] of packs.entries()) {
     const items = [];
     for (const r of pack) {
+      /* v103: التسميع المتصل يُرسل بمعرّف خاص، وكان يجعل المعلم يرفض الملف كله */
+      if (r.kind === "section" || /\|sec\|/.test(r.key)) {
+        const range = String(r.key.split("|sec|")[1] || r.verseId || "all");
+        const si = /^station-(\d+)$/.exec(range);
+        const label = si && content.journeyData[+si[1]] ? "محطة " + content.journeyData[+si[1]].title : "كل ما حُفظ";
+        items.push({ verseId: "sec:" + range, text: "🔁 تسميع متصل: " + label, mime: r.mime, data: await blobToBase64(r.blob) });
+        continue;
+      }
       const verse = content.journeyData.flatMap(st => st.verses).find(v => v.id === r.verseId);
       items.push({ verseId: r.verseId, text: verse ? verse.fullVerse : "", mime: r.mime, data: await blobToBase64(r.blob) });
     }

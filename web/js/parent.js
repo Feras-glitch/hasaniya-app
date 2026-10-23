@@ -65,7 +65,9 @@ function showParentScreen() {
       <div style="font-size:.75rem;color:#999;margin-top:4px">أخطأ ${n} ${n === 1 ? "مرة" : "مرات"}</div>
     </div>`;
   }).join("");
-  if (ms.length === 0 && misses.length === 0) pl.innerHTML = `<p class="empty-state">✅ ${tParent("الطفل متقن للحفظ.")}</p>`;
+  const started = Object.keys(state.seenVerses || {}).length > 0;
+  if (!started) pl.innerHTML = `<p class="empty-state">🌱 ${tParent("لم يبدأ الطفل الحفظ بعد.")}</p>`;
+  else if (ms.length === 0 && misses.length === 0) pl.innerHTML = `<p class="empty-state">✅ ${tParent("لا توجد أخطاء مسجّلة حتى الآن.")}</p>`;
   else pl.innerHTML = ms.map(m => `
     <div class="parent-mistake-item">
       <strong style="color:var(--danger)">${escapeHtml(m.word)}</strong>
@@ -78,7 +80,7 @@ function exportReport() {
     const mastery = calculateMastery(state);
     const report = {
       exportedAt: new Date().toISOString(),
-      user: {name:getUserName(), avatar:getUserAvatar()},
+      user: {name:getUserName(), avatar:getUserAvatar(), id: activeUserId},
       mastery,
       points: state.points || 0,
       streak: state.streak || 0,
@@ -231,4 +233,12 @@ function renderAutoReadRow() {
   const a = document.getElementById("autoReadOn"), b = document.getElementById("autoReadOff");
   if (a) a.classList.toggle("selected-pref", on);
   if (b) b.classList.toggle("selected-pref", !on);
+  /* v103: تنبيه الوالد إن لم يكن على الجهاز صوت عربي للقراءة الآلية */
+  const row = document.getElementById("autoReadRow");
+  if (row) {
+    let n = document.getElementById("voiceMissing");
+    const msg = typeof voiceMissingNotice === "function" ? voiceMissingNotice() : "";
+    if (!n && msg) { n = document.createElement("div"); n.id = "voiceMissing"; n.className = "voice-missing"; row.insertAdjacentElement("afterend", n); }
+    if (n) { n.textContent = msg; n.style.display = msg ? "" : "none"; }
+  }
 }

@@ -10,7 +10,7 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
   await p.addInitScript(() => {
     // نعدّ ما يُرسل إلى القارئ الآلي دون أن ننطقه فعلاً
     window.__said = [];
-    const fake = { speaking: false, pending: false, paused: false, speak(u) { window.__said.push(u.text); }, cancel() {}, getVoices() { return []; }, pause() {}, resume() {}, onvoiceschanged: null, addEventListener() {} };
+    const fake = { speaking: false, pending: false, paused: false, speak(u) { window.__said.push(u.text); setTimeout(() => { if (u.onend) u.onend({}); }, 5); }, cancel() {}, getVoices() { return [{ name: 'ar', lang: 'ar-SA' }]; }, pause() {}, resume() {}, onvoiceschanged: null, addEventListener() {} };
     Object.defineProperty(window, 'speechSynthesis', { configurable: true, get: () => fake });
   });
   await p.goto(URL); await p.waitForTimeout(900);

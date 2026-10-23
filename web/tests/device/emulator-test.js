@@ -149,6 +149,18 @@ setTimeout(() => {
     if (!(await appOnTop())) { await back(); await back(); }
   } catch (e) { rec(39, 'الطباعة', false, e.message, true); }
 
+  /* 6ب) v103: رسالة البريد الجاهزة لشفرة استرجاع الرقم السري */
+  at('البريد');
+  try {
+    const has = await page.evaluate(() => !!window.AndroidBridge && typeof AndroidBridge.sendEmail === 'function');
+    if (has) await page.evaluate(() => AndroidBridge.sendEmail('parent@example.com', 'تجربة', 'ABCD-EFGH'));
+    await sleep(3000);
+    const r = await resumed();
+    await shot('mail');
+    rec(52, 'جسر البريد موجود ويفتح البريد أو ينبّه دون انهيار', has, r.slice(0, 160), !has);
+    if (!(await appOnTop())) { await back(); await back(); }
+  } catch (e) { rec(52, 'البريد', false, e.message, true); }
+
   /* 7) نافذة اختيار الملفات (استعادة النسخة الاحتياطية) */
   at('اختيار الملفات');
   try {

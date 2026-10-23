@@ -70,7 +70,8 @@ async function renderParentVoice() {
   document.getElementById("pvSummary").innerHTML =
     `<div class="pv-bar"><span style="width:${total ? Math.round(done / total * 100) : 0}%"></span></div>
      <div>مسجّل <strong>${done}</strong> من ${total} نصاً${done < total ? ` · بقي نحو ${pvFmtMin(left)} من القراءة` : " ✅"}</div>
-     <small class="rec-count">ما لم يُسجَّل يقرؤه القارئ الآلي، فابدأ بالأهم: الأبيات ثم التعليمات.</small>`;
+     <small class="rec-count">ما لم يُسجَّل يقرؤه القارئ الآلي، فابدأ بالأهم: الأبيات ثم التعليمات.</small>
+     ${voiceMissingNotice() ? `<div class="voice-missing">${escapeHtml(voiceMissingNotice())}</div>` : ""}`;
   const ob = document.getElementById("pvOrphanBtn");
   ob.style.display = orphans ? "" : "none";
   ob.textContent = `🧹 حذف ${orphans} تسجيلاً لنصوص تغيّرت`;

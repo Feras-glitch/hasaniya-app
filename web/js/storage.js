@@ -60,7 +60,24 @@ function normalizeUserState(s) {
   return s;
 }
 
+/* v103: التطبيق مفتوح في نافذتين: حين تحفظ الأخرى تتوقف هذه عن الحفظ، فلا تمحو النسخة القديمة تقدّماً أحدث */
+let staleTab = false;
+window.addEventListener("storage", e => {
+  if (staleTab || (e.key !== STORAGE_USERS && e.key !== STORAGE_CONTENT)) return;
+  staleTab = true;
+  if (typeof showStaleTabNotice === "function") showStaleTabNotice();
+});
+function showStaleTabNotice() {
+  if (document.getElementById("staleTab")) return;
+  const d = document.createElement("div");
+  d.id = "staleTab"; d.className = "stale-tab";
+  d.innerHTML = `<div class="stale-box"><div style="font-size:2rem">🪟</div>
+    <p>التطبيق مفتوح في نافذة أخرى، وفيها التقدّم الأحدث. أُوقف الحفظ هنا حتى لا يضيع شيء.</p>
+    <button class="action-btn btn-success" onclick="location.reload()">↻ حدّث هذه النافذة</button></div>`;
+  document.body.appendChild(d);
+}
 function saveState() {
+  if (staleTab) return false;
   try {
     if (state && activeUserId) {
       const u = getUserById(activeUserId);

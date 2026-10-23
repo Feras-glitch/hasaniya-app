@@ -30,9 +30,15 @@ function answerQuiz(btn, chosen) {
   btn.classList.add(good ? "success" : "fail");
   if (good) { quizState.score++; playSuccess(); } else playFail();
   document.getElementById("quizFeedback").textContent = (good ? "✅ " + guideVocative() + "، " + kidLine("wellDone") + " " : "❌ ") + it.explain;
-  /* التعقيب يُقرأ كاملاً قبل السؤال التالي، حتى لا يقطعه */
-  voiceFeedback(good ? [guideVocative(), kidLine("wellDone"), it.explain] : [it.explain], 1800).then(() => {
-    if (quizState !== qs) return; // تُخطّي الاختبار أو انتهى قبل المؤقّت
+  /* التعقيب يُقرأ كاملاً قبل السؤال التالي، حتى لا يقطعه؛ وزر «التالي» لمن أنهى القراءة */
+  let goNext;
+  const pressed = new Promise(res => { goNext = res; });
+  const nb = document.createElement("button");
+  nb.className = "action-btn btn-info quiz-next"; nb.textContent = "التالي ⬅";
+  nb.onclick = () => { nb.disabled = true; if (typeof audioStopAll === "function") audioStopAll(); goNext(); };
+  document.getElementById("quizFeedback").after(nb);
+  Promise.race([voiceFeedback(good ? [guideVocative(), kidLine("wellDone"), it.explain] : [it.explain], 1800), pressed]).then(() => {
+    if (quizState !== qs || qs.i !== qs.items.indexOf(it)) return; // تُخطّي الاختبار أو انتهى قبل المؤقّت
     quizState.i++;
     if (quizState.i < quizState.items.length) renderQuizQuestion();
     else finishQuiz();
