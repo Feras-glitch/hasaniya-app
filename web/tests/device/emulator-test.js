@@ -158,7 +158,9 @@ setTimeout(() => {
     const r = await resumed();
     await shot('mail');
     rec(52, 'جسر البريد موجود ويفتح البريد أو ينبّه دون انهيار', has, r.slice(0, 160), !has);
-    if (!(await appOnTop())) { await back(); await back(); }
+    // رجوع واحد يكفي للخروج من البريد؛ رجوع ثانٍ والتطبيق في المقدمة كان يغلقه فتفشل الخطوات التالية
+    if (!(await appOnTop())) await back();
+    if (!(await appOnTop())) { await sh(`am start -n ${PKG}/.MainActivity`); await sleep(1500); }
   } catch (e) { rec(52, 'البريد', false, e.message, true); }
 
   /* 7) نافذة اختيار الملفات (استعادة النسخة الاحتياطية) */
