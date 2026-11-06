@@ -70,6 +70,7 @@ function saveStation() {
   const ri = document.getElementById("stRewardIcon").value.trim() || "🏅";
   if (!id || !title) { showToast("المعرّف والعنوان مطلوبان", "error"); return; }
   if (!isSafeId(id)) { showToast("المعرّف حروف إنجليزية وأرقام فقط، مثل s14", "error"); return; }
+  if ([icon, ri].some(x => x.length > 8 || /[<>&"'`]/.test(x))) { showToast("الأيقونة رمز قصير (إيموجي) فقط", "error"); return; }
   const data = {id, title, icon, reward:{name:rn, icon:ri, unlocked:false}, verses:[]};
   if (editIdx === "") {
     if (content.journeyData.find(s => s.id === id)) { showToast("المعرّف مستخدم", "error"); return; }
@@ -89,11 +90,37 @@ function saveStation() {
     });
     content.journeyData[+editIdx] = data;
   }
+  markContentEdited();
   saveState(); renderEditorStations(); refreshStationSelect(); clearStationForm();
   showToast("تم الحفظ", "success");
 }
+/* v104: قبل كل تغيير هادم: نسخة من المحتوى ونسخة من تقدّم الأطفال، وعلامة أن المحتوى عُدّل */
+function editorBeforeDestructive(reason) {
+  contentSnapshotSave(content.journeyData, reason, true);
+  if (typeof safetyBackupPush === "function") safetyBackupPush(reason);
+}
+function markContentEdited() { content.edited = true; }
+/* استرجاع المحتوى السابق (قبل آخر تحديث للتطبيق أو استيراد أو حذف)، مع إبقاء الحالي نسخةً سابقة */
+function restoreContentPrev() {
+  const o = contentSnapshotGet();
+  if (!o) { showToast("لا توجد نسخة سابقة من المحتوى", "error"); return; }
+  const prob = journeyProblem(o.journeyData);
+  if (prob) { showToast("النسخة السابقة غير صالحة: " + prob, "error"); return; }
+  let when = ""; try { when = new Date(o.at).toLocaleString("ar-EG"); } catch (e) {}
+  if (!confirm(`استرجاع المحتوى كما كان ${when} (${o.reason || ""})؟ يُحفظ المحتوى الحالي نسخةً سابقة.`)) return;
+  const cur = content.journeyData;
+  if (typeof safetyBackupPush === "function") safetyBackupPush("قبل استرجاع المحتوى السابق");
+  content.journeyData = o.journeyData;
+  contentSnapshotSave(cur, "قبل استرجاع المحتوى السابق", !!content.edited);
+  markContentEdited();
+  cleanupOrphanedState();
+  renderEditorStations(); refreshStationSelect();
+  showToast("استُرجع المحتوى السابق", "success");
+}
 function deleteStation(si) {
   if (!confirm("حذف هذه المحطة وكل أبياتها؟")) return;
+  editorBeforeDestructive("قبل حذف محطة");
+  markContentEdited();
   content.journeyData.splice(si, 1);
   cleanupOrphanedState();
   renderEditorStations(); refreshStationSelect();
@@ -168,6 +195,9 @@ function journeyProblem(arr) {
     if (!isSafeId(s.id)) return "معرّف محطة غير صالح: " + String(s.id).slice(0, 30);
     if (sids.has(s.id)) return "معرّف محطة مكرر: " + s.id;
     sids.add(s.id);
+    // v104: الأيقونات رموز قصيرة (إيموجي)؛ لا وسوم ولا نصوص طويلة
+    const iconBad = x => x != null && (typeof x !== "string" || x.length > 8 || /[<>&"'`]/.test(x));
+    if (iconBad(s.icon) || (s.reward && iconBad(s.reward.icon))) return "أيقونة غير صالحة في المحطة: " + s.id;
     if (!Array.isArray(s.verses)) return "أبيات المحطة غير صالحة: " + s.id;
     for (const v of s.verses) {
       const pr = verseProblem(v);
@@ -215,11 +245,14 @@ function saveVerse() {
   const st = content.journeyData[stIdx];
   if (editVid === "") st.verses.push(data);
   else st.verses[+editVid] = data;
+  markContentEdited();
   saveState(); renderEditorStations(); clearVerseForm();
   showToast("تم حفظ البيت", "success");
 }
 function deleteVerse(si, vi) {
   if (!confirm("حذف هذا البيت؟")) return;
+  editorBeforeDestructive("قبل حذف بيت");
+  markContentEdited();
   content.journeyData[si].verses.splice(vi, 1);
   cleanupOrphanedState();
   renderEditorStations();
@@ -244,6 +277,8 @@ function importJson() {
     const prob = journeyProblem(arr);
     if (prob) { showToast("لم يُستورد: " + prob, "error"); return; }
     if (!confirm("سيتم استبدال كل المحتوى الحالي (لكل الأطفال). متابعة؟")) return;
+    editorBeforeDestructive("قبل استيراد محتوى");
+    markContentEdited();
     content.journeyData = arr.map(s => ({
       id:s.id, title:s.title, icon:s.icon||"📖",
       reward:{name:(s.reward && s.reward.name)||"مكافأة", icon:(s.reward && s.reward.icon)||"🏅", unlocked:false},

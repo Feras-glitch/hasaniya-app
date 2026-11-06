@@ -67,11 +67,9 @@ function hideMask(v, level) {
   if (!mask.some(Boolean)) mask[mask.length - 1] = true;
   return mask;
 }
-/* عدد الأبيات المتقنة في المحطة (إجابتان صحيحتان متتاليتان على الأقل) */
+/* عدد الأبيات المتقنة في المحطة (صحيح في يومين مختلفين على الأقل، بلا خطأ بعده) */
 function stationMastery(st) {
-  const vs = state.verseStats || {};
-  const done = st.verses.filter(v => { const s = vs[v.id]; return s && s.correct >= 2 && s.lastCorrect >= (s.lastWrong || 0); }).length;
-  return { done, total: st.verses.length };
+  return { done: masteredCount(state, st.verses), total: st.verses.length };
 }
 function renderHideLevel(v, level) {
   const mask = hideMask(v, level);
@@ -100,7 +98,9 @@ function checkHideLevel() {
   body.querySelectorAll(".hide-next").forEach(b => b.remove());
   if (wrong === 0) {
     if (firstCreditToday("hide|" + level + "|" + v.id)) addPoints(level * 2);
-    leitnerRecord(v.id, true); saveState(); playSuccess();
+    // v104: المستوى الأول يُخفي ثلث الكلمات فقط، فلا يرفع الصندوق؛ المستويان الثاني والثالث استرجاع حقيقي
+    if (level >= 2) leitnerRecord(v.id, true);
+    saveState(); playSuccess();
     msg.innerHTML = `<span style="color:var(--success)">✅ ${escapeHtml(guideVocative())}، ${gForm("أحسنتَ", "أحسنتِ")}!</span>`;
     const label = level < 3 ? "المستوى التالي ⬅️" : "بيت جديد 🎲";
     body.insertAdjacentHTML("beforeend", `<button class="action-btn btn-success hide-next" style="width:100%" onclick="${level < 3 ? `renderHideLevel(hideState.v, ${level + 1})` : "startHideLevels()"}">${label}</button>`);
@@ -189,14 +189,14 @@ function buildWeeklyText() {
   const w = ensureWeekly(state);
   const ids = weeklyVerseIds(w.week);
   const completed = content.journeyData.filter(s => getStationStatus(s) === "completed").length;
-  const mastered = Object.values(state.verseStats || {}).filter(s => s.correct >= 2 && s.lastCorrect >= (s.lastWrong || 0)).length;
+  const mastered = masteredCount(state);
   const weak = getMistakesSorted().slice(0, 5).map(m => m.word);
   const reflections = Object.values(state.reflections || {}).filter(Boolean).length;
   return [
     `تقرير المتابعة الأسبوعي: ${getUserName()}`,
     `التاريخ: ${new Date().toLocaleDateString("ar-EG")}`,
     `المحطات المكتملة: ${completed} من ${content.journeyData.length}`,
-    `أبيات أُتقنت (إجابتان صحيحتان متتاليتان): ${mastered}`,
+    `أبيات أُتقنت (صحيحة في يومين مختلفين على الأقل، بلا خطأ بعدها): ${mastered} من ${content.journeyData.reduce((n, x) => n + x.verses.length, 0)}`,
     `تحدّي الأسبوع: ${Object.keys(w.done).filter(k => ids.includes(k)).length} من ${ids.length}`,
     `أبيات مستحقة للمراجعة الآن: ${leitnerDueVerses().length}`,
     `تأمّلات مكتوبة: ${reflections}`,

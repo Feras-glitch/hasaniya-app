@@ -9,7 +9,9 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
     const p = await (await b.newContext({ viewport: { width: w, height: h } })).newPage(); p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d => d.accept());
     await p.goto(URL); await p.waitForTimeout(800);
     await p.evaluate(() => { closePopup('userEditorPopup'); startStation(0); });
-    await p.waitForTimeout(600);
+    // v104: عرض «معرفة المعنى» يأتي بعد أن يسكت صوت البيت
+    await p.waitForFunction(() => !!document.querySelector('#guideFloat.show'), null, { timeout: 8000 }).catch(() => {});
+    await p.waitForTimeout(300);
     const pre = await p.evaluate(() => ({ float: !!document.querySelector('#guideFloat.show'), open: document.body.classList.contains('guide-open'),
       xw: (document.querySelector('#guideFloat .guide-x') || { getBoundingClientRect: () => ({ width: 0, height: 0 }) }).getBoundingClientRect().width }));
     await p.evaluate(() => { const v = getCurrentVerse().verse; const bank = document.getElementById('wordsBank');
@@ -57,7 +59,7 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
   await q.goto(URL); await q.waitForTimeout(800);
   const L = await q.evaluate(async () => {
     closePopup('userEditorPopup');
-    parentPinHash = await hashPin('1234'); localStorage.setItem(STORAGE_PIN, parentPinHash);
+    parentPinHash = await hashPin('1234'); pinStoreSave(parentPinHash);
     const o = { msgs: [] };
     for (let i = 0; i < 6; i++) { pinMode = 'verify'; showPinModal('t', 'm'); document.getElementById('pinInput').value = '9999'; await submitPin(); o.msgs.push(document.getElementById('pinError').textContent); }
     const st = pinLockState(); o.locked = st.until > Date.now(); o.fails = st.fails;

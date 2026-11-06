@@ -30,6 +30,7 @@ function dashRow(d, now = Date.now()) {
     childId: isSafeId(d.user.id) ? d.user.id : "",
     avatar: String(d.user.avatar || "👤").slice(0, 4),
     percent: Math.max(0, Math.min(100, Math.round(d.mastery.percent))),
+    mastered: Math.max(0, Math.floor(+d.mastery.mastered || 0)), seen: Math.max(0, Math.floor(+d.mastery.seen || 0)),
     completed: d.completedStations, total: d.totalStations,
     points: +d.points || 0, streak: +d.streak || 0, minutes: +d.totalTimeMinutes || 0,
     mistakes: Array.isArray(d.mistakes) ? d.mistakes.length : 0,
@@ -38,13 +39,20 @@ function dashRow(d, now = Date.now()) {
     weak: [], source: "تقرير", calcFailed: false
   };
 }
-/* الأبيات الأكثر تعثراً من حالة الطفل، مع نصها عند توفره */
+/* الأبيات الأكثر تعثراً من حالة الطفل، مع نصها عند توفره.
+   v104: العدد من مرات الخطأ الفعلية في البيت (verseStats)، لا من وجوده في قائمة الأخطاء (كانت كلها 1) */
 function dashWeakVerses(state, lookup, limit = 3) {
   const counts = {};
+  for (const [id, st] of Object.entries((state && state.verseStats) || {})) {
+    const n = Math.floor(+(st && st.wrong) || 0);
+    if (n > 0 && typeof id === "string") counts[id] = n;
+  }
+  const words = {};
   for (const m of Object.values((state && state.mistakes) || {})) {
     if (!m || typeof m.verseId !== "string") continue;
-    counts[m.verseId] = (counts[m.verseId] || 0) + 1;
+    words[m.verseId] = (words[m.verseId] || 0) + 1;
   }
+  for (const [id, n] of Object.entries(words)) counts[id] = Math.max(counts[id] || 0, n);
   return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, limit).map(([id, n]) => {
     const v = lookup ? lookup(id) : null;
     return { id, n, text: v && v.fullVerse ? v.fullVerse : id };
@@ -54,8 +62,13 @@ function dashWeakVerses(state, lookup, limit = 3) {
 function dashRowFromUser(u, when, now, lookup, mastery, totalStations) {
   const s = u.state || {};
   const exported = Date.parse(when) || 0;
-  let percent = 0, calcFailed = false;
-  try { const p = mastery(u); if (typeof p === "number" && isFinite(p)) percent = p; else calcFailed = true; }
+  let percent = 0, calcFailed = false, mastered = 0, seen = 0;
+  try {
+    const p = mastery(u);
+    const pc = p && typeof p === "object" ? p.percent : p;
+    if (typeof pc === "number" && isFinite(pc)) percent = pc; else calcFailed = true;
+    if (p && typeof p === "object") { mastered = Math.max(0, Math.floor(+p.mastered || 0)); seen = Math.max(0, Math.floor(+p.seen || 0)); }
+  }
   catch(e) { calcFailed = true; }
   const status = s.stationStatus && typeof s.stationStatus === "object" ? s.stationStatus : {};
   return {
@@ -63,6 +76,7 @@ function dashRowFromUser(u, when, now, lookup, mastery, totalStations) {
     childId: isSafeId(u.id) ? u.id : "",
     avatar: String(u.avatar || "👤").slice(0, 4),
     percent: Math.max(0, Math.min(100, Math.round(percent))),
+    mastered, seen,
     completed: Math.min(totalStations, Object.values(status).filter(v => v === "completed").length),
     total: totalStations,
     points: +s.points || 0, streak: +s.streak || 0,
@@ -86,6 +100,7 @@ function dashMerge(rows) {
   return [...by.values()];
 }
 
+function dashTotalVerses() { return (typeof content !== "undefined" && content.journeyData) ? content.journeyData.reduce((n, x) => n + x.verses.length, 0) : 161; }
 /* ---------- الواجهة ---------- */
 function openClassDashboard() {
   document.getElementById("dashPopup").classList.add("active");
@@ -98,7 +113,7 @@ async function importDashFiles(fileList) {
   const now = Date.now();
   const lookup = id => vpFindVerse(id);
   const totalStations = content.journeyData.length;
-  const mastery = u => calculateMastery(u.state).percent;
+  const mastery = u => calculateMastery(u.state);
   for (const f of files) {
     if (f.size > DASH_MAX_FILE) { skipped++; continue; }
     let d;
@@ -128,7 +143,7 @@ function dashShow(i) {
     : `<p class="rec-count">${r.source === "تقرير" ? "هذا تقرير مختصر. للاطلاع على الأبيات المتعثرة استخدم النسخة الاحتياطية." : "لا توجد أبيات متعثرة."}</p>`;
   box.innerHTML = `<div style="border:1px solid #eee;border-radius:12px;padding:10px;margin-top:10px">
     <strong>${escapeHtml(r.avatar)} ${escapeHtml(r.name)}</strong>
-    <div style="font-size:.9rem;margin-top:4px">المحطات المكتملة: ${r.completed} من ${r.total} · الإتقان ${r.percent}%${r.calcFailed ? " (تعذّر الحساب)" : ""}</div>
+    <div style="font-size:.9rem;margin-top:4px">المحطات المكتملة: ${r.completed} من ${r.total} · أبيات متقنة ${r.mastered || 0} من ${dashTotalVerses()} · دقة ما رآه ${r.percent}%${r.calcFailed ? " (تعذّر الحساب)" : ""}</div>
     <div style="font-size:.85rem;color:#666;margin-top:6px">أكثر الأبيات تعثراً:</div>${weak}
   </div>`;
 }
@@ -143,10 +158,13 @@ function renderDashboard() {
     return;
   }
   const sort = document.getElementById("dashSort").value;
+  // v104: الترتيب الافتراضي بعدد الأبيات المتقنة (التغطية)، لا بنسبة دقة ما رآه الطفل وحده:
+  // طفل رأى 3 أبيات كلها صحيحة كان يتصدّر طفلاً أتقن 120 بيتاً
   dashSorted = [...dashRows].sort((a, b) =>
     sort === "name" ? a.name.localeCompare(b.name, "ar")
     : sort === "completed" ? b.completed - a.completed
-    : b.percent - a.percent);
+    : sort === "percent" ? b.percent - a.percent
+    : (b.mastered || 0) - (a.mastered || 0) || b.percent - a.percent);
   const avg = Math.round(dashRows.reduce((s, r) => s + r.percent, 0) / dashRows.length);
   const low = dashRows.filter(r => r.percent < DASH_LOW_PERCENT).length;
   sum.textContent = `${dashRows.length} طفلاً · متوسط الإتقان ${avg}%${low ? ` · ${low} يحتاج متابعة` : ""}`;
@@ -154,7 +172,7 @@ function renderDashboard() {
   const weeklyLine = r => {
     const weak = r.weak && r.weak.length ? "، أكثر الأبيات تعثراً: " + r.weak.map(w => w.text).join(" / ") : "";
     const need = r.percent < DASH_LOW_PERCENT ? " — يحتاج متابعة" : "";
-    return `${r.avatar} ${r.name}: ${r.completed} من ${r.total} محطات، إتقان ${r.percent}%${need}${weak}`;
+    return `${r.avatar} ${r.name}: ${r.completed} من ${r.total} محطات، ${r.mastered || 0} بيتاً متقناً من ${dashTotalVerses()}، دقة ${r.percent}%${need}${weak}`;
   };
   const weekly = `<div style="background:#fbf8f2;border:1px solid #eee;border-radius:12px;padding:8px 10px;margin-bottom:10px;line-height:1.9;font-size:.9rem">
     <strong>ملخص مختصر</strong>${dashSorted.map(r => `<div>• ${escapeHtml(weeklyLine(r))}</div>`).join("")}</div>`;
@@ -167,11 +185,12 @@ function renderDashboard() {
   };
   body.innerHTML = weekly + `<table class="dash-table" style="width:100%;border-collapse:collapse;font-size:.88rem">
     <thead><tr style="background:#f5f5f5">
-      <th style="padding:6px;text-align:right">الطفل</th><th>الإتقان</th><th>المحطات</th>
+      <th style="padding:6px;text-align:right">الطفل</th><th>متقن</th><th>الدقة</th><th>المحطات</th>
       <th>النقاط</th><th>الأخطاء</th><th>الوقت</th><th style="text-align:right">ملاحظة</th>
     </tr></thead>
     <tbody>${dashSorted.map((r, i) => `<tr onclick="dashShow(${i})" style="border-bottom:1px solid #eee;cursor:pointer">
       <td style="padding:6px">${escapeHtml(r.avatar)} ${escapeHtml(r.name)}</td>
+      <td style="text-align:center"><strong>${r.mastered || 0}</strong><small style="color:#888">/${dashTotalVerses()}</small></td>
       <td style="text-align:center"><strong>${r.percent}%</strong>
         <div style="height:6px;background:#eee;border-radius:4px;margin-top:3px"><div style="height:6px;width:${r.percent}%;background:${r.percent < DASH_LOW_PERCENT ? "var(--danger)" : "var(--success)"};border-radius:4px"></div></div></td>
       <td style="text-align:center">${r.completed}/${r.total}</td>

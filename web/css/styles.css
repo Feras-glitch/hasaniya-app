@@ -199,7 +199,7 @@ audio{width:100%;max-width:300px;margin-top:10px;border-radius:20px}
 @media(max-width:480px){
   body{padding:8px}.app-container{border-radius:16px}
   .header{padding:10px;font-size:1rem}#appTitle{font-size:.95rem}
-  .user-name{display:none}
+  .user-name{max-width:56px;font-size:.8rem}
   .verse-text{font-size:1.5rem}.word-btn{font-size:1.05rem;padding:9px 16px}
   .station{width:72px;height:72px;font-size:1.9rem}
   .top-buttons .action-btn{font-size:.75rem;padding:7px 10px}
@@ -628,3 +628,41 @@ body.night .voice-missing{background:#3a2f1e;color:#ffe0b2;border-color:#8d6e3a}
 .pinrec-check{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:.92rem}
 .pinrec-link{background:none;border:none;color:#888;margin-top:14px;cursor:pointer;font-size:.85rem;text-decoration:underline;font-family:inherit;display:block;margin-inline:auto}
 .pin-reset-banner{position:sticky;top:0;z-index:90;box-sizing:border-box;border-radius:22px 22px 0 0;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:#fff3cd;border-bottom:2px solid #f0ad4e;color:#7a5200;padding:8px 12px;font-weight:bold;font-size:.92rem}
+/* v104: سجلّ الرقم السري وتنبيهات الوالد */
+.pin-log{background:#f7f7f7;border-radius:10px;padding:8px 10px;font-size:.82rem;color:#555;text-align:right;margin-top:6px}
+.pin-log ul{margin:4px 0 0;padding-inline-start:18px}
+.parent-alert{background:#fff3cd;border:1px solid #f0ad4e;color:#7a5200;border-radius:10px;padding:8px 10px;margin:8px 0;font-size:.9rem;line-height:1.7}
+.eval-rubric{background:#f6fbf3;border:1px solid #d6ead0;border-radius:10px;padding:8px 10px;margin-bottom:8px;font-size:.85rem;line-height:1.8;color:#335}
+/* v104: سمّعه الآن */
+.pc-card{background:#f1f8e9;border:1px solid #c5e1a5;border-radius:12px;padding:10px;margin:8px 0;line-height:1.8}
+.pc-cue{background:#fff8e1;border-radius:10px;padding:8px;margin:6px 0;font-size:.95rem}
+.pc-verse{font-size:1.2rem;text-align:center;padding:8px;border:1px dashed #ccc;border-radius:10px;margin:6px 0}
+.pc-btns{display:flex;flex-direction:column;gap:8px}
+.pc-btns .action-btn{min-height:48px;font-size:1.05rem}
+.pc-sum{font-size:1.6rem;text-align:center;margin:8px 0}
+/* v104: تباين الوضع الليلي (كان عنوان سؤال الحدث 1.6:1 و«رتّب الكلمات» 2.5:1) */
+.order-hint{font-size:1.2rem !important;color:#555}
+body.night .order-hint{color:#cfd8dc}
+body.night .story-box .story-text,body.night .story-box,body.night .story-box .story-header{color:#f3e5c4}
+body.night .drop-zone .word-btn{background:#7b3f8c !important;color:#fff !important;border-color:#ce93d8 !important}
+body.night .say-btn{color:#ffe082;border-color:#ffe082}
+/* v104: أهداف لمس لا تقل عن 44 بكسل */
+#backToMapBtn,.user-chip,#userChip{min-height:44px;min-width:44px}
+.say-btn{min-width:40px;min-height:40px}
+/* v104: زر اختيار ملف عربي بدل «Choose File» */
+.file-hidden{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
+.file-pick{display:block;width:100%;text-align:center;margin:8px 0;cursor:pointer;box-sizing:border-box}
+/* v104: أزرار «التالي» و«الخريطة» ثابتة أسفل الشاشة أثناء الدرس، فلا يضيع «التالي» تحت حافة الشاشة */
+#gameScreen .buttons-area{position:sticky;bottom:0;z-index:6;background:var(--white,#fff);padding:8px 0 6px;box-shadow:0 -6px 10px rgba(0,0,0,.06)}
+/* v104: في وضع الصغير يكبر «استمع/سجّل/صوتي» ولا يصغر (كانت قاعدة tool-btn العامة تغلبه) */
+body.small-kid .rec-bar .big-btn{min-height:64px;font-size:1.3rem;padding:10px 8px}
+body.small-kid .word-btn.speaking{outline:3px solid #ffb300}
+/* v104: عرض «سمّع ما سبق» بعرض كافٍ لا عموداً ضيقاً، وفوق شريط الأزرار */
+.review-offer{width:min(92vw,420px);box-sizing:border-box;bottom:84px}
+.review-offer span{flex:1;min-width:0;line-height:1.6}
+/* v104: البيت السابق فوق الجديد */
+.intro-prev{font-size:.95rem;color:#777;border-bottom:1px dashed #ddd;padding-bottom:6px;margin-bottom:6px}
+.intro-prev span{color:#555}
+body.night .intro-prev,body.night .intro-prev span{color:#b0bec5}
+.voice-muted-note{position:fixed;top:8px;left:50%;transform:translateX(-50%);width:min(92vw,440px);box-sizing:border-box;z-index:400;background:#fff3cd;color:#7a5200;border:1px solid #f0ad4e;border-radius:12px;padding:8px 12px;font-size:.9rem;line-height:1.6;box-shadow:0 4px 12px rgba(0,0,0,.15);display:none}
+.voice-muted-note.show{display:block}

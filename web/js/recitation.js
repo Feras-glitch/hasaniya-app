@@ -181,7 +181,7 @@ async function renderRecList() {
     </div>`);
   }
   body.innerHTML = rows.join("");
-  document.getElementById("recCount").textContent = `سُجّل ${done} من ${verses.length} أبيات`;
+  document.getElementById("recCount").textContent = `سُجّل ${done} من ${arCount(verses.length, "بيت واحد", "بيتين", "أبيات", "بيتاً")}`;
 }
 async function recPlayKey(key) {
   if (!audioBegin()) return;
@@ -247,11 +247,18 @@ function learnedVerses(rangeKey) {
 }
 function sectionKey(rangeKey) { return (activeUserId || "x") + "|sec|" + rangeKey; }
 function currentRange() { return document.getElementById("secRange").value || "all"; }
+/* v104: التسميع من الحفظ: النص مخفي، ويُظهره الطفل إن تعثّر (وهو «فتح») */
+let secShow = false;
+function secToggleText() { secShow = !secShow; renderSectionStatus(); }
 async function renderSectionStatus() {
   const range = currentRange();
   const verses = learnedVerses(range);
   const text = verses.map(v => v.fullVerse).join("\n");
-  document.getElementById("secText").innerText = verses.length ? text : "لم تُحفظ أبيات في هذا النطاق بعد.";
+  const st = document.getElementById("secText");
+  st.innerText = verses.length ? text : "لم تُحفظ أبيات في هذا النطاق بعد.";
+  st.hidden = !secShow && verses.length > 0;
+  const sb = document.getElementById("secShowBtn");
+  if (sb) { sb.style.display = verses.length ? "" : "none"; sb.textContent = secShow ? "🙈 أخفِ النص وسمّع من حفظك" : "👁️ أظهر النص"; }
   const sec = await recGet(sectionKey(range));
   document.getElementById("secStatus").textContent = sec ? "✅ يوجد تسميع متصل مسجّل لهذا النطاق" : "لا يوجد تسميع متصل بعد";
   document.getElementById("secRecBtn").textContent = recIsRecording(range) ? "⏹ أوقف التسجيل" : "⏺ سجّل التسميع المتصل";
@@ -260,6 +267,7 @@ async function renderSectionStatus() {
 function recSection() {
   const range = currentRange();
   if (!learnedVerses(range).length) { kidToast(kidLine("noLearned"), "error"); return; }
+  if (!recIsRecording(range)) secShow = false;   // يبدأ التسجيل والنص مخفي
   recToggle(range, () => renderSectionStatus(), { storeKey: sectionKey(range), kind: "section", maxMs: 15 * 60 * 1000 });
   renderSectionStatus();
 }
@@ -287,6 +295,7 @@ function playPart(token, rec, text, polite) {
     seqWaiters.add(done);
     mark();
     const tts = () => {
+      if (!polite && voiceEngineMuted() && typeof voiceMutedNotice === "function") voiceMutedNotice();
       if (token !== seqToken || !("speechSynthesis" in window) || voiceEngineMuted()) return done();
       try {
         const u = new SpeechSynthesisUtterance(ttsText(text));
@@ -477,6 +486,9 @@ function openEvalFromDoc(rawDoc) {
   list.textContent = "";
   /* بناء العناصر بالـDOM: لا يُركَّب HTML من حقول الملف */
   const mk = (tag, props, kids) => { const e = document.createElement(tag); Object.assign(e, props || {}); (kids || []).forEach(k => e.appendChild(k)); return e; };
+  /* v104: معيار مكتوب للمقيّم، ولا درجة افتراضية (كانت 1 من 5 لكل بيت لم يُغيَّر) */
+  list.appendChild(mk("div", { className: "eval-rubric", textContent:
+    "الحفظ: 5 بلا فتح · 4 فتح واحد · 3 فتحان · 2 يقرأ أكثره من النص · 1 لا يحفظه. (الفتح: أن تذكّره بكلمة نسيها). اترك «—» لما لم تسمعه؛ البيت الذي لم تكتمل درجاته لا يُرسَل." }));
   doc.items.forEach((it, i) => {
     const row = mk("div", { className: "rec-row" });
     row.dataset.i = String(i);
@@ -488,6 +500,7 @@ function openEvalFromDoc(rawDoc) {
     [["memory", "الحفظ"], ["pronunciation", "النطق والتجويد"], ["order", "الترتيب"]].forEach(([k, label]) => {
       const sel = mk("select");
       sel.dataset.k = k; sel.dataset.v = String(i);
+      sel.appendChild(mk("option", { value: "", textContent: "—" }));
       [1, 2, 3, 4, 5].forEach(n => sel.appendChild(mk("option", { value: String(n), textContent: String(n) })));
       grid.appendChild(mk("label", {}, [document.createTextNode(label + " "), sel]));
     });
@@ -499,22 +512,28 @@ function openEvalFromDoc(rawDoc) {
 }
 function collectEvaluation() {
   const out = {};
+  let skipped = 0;
   document.querySelectorAll("#evalBody .rec-row").forEach(row => {
     const i = +row.dataset.i;
     const it = evalDoc.doc.items[i];
-    const get = k => +row.querySelector(`select[data-k="${k}"]`).value;
-    out[it.verseId] = { memory: get("memory"), pronunciation: get("pronunciation"), order: get("order"),
-      note: row.querySelector(".eval-note").value.trim().slice(0, 300) };
+    const get = k => +row.querySelector(`select[data-k="${k}"]`).value || 0;
+    const r = { memory: get("memory"), pronunciation: get("pronunciation"), order: get("order") };
+    if (!r.memory || !r.pronunciation || !r.order) { skipped++; return; }
+    out[it.verseId] = Object.assign(r, { note: row.querySelector(".eval-note").value.trim().slice(0, 300) });
   });
+  collectEvaluation.skipped = skipped;
   return out;
 }
 function saveEvaluation() {
   const evaluatorName = (document.getElementById("evaluatorName").value || "المقيّم").trim().slice(0, 30);
+  const ratings = collectEvaluation();
+  const n = Object.keys(ratings).length, skipped = collectEvaluation.skipped || 0;
+  if (!n) { showToast("لم يُقيَّم أي بيت: اختر درجات الحفظ والنطق والترتيب", "error"); return; }
   const doc = { app: "hasaniya", type: "evaluation", evaluatedAt: new Date().toISOString(),
-    evaluator: evaluatorName, child: evalDoc.doc.child?.name || "", ratings: collectEvaluation() };
+    evaluator: evaluatorName, child: evalDoc.doc.child?.name || "", ratings };
   downloadJson(doc, "evaluation-" + Date.now() + ".json");
   document.getElementById("evalPopup").classList.remove("active");
-  showToast("تم حفظ التقييم", "success");
+  showToast(`تم حفظ تقييم ${n} بيت` + (skipped ? `، وتُرك ${skipped} بلا تقييم` : ""), "success");
 }
 
 /* ---------- الطفل يستلم التقييم ---------- */

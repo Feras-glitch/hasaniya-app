@@ -21,4 +21,12 @@ function escapeForAttr(s) {
     .replace(/>/g, "&gt;");
 }
 /* معرّف آمن (طفل، بيت، محطة): حروف وأرقام وشرطة فقط */
+/* v104: العدد والمعدود بالعربية: 1 بيت واحد، 2 بيتان، 3–10 أبيات، 11 فأكثر بيتاً */
+function arCount(n, one, two, few, many) {
+  n = Math.floor(+n || 0);
+  if (n === 1) return one;
+  if (n === 2) return two;
+  if (n >= 3 && n <= 10) return n + " " + few;
+  return n + " " + many;
+}
 function isSafeId(s) { return typeof s === "string" && /^[A-Za-z0-9_-]{1,60}$/.test(s); }

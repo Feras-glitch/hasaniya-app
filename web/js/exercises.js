@@ -117,7 +117,8 @@ function answerExercise(i, btn) {
     playFail();
     msg.innerHTML = `<span style="color:var(--danger)">${escapeHtml(kidLine("answerIs"))} ${escapeHtml(q.correct)}</span>`;
     autoSayNow([kidLine("answerIs"), q.correct]);
-    try { leitnerRecord(q.verseId, false); saveState(); } catch(e) {}
+    // v104: خطأ في سؤال عن القصة (الأماكن، الأسماء) أو عن ترتيب الأبيات لا يعني نسيان نص البيت
+    if (exState.kind === "next") try { leitnerRecord(q.verseId, false); saveState(); } catch(e) {}
   }
   const last = exState.i + 1 >= exState.qs.length;
   document.getElementById("hubBody").insertAdjacentHTML("beforeend",

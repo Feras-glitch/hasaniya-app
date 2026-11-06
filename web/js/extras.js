@@ -16,15 +16,20 @@ function buildTeacherReportHtml() {
   const stationRows = content.journeyData.map((st, i) => {
     const s = getStationStatus(st);
     const label = s === "completed" ? "مكتملة" : s === "current" ? "قيد الحفظ" : "لم تُفتح";
-    const date = (state.stampDates || {})[st.id] || "";
-    return `<tr><td>${i + 1}</td><td>${escapeHtml(st.icon)} ${escapeHtml(st.title)}</td><td>${label}</td><td>${escapeHtml(date)}</td></tr>`;
+    // v104: تاريخ مقروء بدل الرقم الخام، ونتيجة اختبار الفهم المحفوظة
+    const raw = (state.stampDates || {})[st.id];
+    let date = "";
+    if (raw) { const n = +raw; date = Number.isFinite(n) && n > 1e11 ? new Date(n).toLocaleDateString("ar-EG") : String(raw); }
+    const q = (state.quizResults || {})[st.id];
+    const quiz = q && Number.isFinite(+q.score) && Number.isFinite(+q.total) ? `${+q.score} / ${+q.total}` : "—";
+    return `<tr><td>${i + 1}</td><td>${escapeHtml(st.icon)} ${escapeHtml(st.title)}</td><td>${label}</td><td>${escapeHtml(date)}</td><td>${quiz}</td></tr>`;
   }).join("");
   const mistakes = getMistakesSorted().slice(0, 10).map(m => `<li>${escapeHtml(m.word)}</li>`).join("") || "<li>لا يوجد</li>";
   const reflections = Object.entries(state.reflections || {}).filter(([, t]) => t).map(([sid, t]) => {
     const st = content.journeyData.find(s => s.id === sid);
     return `<li><strong>${escapeHtml(st ? st.title : sid)}:</strong> ${escapeHtml(t)}</li>`;
   }).join("") || "<li>لا توجد تأمّلات مكتوبة</li>";
-  const mastered = Object.values(state.verseStats || {}).filter(s => s.correct >= 2 && s.lastCorrect >= (s.lastWrong || 0)).length;
+  const mastered = masteredCount(state);
   const badges = Object.keys(state.customBadges || {}).map(id => (CUSTOM_BADGES[id] || {}).name).filter(Boolean).join("، ") || "لا يوجد بعد";
   return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
 <title>تقرير المنظومة الحسنية</title>
@@ -40,12 +45,12 @@ th{background:#fce4ec} ul{margin:4px 0;padding-right:18px} .meta{color:#666;font
 <div class="meta">الطفل: ${escapeHtml(getUserName())} · التاريخ: ${new Date().toLocaleDateString("ar-EG")}</div>
 <h2>ملخص</h2>
 <div>المحطات المكتملة: ${content.journeyData.filter(s => getStationStatus(s) === "completed").length} من ${content.journeyData.length}</div>
-<div>أبيات أُتقنت: ${mastered}</div>
+<div>أبيات أُتقنت (صحيحة في يومين مختلفين، بلا خطأ بعدها): ${mastered} من ${content.journeyData.reduce((n, x) => n + x.verses.length, 0)}</div>
 <div>تحدّي الأسبوع: ${weeklyVerseIds(w.week).filter(id => w.done[id]).length} من ${weeklyVerseIds(w.week).length} (هذا الأسبوع)</div>
 <div>الأوسمة: ${escapeHtml(badges)}</div>
 <h2>المحطات</h2>
-<table><tr><th>#</th><th>المحطة</th><th>الحالة</th><th>تاريخ الختم</th></tr>${stationRows}</table>
-<h2>كلمات تحتاج تكراراً</h2><ul>${mistakes}</ul>
+<table><tr><th>#</th><th>المحطة</th><th>الحالة</th><th>تاريخ الختم</th><th>اختبار الفهم</th></tr>${stationRows}</table>
+<h2>أبيات تحتاج تكراراً</h2><ul>${mistakes}</ul>
 <h2>تأمّلات الطفل</h2><ul>${reflections}</ul>
 </body></html>`;
 }

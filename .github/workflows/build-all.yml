@@ -1,8 +1,11 @@
 # بناء كل نسخ المنظومة الحسنية من مصدر واحد (web/) مع كل رفع إلى main:
+#   0) تطابق أرقام النسخة (أندرويد، سطح المكتب، ذاكرة عامل الخدمة) — لا يُبنى شيء إن اختلفت
 #   1) كل الاختبارات (المحتوى والمنطق والمتصفح) — لا يُبنى شيء إن فشل أحدها
 #   2) أندرويد APK موقّع بالمفتاح الثابت
-#   3) ويندوز ولينكس (Electron)، ونسخة الملف الواحد، وملف الويب
-#   4) إصدار في صفحة Releases باسم رقم النسخة، فيه كل الملفات في مكان واحد
+#   3) ويندوز ولينكس (Electron، ببصمة مثبّتة)، ونسخة الملف الواحد، وملف الويب
+#   4) اختبار الهاتف الافتراضي (device-test.yml) — النشر ينتظر نجاحه
+#   5) إصدار في صفحة Releases باسم رقم النسخة، فيه كل الملفات في مكان واحد.
+#      لا يُستبدل إصدار وسمه لالتزام آخر: يلزم رفع رقم النسخة لنشر جديد.
 name: Build all
 
 on:
@@ -10,14 +13,50 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+# قراءة فقط لكل المهام؛ مهمة النشر وحدها تكتب (انظر release)
 permissions:
-  contents: write
+  contents: read
 
 env:
   ELECTRON_VERSION: 37.3.1
 
 jobs:
+  versions:
+    name: Version numbers match
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check versionName, versionCode, package.json and service-worker cache
+        id: v
+        run: |
+          G=android/app/build.gradle
+          VN="$(grep -oP '^\s*versionName\s+"\K[^"]+' "$G" || true)"
+          VC="$(grep -oP '^\s*versionCode\s+\K[0-9]+' "$G" || true)"
+          PJ="$(python3 -c 'import json; print(json.load(open("desktop/package.json", encoding="utf-8"))["version"])')"
+          SW="$(grep -oP '^\s*const\s+CACHE\s*=\s*"\K[^"]+' web/sw.js || true)"
+          echo "versionName=$VN versionCode=$VC desktop/package.json=$PJ web/sw.js CACHE=$SW"
+          MAJOR="${VN%%.*}"
+          bad=0
+          if ! [[ "$VN" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            echo "::error file=$G::versionName \"$VN\" ليس بالصيغة المتوقعة (مثل 104.0)"; bad=1
+          fi
+          if [ "$VC" != "$MAJOR" ]; then
+            echo "::error file=$G::versionCode ($VC) لا يساوي الجزء الأول من versionName ($VN)"; bad=1
+          fi
+          if [ "$PJ" != "$VN.0" ]; then
+            echo "::error file=desktop/package.json::version ($PJ) لا يطابق versionName ($VN): المتوقع $VN.0"; bad=1
+          fi
+          if ! [[ "$SW" =~ ^hasaniya-v${MAJOR}-[A-Za-z0-9]+$ ]]; then
+            echo "::error file=web/sw.js::اسم الكاش ($SW) لا يطابق versionName ($VN): المتوقع hasaniya-v$MAJOR-s1 (أو لاحقة أخرى بعد الشرطة)"; bad=1
+          fi
+          [ "$bad" = 0 ] || exit 1
+          echo "::notice::أرقام النسخة متطابقة: $VN"
+          echo "version=$VN" >> "$GITHUB_OUTPUT"
+
   test:
+    needs: versions
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -29,9 +68,15 @@ jobs:
           npm install --no-save --no-package-lock playwright@1.49.1
           npx playwright install --with-deps chromium
           python3 web/tools/build_standalone.py "$RUNNER_TEMP/hasaniya.html"
-          export CHROMIUM_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          CHROMIUM_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          export CHROMIUM_PATH
           export HASANIYA_URL="file://$RUNNER_TEMP/hasaniya.html"
           node web/tests/run-all.js --e2e
+
+  # اختبار الهاتف الافتراضي (يعمل بالتوازي مع بقية الاختبارات والبناء)؛ النشر ينتظره
+  device-test:
+    needs: versions
+    uses: ./.github/workflows/device-test.yml
 
   android:
     needs: test
@@ -100,7 +145,7 @@ jobs:
           mkdir -p out
           python3 web/tools/build_standalone.py out/hasaniya-standalone.html
           (cd web && zip -qr ../out/hasaniya-web.zip index.html sw.js manifest.json README.md css js img)
-      - name: Windows and Linux (Electron)
+      - name: Windows and Linux (Electron, sha256-verified download)
         run: bash desktop/package.sh "$ELECTRON_VERSION" desk
       - name: Check that the Linux version opens the app
         run: |
@@ -119,16 +164,27 @@ jobs:
         with:
           name: hasaniya-packages
           path: out/
-          retention-days: 2
+          retention-days: 7
 
   release:
-    needs: [ android, packages ]
+    needs: [ versions, android, packages, device-test ]
+    # النشر للأهالي من main وحده: التشغيل اليدوي من فرع آخر يبني ويختبر ولا ينشر
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
+    # المهمة الوحيدة التي تكتب في المستودع (الوسم والإصدار)
+    permissions:
+      contents: write
+    # نشر واحد في كل مرة، فلا يتسابق رفعان على الوسم نفسه
+    concurrency:
+      group: release
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v5
       - uses: actions/download-artifact@v4
         with:
           path: dist
+          # ملفات النسخ فقط (hasaniya-apk وhasaniya-packages)، لا صور اختبار الهاتف
+          pattern: hasaniya-*
           merge-multiple: true
       - name: Require signed APK
         run: |
@@ -138,15 +194,67 @@ jobs:
             exit 1
           fi
           rm -f dist/hasaniya-debug.apk
-      - name: Version
-        id: ver
-        run: echo "v=$(grep -oP 'versionName "\K[^"]+' android/app/build.gradle)" >> "$GITHUB_OUTPUT"
-      - name: Publish all versions to Releases
+          # الإصدار كامل أو لا شيء: لا يُنشر APK وحده وملاحظات الإصدار تذكر خمسة ملفات
+          for f in hasaniya.apk hasaniya-windows.zip hasaniya-linux.zip hasaniya-standalone.html hasaniya-web.zip; do
+            [ -s "dist/$f" ] || { echo "::error::الملف $f غير موجود (ربما انتهت مدة حفظه بين المهام). أعد تشغيل البناء كاملاً لا المهام الفاشلة وحدها."; exit 1; }
+          done
+      - name: Same signing key as the previous release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="v${{ steps.ver.outputs.v }}"
-          NOTES="المنظومة الحسنية — النسخة ${{ steps.ver.outputs.v }}
+          # مفتاح مختلف = كل تحديث عند الأهالي يفشل ويضطرهم إلى الحذف وضياع تقدّم الأطفال.
+          # يُقارَن بشهادة آخر إصدار منشور؛ وأول إصدار (لا سابق له) يمرّ.
+          APKSIGNER="$(printf '%s\n' "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)"
+          [ -x "$APKSIGNER" ] || { echo "::error::apksigner غير موجود على المشغّل"; exit 1; }
+          NEW="$("$APKSIGNER" verify --print-certs dist/hasaniya.apk | grep -m1 'certificate SHA-256 digest' | sed 's/.*: //')"
+          [ -n "$NEW" ] || { echo "::error::تعذّر قراءة شهادة توقيع hasaniya.apk"; exit 1; }
+          echo "::notice::شهادة التوقيع: $NEW"
+          mkdir -p "$RUNNER_TEMP/prev"
+          if gh release download --pattern hasaniya.apk --dir "$RUNNER_TEMP/prev" 2>/dev/null; then
+            OLD="$("$APKSIGNER" verify --print-certs "$RUNNER_TEMP/prev/hasaniya.apk" | grep -m1 'certificate SHA-256 digest' | sed 's/.*: //')"
+            if [ "$OLD" != "$NEW" ]; then
+              echo "::error::مفتاح التوقيع تغيّر عن آخر إصدار منشور ($OLD ← $NEW). لن يُنشر شيء: التحديث سيفشل عند كل الأهالي. أعد مفتاح التوقيع الأصلي إلى أسرار المستودع."
+              exit 1
+            fi
+          else
+            echo "::notice::لا إصدار سابق للمقارنة (أول إصدار)."
+          fi
+      - name: Check the release tag
+        id: tag
+        env:
+          VER: ${{ needs.versions.outputs.version }}
+        run: |
+          TAG="v$VER"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          # الالتزام الذي يشير إليه الوسم إن وُجد (الوسم المشروح يُفكّ إلى التزامه)
+          REFS="$(git ls-remote --tags origin "refs/tags/$TAG" "refs/tags/$TAG^{}")"
+          TAG_SHA="$(printf '%s\n' "$REFS" | awk -v r="refs/tags/$TAG^{}" '$2 == r { print $1 }')"
+          [ -n "$TAG_SHA" ] || TAG_SHA="$(printf '%s\n' "$REFS" | awk -v r="refs/tags/$TAG" '$2 == r { print $1 }')"
+          # أحدث وسم منشور: لا يُنشر رقم أقدم منه (رفعان متقاربان قد ينتهيان بغير ترتيبهما)
+          LATEST="$(git ls-remote --tags origin 'refs/tags/v*' | awk '{print $2}' | sed 's#refs/tags/##; s#\^{}##' | grep -E '^v[0-9]+\.[0-9]+$' | sort -uV | tail -1 || true)"
+          if [ -n "$LATEST" ] && [ "$LATEST" != "$TAG" ] && [ "$(printf '%s\n%s\n' "$LATEST" "$TAG" | sort -V | tail -1)" = "$LATEST" ]; then
+            MSG="لم يُنشر شيء: $TAG أقدم من آخر إصدار منشور $LATEST (الأهالي الذين عندهم الأحدث لا يستطيعون تثبيت الأقدم)."
+            echo "::warning::$MSG"; echo "$MSG" >> "$GITHUB_STEP_SUMMARY"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -n "$TAG_SHA" ] && [ "$TAG_SHA" != "$GITHUB_SHA" ]; then
+            MSG="لم يُنشر شيء: الوسم $TAG موجود ويشير إلى التزام آخر (${TAG_SHA:0:7})، وهذا التشغيل للالتزام ${GITHUB_SHA:0:7}. إصدار $TAG لا يُستبدل؛ لنشر هذه النسخة ارفع رقمها (versionName وversionCode في android/app/build.gradle، وversion في desktop/package.json، واسم الكاش في web/sw.js)."
+            echo "::warning::$MSG"
+            echo "$MSG" >> "$GITHUB_STEP_SUMMARY"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            [ -n "$TAG_SHA" ] && echo "الوسم $TAG للالتزام نفسه (إعادة تشغيل): تُستبدل ملفاته."
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish all versions to Releases
+        if: steps.tag.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          VER: ${{ needs.versions.outputs.version }}
+        run: |
+          NOTES="المنظومة الحسنية — النسخة $VER
           - أندرويد: hasaniya.apk
           - ويندوز: hasaniya-windows.zip (فك الضغط ثم شغّل Hasaniya.exe)
           - لينكس: hasaniya-linux.zip (فك الضغط ثم شغّل ./Hasaniya)
@@ -155,6 +263,7 @@ jobs:
           آخر تحديث: $(date -u '+%Y-%m-%d %H:%M') UTC"
           ls -la dist
           if gh release view "$TAG" > /dev/null 2>&1; then
+            # الوسم لهذا الالتزام نفسه (أو لم يُنشأ بعد): إعادة تشغيل، فالاستبدال مقبول
             gh release upload "$TAG" dist/* --clobber
             gh release edit "$TAG" --notes "$NOTES" --target "$GITHUB_SHA"
           else

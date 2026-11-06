@@ -50,7 +50,7 @@ async function verifyPin(pin) {
   if (want === null) { pinUnavailable = true; return false; }
   if (want !== h) return false;
   const upgraded = await hashPin(pin);
-  if (upgraded) { parentPinHash = upgraded; try { localStorage.setItem(STORAGE_PIN, upgraded); } catch(e) {} }
+  if (upgraded) { parentPinHash = upgraded; pinStoreSave(upgraded); }
   return true;
 }
 
@@ -126,8 +126,9 @@ async function submitPinNow() {
     if (pin !== confirm) { err.textContent = "الرقمان غير متطابقان"; return; }
     const nh = await hashPin(pin);
     if (!nh) { err.textContent = "هذا المتصفح لا يدعم حفظ الرقم بأمان. افتح التطبيق من متصفح حديث أو من تطبيق الأندرويد"; return; }
+    pinLog(hasPin() ? "change" : "set");
     parentPinHash = nh;
-    try { localStorage.setItem(STORAGE_PIN, parentPinHash); } catch(e) {}
+    pinStoreSave(parentPinHash);
     if (typeof pinRecClearReset === "function") pinRecClearReset();   // من يضبط الرقم يعرفه: لا انتظار لإلغائه
     closePopup("pinPopup");
     showToast("تم ضبط الرقم السري", "success");
@@ -174,6 +175,26 @@ function cancelPin() {
 
 /* «نسيت الرقم؟» في js/pinrecovery.js: شفرة استرجاع من البريد، أو انتظار 48 ساعة. لا يُمسح شيء */
 
+/* v104: سجلّ يراه الوالد لكل ما جرى على الرقم والشفرة، فلا يمرّ تغيير بصمت */
+const PIN_LOG_KEY = "hasaniya_pin_log";
+const PIN_LOG_LABELS = {
+  set: "ضُبط رقم سري", change: "تغيّر الرقم السري", remove: "أُزيل الرقم السري",
+  recover: "استُعملت شفرة الاسترجاع", codeNew: "حُفظت شفرة استرجاع جديدة",
+  waitStart: "بدأ انتظار إلغاء الرقم (نسيت الرقم)", waitCancel: "سقط طلب إلغاء الرقم",
+  waitExpire: "أُلغي الرقم بعد انتهاء الانتظار"
+};
+function pinLogGet() { try { const a = JSON.parse(localStorage.getItem(PIN_LOG_KEY) || "[]"); return Array.isArray(a) ? a.filter(x => x && PIN_LOG_LABELS[x.ev]) : []; } catch (e) { return []; } }
+function pinLog(ev) {
+  const a = pinLogGet(); a.push({ at: Date.now(), ev });
+  try { localStorage.setItem(PIN_LOG_KEY, JSON.stringify(a.slice(-30))); } catch (e) {}
+}
+function pinLogHTML(n) {
+  const a = pinLogGet().slice(-(n || 8)).reverse();
+  if (!a.length) return "";
+  const d = t => { try { return new Date(t).toLocaleString("ar-EG", { dateStyle: "medium", timeStyle: "short" }); } catch (e) { return new Date(t).toISOString().slice(0, 16); } };
+  return `<div class="pin-log"><strong>📜 سجلّ الرقم السري</strong><ul>${a.map(x => `<li>${escapeHtml(PIN_LOG_LABELS[x.ev])} — <span dir="rtl">${escapeHtml(d(x.at))}</span></li>`).join("")}</ul></div>`;
+}
+
 function managePin() {
   updatePinStatus();
   document.getElementById("managePinPopup").classList.add("active");
@@ -193,6 +214,7 @@ function updatePinStatus() {
     document.getElementById("removePinBtn").style.display = "none";
     if (rb) rb.style.display = "none";
   }
+  const lb = document.getElementById("pinLogBox"); if (lb) lb.innerHTML = pinLogHTML(8);
 }
 
 function newRecoveryCode() {
@@ -221,7 +243,8 @@ function removePin() {
   requirePin(() => {
     if (!confirm("إزالة الرقم السري؟ سيتمكن أي شخص من الوصول للمحرر والتصفير.")) return;
     parentPinHash = null;
-    try { localStorage.removeItem(STORAGE_PIN); } catch(e) {}
+    pinStoreRemove();
+    pinLog("remove");
     if (typeof pinRecForget === "function") pinRecForget();
     showToast("تمت إزالة الرقم السري", "success");
     updatePinStatus();

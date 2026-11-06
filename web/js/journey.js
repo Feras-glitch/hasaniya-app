@@ -40,7 +40,7 @@ function showJourneyMap() {
   const line = open.length > 1 ? `<polyline points="${open.map(g => g.x + "," + g.y).join(" ")}" fill="none" stroke="#d81b60" stroke-width="3" stroke-dasharray="6 4"/>` : "";
   const dots = groupList.map(g => {
     const fill = g.status === "completed" ? "#4caf50" : g.status === "current" ? "#d81b60" : "#ddd";
-    const icon = g.status === "locked" ? "🔒" : g.stations[0].st.icon;
+    const icon = g.status === "locked" ? "🔒" : escapeHtml(g.stations[0].st.icon || "");
     const badge = g.stations.length > 1 ? `<text x="${g.x + 12}" y="${g.y - 10}" font-size="10" font-weight="700" fill="#333">×${g.stations.length}</text>` : "";
     const left = g.x < 90;
     return `<g>
@@ -53,7 +53,7 @@ function showJourneyMap() {
   const svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:340px;background:#fdf6ec;border-radius:16px;border:2px solid #f0d9b5" role="img" aria-label="خريطة الرحلة">
     ${line}${dots}</svg>`;
   const legend = groupList.map(g => {
-    const nums = g.stations.map(s => s.status === "locked" ? `${s.num} 🔒` : `${s.num} ${s.st.icon}`).join("، ");
+    const nums = g.stations.map(s => s.status === "locked" ? `${s.num} 🔒` : `${s.num} ${escapeHtml(s.st.icon || "")}`).join("، ");
     return `<div class="board-row"><span>${escapeHtml(g.name)}</span><strong>${nums}</strong></div>`;
   }).join("");
   openHub("🗺️ خريطة الرحلة", `

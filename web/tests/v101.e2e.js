@@ -125,7 +125,7 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
   need('فقاعة ناجي المسجّلة لم تُسمع', R.guideRec);
   need('خيارات الاختبار بلا زر 🔊 لكل خيار', R.optBtns);
   need('السؤال لم يُقرأ أو الخيار المسجّل قُرئ آلياً', R.quizQ && R.quizOptRec && R.quizNoCorrectTTS);
-  need('أقسام الاستوديو أو عدّاداته', R.kinds === 12 && R.counter && R.optRows === 123 && R.optCounter && R.stationHidden);
+  need('أقسام الاستوديو أو عدّاداته', R.kinds === 13 && R.counter && R.optRows === 123 && R.optCounter && R.stationHidden);
   need('رفع ملف لسطر', R.uploadLine);
   need('التسجيل المتتابع: ' + JSON.stringify({ s: R.seqShown, t: R.seqText, r: R.seqRecording, l: R.navLocked, v: R.seqSaved, a: R.seqAfter, n: R.seqNext, e: R.seqEnded }), R.seqShown && R.seqText && R.seqRecording && R.navLocked && R.seqSaved && R.seqAfter && R.seqNext && R.seqEnded);
   need('المعرّف القديم لم يُصحَّح', R.fixedId);

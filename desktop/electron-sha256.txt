@@ -1,0 +1,6 @@
+# بصمات sha256 لملفات Electron الرسمية التي يُبنى منها التطبيق (يقرؤها package.sh ويرفض البناء إن اختلفت).
+# المصدر: https://github.com/electron/electron/releases/download/v37.3.1/SHASUMS256.txt
+# (وطابقت ملفين نُزّلا مستقلَّين في 12 أكتوبر 2026).
+# عند تغيير ELECTRON_VERSION في build-all.yml: أضف سطري الإصدار الجديد من SHASUMS256.txt الخاص به.
+9c379b91f7ff65311f2b040299ee95c137fcb8e7e1bef87f9225d608cf579548  electron-v37.3.1-linux-x64.zip
+32ad7124107ffef2aa92abb03175c4a8a60133d50cda338c2ab2917c5efc8c32  electron-v37.3.1-win32-x64.zip

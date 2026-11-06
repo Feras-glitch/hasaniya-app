@@ -25,7 +25,23 @@ function checkAchievements() {
     } catch(e) {}
   });
 }
+/* v104: نافذة الوسام لا تغطي البيت أو السؤال وهو يُقرأ: تنتظر حتى يعود الطفل إلى الخريطة */
+let achQueue = [];
+function achBusy() {
+  const gs = document.getElementById("gameScreen");
+  const inLesson = gs && gs.style.display !== "none" && getComputedStyle(gs).display !== "none";
+  const quiz = document.getElementById("quizPopup");
+  return inLesson || (quiz && quiz.classList.contains("active"));
+}
+function flushAchievements() {
+  if (!achQueue.length || achBusy() || document.getElementById("newAchievementPopup").classList.contains("active")) return;
+  showNewAchievementNow(achQueue.shift());
+}
 function showNewAchievement(a) {
+  if (achBusy()) { if (!achQueue.some(x => x.id === a.id)) achQueue.push(a); return; }
+  showNewAchievementNow(a);
+}
+function showNewAchievementNow(a) {
   const ph = rewardPhoto();
   document.getElementById("newAchIcon").innerHTML = ph
     ? `<img class="reward-photo" src="${ph}" alt=""><div class="ach-mini">${escapeHtml(a.icon)}</div>`
@@ -43,6 +59,18 @@ function showNewAchievement(a) {
    - التقدم: نسبة الأبيات التي مرّ بها الطفل من المنظومة.
    - الالتزام: أيام التتابع وعدد جلسات الإتقان والمراجعة والتحدي.
    الإنجازات والنقاط والمكافآت لا تدخل في إتقان الحفظ. */
+/* v104: تعريف واحد لـ«بيت متقن» تقرأ منه كل التقارير (كان مكرراً في أربعة مواضع، وبعضها يعدّ أبياتاً لم يرها الطفل):
+   بيت رآه الطفل في درسه، وأجاب عنه صحيحاً في يومين مختلفين على الأقل، ولم يخطئ بعد آخر صحيح */
+function verseMastered(vid, userState) {
+  const st = userState || state;
+  if (!st || !st.seenVerses || !st.seenVerses[vid]) return false;
+  const s = (st.verseStats || {})[vid];
+  return !!s && s.correct >= 2 && (s.lastCorrect || 0) >= (s.lastWrong || 0);
+}
+function masteredCount(userState, verses) {
+  const list = verses || content.journeyData.flatMap(x => x.verses);
+  return list.filter(v => verseMastered(v.id, userState)).length;
+}
 function calculateMastery(userState) {
   const totalVerses = content.journeyData.reduce((s, st) => s + st.verses.length, 0);
   const empty = { percent: 0, level: "مبتدئ", stars: 0, progress: 0, commitment: 0, mastered: 0, seen: 0,

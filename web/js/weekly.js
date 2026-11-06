@@ -32,9 +32,9 @@ function weeklyVerseIds(key, s) {
   s = s || state;
   const w = s && s.weekly;
   if (w && w.week === key && Array.isArray(w.ids) && w.ids.length) return w.ids;
-  const { seen, rest } = weeklyPool(s);
-  const picks = weeklyPick(key, seen, 5);
-  return picks.concat(rest.slice(0, 5 - picks.length));
+  // v104: من الأبيات التي رآها الطفل فقط؛ التحدّي مراجعة لا درس جديد
+  const { seen } = weeklyPool(s);
+  return weeklyPick(key, seen, 5);
 }
 function ensureWeekly(s) {
   const k = weekKey();
@@ -71,7 +71,9 @@ function showWeekly() {
       <span style="flex:1;text-align:right">${escapeHtml(f.v.fullVerse)}</span></button>`;
   }).join("");
   openHub("🏅 تحدّي الأسبوع", `
-    <p style="color:#666;font-size:.9rem">أتقِن هذه الأبيات الخمسة هذا الأسبوع. اضغط البيت للتدرّب عليه.</p>
+    <p style="color:#666;font-size:.9rem">${ids.length
+      ? gForm("راجِع", "راجِعي") + " هذه الأبيات هذا الأسبوع حتى تُرتّبها بلا خطأ ولا تلميح. اضغط البيت للتدرّب عليه."
+      : gForm("ابدأ «درس اليوم» أولاً؛ أبيات التحدّي مما تعلّمتَ.", "ابدئي «درس اليوم» أولاً؛ أبيات التحدّي مما تعلّمتِ.")}</p>
     <div style="font-weight:bold;margin-bottom:8px">التقدّم: ${Object.keys(w.done).filter(k => ids.includes(k)).length} / ${ids.length}</div>
     ${rows}
     <div id="weeklyBoard">${familyRows(key)}</div>`);

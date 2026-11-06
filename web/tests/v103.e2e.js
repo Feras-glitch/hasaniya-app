@@ -117,12 +117,19 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
     o.monoReboot = Math.abs(JSON.parse(localStorage.getItem('hasaniya_pin_reset')).credit - 15 * 3600000) < 60000;
     delete window.AndroidBridge.clockInfo;
     pinRecClearReset();
-    // المتصفح: قفزة التاريخ لا تُحسب بأكثر من يوم
+    // المتصفح (v104): في الصفحة نفسها لا يُحسب التاريخ أصلاً؛ بين فتحتين يُحسب من التاريخ 36 ساعة على الأكثر في المجموع؛ ورجوعه يعيد العدّ
+    const H = 3600000, rd = () => JSON.parse(localStorage.getItem('hasaniya_pin_reset'));
+    const newPage = id => { const r = rd(); r.last.boot = id; r.last.mono = 0; localStorage.setItem('hasaniya_pin_reset', JSON.stringify(r)); };
     skew = 0; pinRecStartWait(); await w(30);
     skew = 5 * 86400000; pinRecTick();
-    o.webGapCapped = hasPin() && Math.abs(JSON.parse(localStorage.getItem('hasaniya_pin_reset')).credit - 86400000) < 60000;
-    skew = 4 * 86400000; pinRecTick();   // رجوع التاريخ لا يُحسب
-    o.webBackNoCredit = Math.abs(JSON.parse(localStorage.getItem('hasaniya_pin_reset')).credit - 86400000) < 60000;
+    o.webSameSessionIgnores = hasPin() && rd().credit < 10 * 60000;
+    newPage('old1'); skew = 10 * 86400000; pinRecTick();
+    const c1 = rd().credit;
+    o.webGapCapped = hasPin() && c1 >= 36 * H && c1 < 36 * H + 30 * 60000;
+    newPage('old2'); skew = 20 * 86400000; pinRecTick();
+    o.webCapTotal = hasPin() && rd().credit < 36 * H + 60 * 60000;
+    newPage('old3'); skew = 19 * 86400000; pinRecTick();   // رجع التاريخ
+    o.webBackNoCredit = hasPin() && rd().credit < 30 * 60000;
     Date.now = realNow;
     pinRecClearReset();
     // لا أجد الشفرة: انتظار 48 ساعة مع لافتة، يلغيها الوالد بالرقم
@@ -229,8 +236,11 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
     /* ---------- 4) السلوك ---------- */
     // طفل جديد: أبيات الأسبوع من محطته المفتوحة فقط، والألغاز كذلك
     const fresh = createNewUser('يوسف', '🦁'); fresh.gender = 'boy'; users.push(fresh); saveState();
+    // v104: من الأبيات المرئية فقط: لا شيء لطفل لم يبدأ، ثم من بين ما رآه
+    const ids0 = weeklyVerseIds(weekKey(), fresh.state);
+    fresh.state.seenVerses = { s1v1: true, s1v2: true, s1v3: true };
     const ids = weeklyVerseIds(weekKey(), fresh.state);
-    o.weeklyOpenOnly = ids.length === 5 && ids.every(id => id.startsWith('s1v'));
+    o.weeklyOpenOnly = ids0.length === 0 && ids.length === 3 && ids.every(id => fresh.state.seenVerses[id]);
     fresh.state.seenVerses = { s1v1: true };
     const st0 = state; state = fresh.state;
     startRecall('riddle'); await w(80);
@@ -289,7 +299,7 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
   need('نسيت الرقم: الشفرة الخاطئة تُرفض والصحيحة تفتح رقماً جديداً', R.forgotVisible && R.forgotScreen && R.wrongCode && R.setNewAsked && R.cbAfterReset && R.newPinWorks);
   need('الاسترجاع لا يمسح البيانات', R.dataKept);
   need('الشفرة لمرة واحدة، والجديدة بعد «تم» فقط، والإلغاء أثناء التحقق', R.offerAfterUse && R.codeSingleUse && R.pendingNotSaved && R.cancelDuringCheck);
-  need('مدة الانتظار لا يختصرها تغيير التاريخ، والرقم الصحيح يُسقطها', R.pinClearsWait && R.monoIgnoresDate && R.monoCounts && R.monoReboot && R.webGapCapped && R.webBackNoCredit);
+  need('مدة الانتظار لا يختصرها تغيير التاريخ، والرقم الصحيح يُسقطها', R.pinClearsWait && R.monoIgnoresDate && R.monoCounts && R.monoReboot && R.webSameSessionIgnores && R.webGapCapped && R.webCapTotal && R.webBackNoCredit);
   need('الانتظار 48 ساعة: اللافتة والإلغاء بالرقم والانتهاء', R.banner && R.cancelWait && R.waitExpired);
   need('عرض الشفرة لمن عنده رقم قديم، والتأجيل', R.offerOnSet && R.laterRunsCb && R.snoozed && R.offerOldPin);
   need('محاولات الرقم المتوازية والقفل', R.parallelOne && R.lockedAfter5 && R.noWrap);

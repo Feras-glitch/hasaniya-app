@@ -227,6 +227,15 @@ function guideChallengeTick() {
 }
 function guideOnNextVerse() { if (guideChallenge) guideChallenge.count++; }
 
+/* ينتظر حتى يسكت الصوت الحالي (حتى 20 ثانية) ثم ينفّذ */
+function guideWhenAudioIdle(fn, maxMs) {
+  const until = Date.now() + (maxMs || 20000);
+  const tick = () => {
+    const busy = (typeof audioBusy === "function" && audioBusy()) || (typeof audioMainPending === "function" && audioMainPending());
+    if (!busy || Date.now() > until) fn(); else setTimeout(tick, 400);
+  };
+  setTimeout(tick, 700);
+}
 /* ---------- عند ظهور بيت جديد: معناه أولاً، أو سؤال «ساعدني» ---------- */
 const guideHelpedVerses = {};
 function guideOnVerseShown(station, verse, verseIndex) {
@@ -238,11 +247,20 @@ function guideOnVerseShown(station, verse, verseIndex) {
   }
   state.meaningSeen = state.meaningSeen || {};
   if (!state.meaningSeen[verse.id] && EXPLANATIONS[verse.id]) {
-    state.meaningSeen[verse.id] = true; saveState();
     const meaning = verse.meaning || EXPLANATIONS[verse.id];
-    guidePanel(kidLine("newVerseMeaning"), [
-      { label: "📖 أعرف المعنى", run: () => guidePanel(meaning, [{ label: "🔊 استمع للمعنى", run: () => sayText(meaning) }]) }
-    ]);
+    // v104: العرض يأتي بعد أن يُسمع البيت (كان يبدأ معه فيُقطع صوته بعد لحظة)،
+    // وما دام الطفل لم يبدأ الترتيب ولم يُكمل البيت
+    const tok = typeof verseLoadToken !== "undefined" ? verseLoadToken : 0;
+    guideWhenAudioIdle(() => {
+      if (typeof verseLoadToken !== "undefined" && tok !== verseLoadToken) return;
+      const fv = document.getElementById("fullVerseBox");
+      const started = document.querySelector("#dropZone .word-btn");
+      if ((fv && fv.style.display === "block") || started) return;
+      state.meaningSeen[verse.id] = true; saveState();
+      guidePanel(kidLine("newVerseMeaning"), [
+        { label: "📖 أعرف المعنى", run: () => guidePanel(meaning, [{ label: "🔊 استمع للمعنى", run: () => sayText(meaning) }]) }
+      ]);
+    });
   }
 }
 /* ناجي ينسى أول كلمة ويطلب من الطفل مساعدته (بعد تمهّل: لا عقوبة على الخطأ هنا) */

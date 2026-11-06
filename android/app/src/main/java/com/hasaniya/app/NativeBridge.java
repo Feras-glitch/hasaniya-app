@@ -3,6 +3,8 @@ package com.hasaniya.app;
 import android.content.ClipData;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.print.PrintAttributes;
 import android.print.PrintManager;
 import android.speech.tts.TextToSpeech;
@@ -17,6 +19,7 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.util.ArrayDeque;
 import java.util.Locale;
 
 /** Native services exposed to the web app as window.AndroidBridge. */
@@ -29,55 +32,104 @@ public class NativeBridge {
     private volatile boolean speaking = false;
     /** حالة محرك النطق للصفحة: init (يبدأ)، ok، noarabic (لا عربية)، none (لا محرك) */
     private volatile String ttsState = "init";
+    /** ما طُلب نطقه والمحرك ما زال يبدأ (init): يُحفظ ويُنطق حين يجهز، بدل أن يضيع.
+        يُستعمل في خيط الواجهة فقط. حدّ أقصى صغير: ما زاد يُرفض بخطأ للصفحة ولا يُحفظ */
+    private static final int MAX_PENDING = 20;
+    private final ArrayDeque<String[]> pendingSpeech = new ArrayDeque<>();
     private WebView printView;
 
     public NativeBridge(MainActivity act, WebView web) {
         this.act = act;
         this.web = web;
-        tts = new TextToSpeech(act, status -> {
-            if (status != TextToSpeech.SUCCESS) ttsState = "none";
-            if (status == TextToSpeech.SUCCESS) {
-                int r = tts.setLanguage(new Locale("ar"));
-                ttsReady = r != TextToSpeech.LANG_MISSING_DATA && r != TextToSpeech.LANG_NOT_SUPPORTED;
-                ttsState = ttsReady ? "ok" : "noarabic";
-                tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
-                    @Override public void onStart(String id) { speaking = true; js("window.__ttsEvent&&window.__ttsEvent('start'," + JSONObject.quote(id) + ")"); }
-                    @Override public void onDone(String id) { speaking = false; js("window.__ttsEvent&&window.__ttsEvent('end'," + JSONObject.quote(id) + ")"); }
-                    @Override public void onError(String id) { speaking = false; js("window.__ttsEvent&&window.__ttsEvent('error'," + JSONObject.quote(id) + ")"); }
-                    @Override public void onStop(String id, boolean interrupted) { speaking = false; js("window.__ttsEvent&&window.__ttsEvent('error'," + JSONObject.quote(id) + ")"); }
-                });
-            }
-        });
+        // نتيجة البدء تُعالج في خيط الواجهة بعد انتهاء هذا البنّاء (قد يُستدعى onInit بالفشل من داخل البنّاء نفسه)،
+        // فلا تتداخل مع speak() ولا تجد tts فارغاً
+        Handler main = new Handler(Looper.getMainLooper());
+        tts = new TextToSpeech(act, status -> main.post(() -> onTtsInit(status)));
+        // إن لم يردّ المحرك خلال 10 ثوانٍ (يُحدَّث مثلاً) فلا تبقى الصفحة تنتظر صوتاً لا يأتي:
+        // يُبلَّغ ما ينتظر بالخطأ، ويُعدّ المحرك غير متاح؛ وإن جهز بعد ذلك يعود «ok» من onTtsInit
+        main.postDelayed(() -> {
+            if (tts == null || !"init".equals(ttsState)) return;
+            ttsState = "none";
+            while (!pendingSpeech.isEmpty()) ttsError(pendingSpeech.poll()[0], "synthesis-unavailable");
+        }, 10000);
+    }
+
+    private void onTtsInit(int status) {
+        if (tts == null) return;   // أُغلق التطبيق قبل أن يجهز المحرك
+        if (status != TextToSpeech.SUCCESS) ttsState = "none";
+        if (status == TextToSpeech.SUCCESS) {
+            int r = tts.setLanguage(new Locale("ar"));
+            ttsReady = r != TextToSpeech.LANG_MISSING_DATA && r != TextToSpeech.LANG_NOT_SUPPORTED;
+            ttsState = ttsReady ? "ok" : "noarabic";
+            tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                @Override public void onStart(String id) { speaking = true; js("window.__ttsEvent&&window.__ttsEvent('start'," + JSONObject.quote(id) + ")"); }
+                @Override public void onDone(String id) { speaking = false; js("window.__ttsEvent&&window.__ttsEvent('end'," + JSONObject.quote(id) + ")"); }
+                @Override public void onError(String id) { speaking = false; js("window.__ttsEvent&&window.__ttsEvent('error'," + JSONObject.quote(id) + ")"); }
+                @Override public void onStop(String id, boolean interrupted) { speaking = false; js("window.__ttsEvent&&window.__ttsEvent('error'," + JSONObject.quote(id) + ")"); }
+            });
+        }
+        // ما انتظر أثناء البدء: يُنطق بالترتيب إن جهز المحرك بالعربية، وإلا يصل خطأ لكل واحد
+        while (!pendingSpeech.isEmpty()) {
+            String[] p = pendingSpeech.poll();
+            if (ttsReady) doSpeak(p[0], p[1], Double.parseDouble(p[2]), Double.parseDouble(p[3]));
+            else speechUnavailable(p[0]);
+        }
     }
 
     private void js(String code) {
         web.post(() -> web.evaluateJavascript(code, null));
     }
 
+    private void ttsError(String id, String code) {
+        js("window.__ttsEvent&&window.__ttsEvent('error'," + JSONObject.quote(id) + "," + JSONObject.quote(code) + ")");
+    }
+
+    /** لا محرك أو لا عربية: تنبيه مرة واحدة، وسبب الخطأ يصل إلى الصفحة فتُسكت القراءة الآلية وتنبّه الوالد بدل الصمت */
+    private void speechUnavailable(String id) {
+        if (!ttsWarned) {
+            ttsWarned = true;
+            Toast.makeText(act, "صوت القراءة العربي غير مثبّت. ثبّته من إعدادات الجهاز > اللغة > تحويل النص إلى كلام", Toast.LENGTH_LONG).show();
+        }
+        ttsError(id, "noarabic".equals(ttsState) ? "language-unavailable" : "none".equals(ttsState) ? "synthesis-unavailable" : "interrupted");
+    }
+
+    /** خيط الواجهة فقط، والمحرك جاهز */
+    private void doSpeak(String id, String text, double rate, double pitch) {
+        tts.setSpeechRate((float) Math.max(0.1, Math.min(3.0, rate)));
+        tts.setPitch((float) Math.max(0.1, Math.min(2.0, pitch)));
+        // QUEUE_ADD مثل speechSynthesis في المتصفح: النطق الجديد ينتظر الذي قبله، والإيقاف عبر cancel()
+        int r = tts.speak(text, TextToSpeech.QUEUE_ADD, null, id);
+        if (r == TextToSpeech.ERROR) {
+            // لم يُقبل النطق (انقطع الاتصال بالمحرك غالباً): لن يأتي onStart ولا onDone لهذا المعرّف،
+            // فتُبلَّغ الصفحة الآن، ولا تبقى الحالة «يتكلم» عالقة
+            speaking = false;
+            ttsError(id, "synthesis-failed");
+        }
+    }
+
     // ---------- TTS ----------
     @JavascriptInterface
     public void speak(String id, String text, double rate, double pitch) {
         act.runOnUiThread(() -> {
-            if (tts == null || !ttsReady) {
-                if (!ttsWarned) {
-                    ttsWarned = true;
-                    Toast.makeText(act, "صوت القراءة العربي غير مثبّت. ثبّته من إعدادات الجهاز > اللغة > تحويل النص إلى كلام", Toast.LENGTH_LONG).show();
-                }
-                // سبب الخطأ يصل إلى الصفحة، فتُسكت القراءة الآلية وتنبّه الوالد بدل الصمت
-                String code = "noarabic".equals(ttsState) ? "language-unavailable" : "none".equals(ttsState) ? "synthesis-unavailable" : "interrupted";
-                js("window.__ttsEvent&&window.__ttsEvent('error'," + JSONObject.quote(id) + "," + JSONObject.quote(code) + ")");
+            if (tts != null && "init".equals(ttsState)) {
+                // المحرك يبدأ: يُحفظ ليُنطق حين يجهز
+                if (pendingSpeech.size() >= MAX_PENDING) { ttsError(id, "interrupted"); return; }
+                pendingSpeech.add(new String[]{ id, text == null ? "" : text, String.valueOf(rate), String.valueOf(pitch) });
                 return;
             }
-            tts.setSpeechRate((float) Math.max(0.1, Math.min(3.0, rate)));
-            tts.setPitch((float) Math.max(0.1, Math.min(2.0, pitch)));
-            // QUEUE_ADD مثل speechSynthesis في المتصفح: النطق الجديد ينتظر الذي قبله، والإيقاف عبر cancel()
-            tts.speak(text, TextToSpeech.QUEUE_ADD, null, id);
+            if (tts == null || !ttsReady) { speechUnavailable(id); return; }
+            doSpeak(id, text, rate, pitch);
         });
     }
 
     @JavascriptInterface
     public void cancel() {
-        act.runOnUiThread(() -> { if (tts != null) tts.stop(); speaking = false; });
+        act.runOnUiThread(() -> {
+            if (tts != null) tts.stop();
+            speaking = false;
+            // ما كان ينتظر بدء المحرك يُلغى أيضاً (والصفحة تتجاهل ما ألغته هي بنفسها)
+            while (!pendingSpeech.isEmpty()) ttsError(pendingSpeech.poll()[0], "interrupted");
+        });
     }
 
     @JavascriptInterface
@@ -170,6 +222,7 @@ public class NativeBridge {
     }
 
     public void shutdown() {
+        pendingSpeech.clear();
         if (tts != null) { tts.stop(); tts.shutdown(); tts = null; }
     }
 }

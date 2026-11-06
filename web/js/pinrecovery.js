@@ -6,7 +6,8 @@
    - عند النسيان: تُكتب الشفرة فيُضبط رقم جديد، ولا يُمسح شيء.
    - إن ضاعت الشفرة: يُلغى الرقم بعد 48 ساعة، مع لافتة ظاهرة طوال المدة يلغيها الوالد بالرقم.
      وتُحسب المدة على أندرويد بساعة الجهاز الداخلية (منذ التشغيل) فلا يختصرها تغيير التاريخ،
-     وأي إدخال صحيح للرقم يُلغي الطلب. وفي المتصفح تُحسب بالتاريخ، وكل فجوة لا تُحسب بأكثر من يوم.
+     وكذلك في نسخة الحاسوب (v104)، وأي إدخال صحيح للرقم يُلغي الطلب. وفي المتصفح لا ساعة داخلية:
+     يُحسب من غياب التطبيق 36 ساعة على الأكثر في المجموع، والباقي من وقت يكون فيه مفتوحاً، ورجوع التاريخ يعيد العدّ.
    - الشفرة تُستعمل مرة واحدة، ثم تُصنع غيرها.
    ============================================================ */
 const PINREC_KEY = "hasaniya_pin_recovery";
@@ -14,12 +15,13 @@ const PINREC_RESET_KEY = "hasaniya_pin_reset";
 const PINREC_SNOOZE_KEY = "hasaniya_pin_rec_snooze";
 const PINREC_LOCK_KEY = "hasaniya_pinrec_lock";
 const PINREC_WAIT_MS = 48 * 3600 * 1000;
-const PINREC_MAX_GAP = 24 * 3600 * 1000;
+const PINREC_WEB_WALL_CAP = 36 * 3600 * 1000;   // المتصفح: أقصى ما يُحسب من التاريخ وحده (في المجموع لا لكل فجوة)
+const pinRecSession = Math.random().toString(36).slice(2);
 const PINREC_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // بلا 0 وO و1 وI حتى لا تلتبس
 const PINREC_SUBJECT = "شفرة استرجاع الرقم السري — المنظومة الحسنية";
 
 /* الرقم المحفوظ على الجهاز نفسه (لا يعتمد على ترتيب تحميل الملفات) */
-function pinRecPinStored() { try { return !!localStorage.getItem(STORAGE_PIN); } catch (e) { return false; } }
+function pinRecPinStored() { return pinStoreHas(); }
 function pinRecLoad(key) { try { return JSON.parse(localStorage.getItem(key) || "null"); } catch (e) { return null; } }
 function pinRecSave(key, o) { try { if (o == null) localStorage.removeItem(key); else localStorage.setItem(key, JSON.stringify(o)); } catch (e) {} }
 function pinRecInfo() { const o = pinRecLoad(PINREC_KEY); return o && typeof o.hash === "string" && o.hash.startsWith("p1:") && o.confirmed !== false ? o : null; }
@@ -152,6 +154,7 @@ function pinRecCopy() {
 function pinRecConfirm() {
   if (!pinRecPending) return;
   pinRecSave(PINREC_KEY, { v: 1, email: pinRecPending.email, hash: pinRecPending.hash, at: Date.now(), confirmed: true });
+  if (typeof pinLog === "function") pinLog("codeNew");
   pinRecSave(PINREC_SNOOZE_KEY, null);
   showToast("حُفظت شفرة الاسترجاع", "success");
   pinRecClose();
@@ -216,6 +219,7 @@ async function pinRecCheck() {
     pinRecSave(PINREC_LOCK_KEY, null);
     pinLockSave({ fails: 0, until: 0 });
     pinRecClearReset();
+    if (typeof pinLog === "function") pinLog("recover");
     // الشفرة تُستعمل مرة واحدة: بعد ضبط الرقم الجديد تُعرض شفرة جديدة
     const info = pinRecLoad(PINREC_KEY);
     pinRecSave(PINREC_KEY, info && info.email ? { email: info.email } : null);
@@ -230,15 +234,19 @@ async function pinRecCheck() {
 
 /* ٣) لا شفرة: الانتظار 48 ساعة مع لافتة ظاهرة.
    الطلب يحفظ «الوقت المحسوب» لا تاريخ الانتهاء: على أندرويد من ساعة الجهاز الداخلية (منذ التشغيل)،
-   فلا يختصره تغيير التاريخ؛ وفي المتصفح من التاريخ مع حد أقصى لكل فجوة، ورجوع التاريخ لا يُحسب */
+   فلا يختصره تغيير التاريخ؛ وفي المتصفح من ساعة الصفحة، ومن التاريخ بحد أقصى 36 ساعة في المجموع */
 function pinRecClock() {
+  // أندرويد ونسخة الحاسوب: ساعة الجهاز منذ التشغيل
+  const native = [window.AndroidBridge, window.HasaniyaDesktop].find(b => b && typeof b.clockInfo === "function");
   try {
-    if (window.AndroidBridge && typeof AndroidBridge.clockInfo === "function") {
-      const o = JSON.parse(AndroidBridge.clockInfo());
-      if (o && Number.isFinite(+o.mono)) return { mono: +o.mono, boot: Number.isFinite(+o.boot) ? +o.boot : -1, wall: Date.now() };
+    if (native) {
+      const o = JSON.parse(native.clockInfo());
+      if (o && Number.isFinite(+o.mono)) return { kind: "mono", mono: +o.mono, boot: Number.isFinite(+o.boot) ? +o.boot : -1, wall: Date.now() };
     }
   } catch (e) {}
-  return { mono: null, boot: -1, wall: Date.now() };
+  // المتصفح: ساعة الصفحة منذ فتحها (لا يغيّرها التاريخ)، ومعرّف لكل فتحة
+  const pn = (typeof performance !== "undefined" && performance.now) ? performance.now() : 0;
+  return { kind: "web", mono: pn, boot: pinRecSession, wall: Date.now() };
 }
 function pinRecResetState() {
   const o = pinRecLoad(PINREC_RESET_KEY);
@@ -250,12 +258,20 @@ function pinRecResetState() {
 function pinRecAccrue(req) {
   const now = pinRecClock(), last = req.last || now;
   let add = 0;
-  if (now.mono != null && last.mono != null) {
+  if (now.kind === "web") {
+    if (last.kind === "web" && last.boot === now.boot) add = Math.max(0, now.mono - last.mono);   // الصفحة نفسها ما زالت مفتوحة
+    else {
+      add = now.mono;   // منذ فُتحت هذه الصفحة
+      const d = now.wall - (last.wall || now.wall);
+      if (d < 0) { req.credit = 0; req.wallCredit = 0; }   // رجع التاريخ: يبدأ العدّ من جديد
+      else {
+        const w = Math.min(d, Math.max(0, PINREC_WEB_WALL_CAP - (+req.wallCredit || 0)));
+        req.wallCredit = (+req.wallCredit || 0) + w; add += w;
+      }
+    }
+  } else if (now.mono != null && last.mono != null && last.kind !== "web") {
     const sameBoot = now.boot >= 0 && last.boot >= 0 ? now.boot === last.boot : now.mono >= last.mono;
     add = sameBoot ? now.mono - last.mono : now.mono;   // بعد إعادة التشغيل: ما مضى منذ التشغيل فقط
-  } else {
-    const d = now.wall - (last.wall || now.wall);
-    add = d > 0 ? Math.min(d, PINREC_MAX_GAP) : 0;
   }
   req.credit = Math.max(0, +req.credit || 0) + Math.max(0, add);
   req.last = now;
@@ -267,6 +283,7 @@ function pinRecHoursLeft(o) { return Math.max(1, Math.ceil((PINREC_WAIT_MS - (+o
 function pinRecClearReset() {
   if (!pinRecLoad(PINREC_RESET_KEY)) return;
   pinRecSave(PINREC_RESET_KEY, null);
+  if (typeof pinLog === "function") pinLog("waitCancel");
   pinRecRenderBanner();
 }
 function pinRecWaitScreen(noCode) {
@@ -283,6 +300,7 @@ function pinRecWaitScreen(noCode) {
     <h2 style="color:var(--parent-border);margin-top:0">⏳ فتح بالانتظار</h2>
     ${noCode ? `<p class="pinrec-p">لم تُنشأ شفرة استرجاع على هذا الجهاز.</p>` : ""}
     <p class="pinrec-p">يمكن إلغاء الرقم السري بعد <strong>48 ساعة</strong> من الآن. طوال هذه المدة تظهر لافتة في أعلى الشاشة، فإن لم يكن الطلب منك تلغيه بالرقم السري.</p>
+    ${pinRecClock().kind === "web" ? `<p class="pinrec-note">في نسخة المتصفح يُحسب من غياب التطبيق يوم ونصف على الأكثر، وما بقي يُحسب والتطبيق مفتوح.</p>` : ""}
     <p class="pinrec-note">لا يُمسح شيء من تقدّم الأطفال ولا تسجيلاتهم.</p>
     <div class="pinrec-btns">
       <button class="action-btn btn-danger" onclick="pinRecStartWait()">ابدأ الانتظار</button>
@@ -291,6 +309,7 @@ function pinRecWaitScreen(noCode) {
 }
 function pinRecStartWait() {
   pinRecSave(PINREC_RESET_KEY, { at: Date.now(), credit: 0, last: pinRecClock() });
+  if (typeof pinLog === "function") pinLog("waitStart");
   pinRecPendingCb = null;
   pinRecClose();
   pinRecRenderBanner();
@@ -311,7 +330,8 @@ function pinRecTick() {
   req = pinRecAccrue(req);
   if (req.credit >= PINREC_WAIT_MS) {
     parentPinHash = null;
-    try { localStorage.removeItem(STORAGE_PIN); } catch (e) {}
+    pinStoreRemove();
+    if (typeof pinLog === "function") pinLog("waitExpire");
     pinLockSave({ fails: 0, until: 0 });
     pinRecSave(PINREC_RESET_KEY, null);
     pinRecRenderBanner();

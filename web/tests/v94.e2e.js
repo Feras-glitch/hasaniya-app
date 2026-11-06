@@ -120,11 +120,13 @@ const OLD_STATE = {
       o.leitUnseen = Object.keys(state.leitner || {}).length;
       state.seenVerses.s1v1 = true;
       leitnerRecord('s1v1', true); leitnerRecord('s1v1', true); leitnerRecord('s1v1', true);
-      o.box = state.leitner.s1v1.box;
+      o.box = state.leitner.s1v1.box;   // v104: البيت الجديد يبقى في الصندوق الأول، ومراجعته غداً
       leitnerRecord('s1v1', false); o.boxAfterWrong = state.leitner.s1v1.box;
       // الأسئلة من المرئي فقط
       o.exSeenOnly = seenJourney().flatMap(s => s.verses).every(v => state.seenVerses[v.id]);
       // 5) وسام الأسبوع
+      ['s1v2', 's1v3', 's1v4', 's1v5', 's1v6'].forEach(id => { state.seenVerses[id] = true; });   // v104: التحدّي من المرئي فقط
+      state.weekly = null;
       const wk = ensureWeekly(state); const ids = weeklyVerseIds(wk.week);
       state.customBadges = {}; markWeekly(ids[0]);
       o.badgeEarly = !!(state.customBadges || {}).weekly;
@@ -171,7 +173,7 @@ const OLD_STATE = {
     });
     console.log('kid', JSON.stringify(R));
     need('صندوق لبيت لم يُرَ', R.leitUnseen === 0);
-    need('صعد البيت أكثر من مرة في اليوم: ' + R.box, R.box === 2);
+    need('البيت الجديد يبدأ في الصندوق الأول ولا يصعد في يومه: ' + R.box, R.box === 1);
     need('الخطأ لا يعيده للصندوق الأول', R.boxAfterWrong === 1);
     need('التمارين من غير المرئي', R.exSeenOnly);
     need('وسام الأسبوع مبكراً', !R.badgeEarly); need('وسام الأسبوع لم يُمنح بعد الخمسة', R.badgeDone);

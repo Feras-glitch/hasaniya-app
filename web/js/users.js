@@ -33,14 +33,13 @@ function showUsersModal() {
   } else {
     list.innerHTML = users.map(u => {
       const isCurrent = u.id === activeUserId;
-      const pts = u.state?.points || 0;
       const completed = Object.values(u.state?.stationStatus || {}).filter(v => v === "completed").length;
       return `
         <div class="user-card ${isCurrent ? 'current' : ''}">
           <div class="u-avatar">${escapeHtml(u.avatar)}</div>
           <div class="u-info">
             <strong>${escapeHtml(u.name)} ${isCurrent ? '<span style="color:var(--success);font-size:.8rem">(نشط)</span>' : ''}</strong>
-            <small>⭐ ${pts} نقطة · ✅ ${completed} محطة</small>
+            <small>${completed ? "✅ " + arCount(completed, "محطة واحدة مكتملة", "محطتان مكتملتان", "محطات مكتملة", "محطةً مكتملة") : "لم تكتمل محطة بعد"}</small>
           </div>
           <div class="u-actions">
             ${isCurrent ? '' : `<button class="mini-btn edit" onclick="switchUser('${escapeForAttr(u.id)}')">استخدام</button>`}
@@ -68,7 +67,8 @@ function openUserEditor(id, opts = {}) {
   editSmall = !!(u && !editOnboarding && u.small);
   renderEditorExtras();
   const grid = document.getElementById("avatarGrid");
-  const currentAvatar = u ? u.avatar : AVATARS[0];
+  // v104: الطفل الجديد يأخذ رمزاً لم يأخذه إخوته، حتى يعرف كل طفل ملفه
+  const currentAvatar = u ? u.avatar : (AVATARS.find(a => !users.some(x => x.avatar === a)) || AVATARS[0]);
   grid.innerHTML = AVATARS.map(a =>
     `<button class="avatar-option ${a === currentAvatar ? 'selected' : ''}" data-avatar="${escapeForAttr(a)}" onclick="selectAvatar(this)">${a}</button>`
   ).join("");
@@ -84,7 +84,7 @@ function saveUserEditor() {
   const raw = document.getElementById("userNameInput").value;
   const name = raw.trim().replace(/\s+/g, " ").slice(0, 20);
   const selected = document.querySelector(".avatar-option.selected");
-  const avatar = selected ? selected.dataset.avatar : AVATARS[0];
+  const avatar = selected ? selected.dataset.avatar : (AVATARS.find(a => !users.some(x => x.avatar === a)) || AVATARS[0]);
   if (!name) { showToast("أدخل الاسم", "error"); return; }
   if (!editGender) { showToast("اختر ولداً أو بنتاً، ليتناسب الخطاب مع الطفل", "error"); return; }
   const wasOnboarding = editOnboarding;

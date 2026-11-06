@@ -50,10 +50,12 @@ function sanitizeImportedState(raw) {
   const objOr = k => { if (!_isObj(s[k])) s[k] = {}; };
   ["stationStatus", "rewardUnlocked", "versePositions", "mistakes", "seenVerses", "verseStats", "leitner",
    "storyUnlocked", "riddlesSolved", "achievements", "stampDates", "guideBadges", "meaningSeen", "stats",
-   "dailyCredits", "follow", "eventMisses", "recEval", "masteredNotified"].forEach(objOr);
+   "dailyCredits", "follow", "eventMisses", "recEval", "masteredNotified", "quizResults", "parentChecks"].forEach(objOr);
 
   const ST = { completed: 1, current: 1, locked: 1 };
   const pick = (obj, ok, map) => { const o = {}; for (const k of Object.keys(obj)) if (ok(k)) { const v = map(obj[k], k); if (v !== undefined) o[k] = v; } return o; };
+  s.parentChecks = pick(s.parentChecks, k => verseIds.has(k), v => _isObj(v) && ["ok", "fath", "fail"].includes(v.r) ? ({ at: _num(v.at, 0, 9e15, 0), r: v.r }) : undefined);
+  s.quizResults = pick(s.quizResults, k => stationIds.has(k), v => _isObj(v) ? ({ score: _int(v.score, 0, 50, 0), total: _int(v.total, 0, 50, 0), at: _num(v.at, 0, 9e15, 0) }) : undefined);
   s.stationStatus = pick(s.stationStatus, k => stationIds.has(k), v => ST[v] ? v : undefined);
   s.rewardUnlocked = pick(s.rewardUnlocked, k => stationIds.has(k), v => !!v);
   s.versePositions = pick(s.versePositions, k => stationIds.has(k), (v, k) => _int(v, 0, Math.max(0, lenOf[k] - 1), 0));
@@ -68,11 +70,11 @@ function sanitizeImportedState(raw) {
     word: String(v.word || "").slice(0, 80), verseId: v.verseId,
     stationId: stationIds.has(v.stationId) ? v.stationId : "", context: String(v.context || "").slice(0, 400),
     level: _int(v.level, 0, 20, 0), addedAt: _num(v.addedAt, 0, 9e15, 0), lastAttempt: _num(v.lastAttempt, 0, 9e15, 0) }) : undefined);
-  s.leitner = pick(s.leitner, k => verseIds.has(k), v => _isObj(v) ? ({ box: _int(v.box, 1, 5, 1), due: _num(v.due, 0, 9e15, 0) }) : undefined);
+  s.leitner = pick(s.leitner, k => verseIds.has(k), v => _isObj(v) ? ({ box: _int(v.box, 1, 5, 1), due: _num(v.due, 0, 9e15, 0), lastWrong: _num(v.lastWrong, 0, 9e15, 0) }) : undefined);
   s.eventMisses = pick(s.eventMisses, k => verseIds.has(k), v => _int(v, 0, 1000, 0));
   s.follow = pick(s.follow, k => verseIds.has(k), v => _isObj(v) ? ({ h: !!v.h, r: !!v.r, u: !!v.u }) : undefined);
   s.dailyCredits = pick(s.dailyCredits, k => k.length <= 80, v => typeof v === "string" ? v.slice(0, 40) : undefined);
-  s.recEval = pick(s.recEval, k => verseIds.has(k), v => _isObj(v) ? sanitizeRating(v, v.evaluator, v.date) : undefined);
+  s.recEval = pick(s.recEval, k => verseIds.has(k) || /^sec:(all|station-\d{1,2})$/.test(k), v => _isObj(v) ? sanitizeRating(v, v.evaluator, v.date) : undefined);
   const achIds = new Set((typeof ACHIEVEMENTS !== "undefined" ? ACHIEVEMENTS : []).map(a => a.id));
   s.achievements = pick(s.achievements, k => achIds.size === 0 || achIds.has(k), v => (typeof v === "string" || typeof v === "number" || v === true) ? v : true);
   s.stats = { perfectSessions: _int(s.stats.perfectSessions, 0, 1e6, 0), reviewSessions: _int(s.stats.reviewSessions, 0, 1e6, 0),

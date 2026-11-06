@@ -15,7 +15,8 @@ function openParentVoice() {
     content.journeyData.map((st, i) => `<option value="${i}">${i + 1}. ${escapeHtml(st.title)}</option>`).join("");
   sel.value = String(state.selectedStation || 0);
   const kind = document.getElementById("pvKind");
-  kind.innerHTML = VOICE_SECTIONS.map(s => `<option value="${s.id}">${escapeHtml(s.title)}</option>`).join("");
+  // v104: «الأساسي أولاً» (من توصيات v102 المعتمدة): أسماء الأطفال والأبيات ورسائل ناجي، وهي ما يحتاجه طفل لا يقرأ
+  kind.innerHTML = `<option value="basic">${PV_BASIC_TITLE}</option>` + VOICE_SECTIONS.map(s => `<option value="${s.id}">${escapeHtml(s.title)}</option>`).join("");
   kind.value = "verse";
   document.getElementById("vpAuthor").value = vpAuthorName();
   pvSeq = null;
@@ -34,10 +35,13 @@ function pvItem(kind, id) {
   return null;
 }
 const PV_NO_STATION = ["names", "guide", "titles"];
+const PV_BASIC = ["names", "verse", "guide"];
+const PV_BASIC_TITLE = "⭐ الأساسي أولاً (الأسماء والأبيات ورسائل ناجي)";
 function pvSection() { return document.getElementById("pvKind").value || "verse"; }
 function pvCurrentList() {
   const sec = pvSection();
   const stv = document.getElementById("pvStation").value;
+  if (sec === "basic") return PV_BASIC.flatMap(b => voiceRegistry().items.filter(it => it.section === b && (b !== "verse" || stv === "all" || it.station === +stv)));
   return voiceRegistry().items.filter(it => it.section === sec && (PV_NO_STATION.includes(sec) || stv === "all" || it.station === +stv));
 }
 function pvMaxMs(it) { return it.kind === "story" ? 180000 : (it.section === "expl" || it.section === "quizex" || it.section === "disc") ? 120000 : 60000; }
@@ -61,12 +65,14 @@ async function renderParentVoice() {
   const prog = voiceProgress(recs);
   const kindSel = document.getElementById("pvKind");
   prog.forEach(p => { const o = kindSel.querySelector(`option[value="${p.id}"]`); if (o) o.textContent = `${VOICE_SECTIONS.find(s => s.id === p.id).title} (${p.done}/${p.total})`; });
+  { const bs = prog.filter(p => PV_BASIC.includes(p.id)); const o = kindSel.querySelector('option[value="basic"]');
+    if (o) o.textContent = `${PV_BASIC_TITLE} (${bs.reduce((a, p) => a + p.done, 0)}/${bs.reduce((a, p) => a + p.total, 0)})`; }
   /* الملخص العام بالنصوص المختلفة: الخيار المكرر في قسمين يُحسب مرة */
   const reg = voiceRegistry();
   const uniq = [...reg.byKey.values()];
   const done = uniq.filter(it => voiceRecValid(it, have.get(it.key))).length, total = uniq.length;
   const left = uniq.filter(it => !voiceRecValid(it, have.get(it.key))).reduce((a, it) => a + voiceEstSec(it.text), 0);
-  const orphans = recs.filter(r => r.kind === "line" && !reg.byKey.has(r.key)).length;
+  const orphans = recs.filter(r => r.kind === "line" && !reg.byKey.has(r.key) && !/^يا [^\s،]{1,20}( [^\s،]{1,20}){0,2}$/u.test(String(r.text || "").trim())).length;
   document.getElementById("pvSummary").innerHTML =
     `<div class="pv-bar"><span style="width:${total ? Math.round(done / total * 100) : 0}%"></span></div>
      <div>مسجّل <strong>${done}</strong> من ${total} نصاً${done < total ? ` · بقي نحو ${pvFmtMin(left)} من القراءة` : " ✅"}</div>
@@ -157,7 +163,9 @@ async function pvDelete(kind, id) {
 /* تسجيلات لنصوص لم تعد في التطبيق (تغيّر النص بعد تحديث) تشغل مساحة ولا تُسمع */
 async function pvCleanOrphans() {
   const reg = voiceRegistry();
-  const list = (await vpAllAuthorRecs()).filter(r => r.kind === "line" && !reg.byKey.has(r.key));
+  // v104: «يا فلان» لطفل غير موجود على هذا الجهاز لا تُحذف (قد يُضاف الطفل، أو جاءت من حزمة معلم)
+  const voc = /^يا [^\s،]{1,20}( [^\s،]{1,20}){0,2}$/u;
+  const list = (await vpAllAuthorRecs()).filter(r => r.kind === "line" && !reg.byKey.has(r.key) && !voc.test(String(r.text || "").trim()));
   if (!list.length || !confirm(`حذف ${list.length} تسجيلاً لنصوص لم تعد مستعملة؟`)) return;
   for (const r of list) await recDelete(r.key);
   showToast(`تم حذف ${list.length} تسجيلاً`, "success");

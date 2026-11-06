@@ -14,6 +14,8 @@ function load(withCrypto) {
     showToast() {}, playFail() {}, closePopup() {}, updatePinStatus() {}, document: {}
   };
   ctx.STORAGE_PIN = "hasaniya_v13_parentPin";
+  ctx.pinStoreSave = h => { store.hasaniya_pin_v2 = h; store[ctx.STORAGE_PIN] = h; };
+  ctx.pinStoreRemove = () => { delete store.hasaniya_pin_v2; delete store[ctx.STORAGE_PIN]; };
   ctx.parentPinHash = null;
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(path.join(root, "js/pin.js"), "utf8"), ctx, { filename: "pin.js" });

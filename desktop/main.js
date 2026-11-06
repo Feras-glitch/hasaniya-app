@@ -1,5 +1,6 @@
 /* تشغيل مستقل: نافذة واحدة تفتح ملفات التطبيق من القرص مباشرة، بلا خادم ولا متصفح خارجي */
-const { app, BrowserWindow, session, Menu, shell } = require("electron");
+const { app, BrowserWindow, session, Menu, shell, ipcMain } = require("electron");
+const os = require("os");
 const path = require("path");
 const { pathToFileURL } = require("url");
 
@@ -21,7 +22,9 @@ function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,
+      // للنافذة الرئيسية وحدها: يكشف window.HasaniyaDesktop.clockInfo (انظر preload.js)
+      preload: path.join(__dirname, "preload.js")
     }
   });
   // الميكروفون ونسخ النص (شفرة الاسترجاع) فقط، ولصفحات التطبيق فقط؛ وكل طلب آخر (موقع، إشعارات...) مرفوض
@@ -36,6 +39,12 @@ function createWindow() {
   });
   win.loadFile(path.join(APP_DIR, "index.html"));
 }
+
+// ساعة الجهاز الداخلية لمدة انتظار إلغاء الرقم السري: منذ تشغيل الجهاز، فلا يختصرها تغيير التاريخ.
+// boot = -1: لا عدّاد تشغيل على الحاسوب، والصفحة تكتشف إعادة التشغيل حين يصغر mono
+ipcMain.on("hasaniya-clock", e => {
+  e.returnValue = JSON.stringify({ mono: Math.round(os.uptime() * 1000), boot: -1 });
+});
 
 // رسالة البريد الجاهزة (شفرة استرجاع الرقم السري) تُفتح في تطبيق البريد، ولا شيء غيرها
 const MAILTO_RE = /^mailto:[A-Za-z0-9._+-]{1,64}@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\?subject=[^\s&]*&body=[^\s&]*$/;

@@ -80,7 +80,7 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
     o.offAgain = !document.body.classList.contains('small-kid');
     // الاستوديو يفتح على الأبيات، وقسم الأسماء بلا اختيار محطة
     openParentVoice(); await w(300);
-    o.studioDefault = document.getElementById('pvKind').value === 'verse' && document.querySelectorAll('#pvKind option').length === 12;
+    o.studioDefault = document.getElementById('pvKind').value === 'verse' && document.querySelectorAll('#pvKind option').length === 13;
     document.getElementById('pvKind').value = 'names'; await renderParentVoice();
     o.namesRows = document.querySelectorAll('#pvBody .rec-row').length >= 3 && document.getElementById('pvStation').style.display === 'none';
     closePopup('pvPopup');

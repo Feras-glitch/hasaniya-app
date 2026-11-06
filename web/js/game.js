@@ -33,6 +33,7 @@ function markStationCompleted(station) {
 
 function resetAll() {
   if (!confirm(`حذف كل تقدّم "${getUserName()}"؟`)) return;
+  if (typeof safetyBackupPush === "function") safetyBackupPush("قبل تصفير تقدّم " + getUserName());
   state.stationStatus = {};
   state.charms = {};
   state.warmups = {};
@@ -50,6 +51,9 @@ function resetAll() {
   state.totalTimeSeconds = 0;
   state.achievements = {};
   state.stats = {perfectSessions:0, reviewSessions:0, shared:0, challengeSessions:0};
+  // v104: ما كان يبقى بعد التصفير
+  state.meaningSeen = {}; state.activeDays = []; state.stampDates = {}; state.recEval = {};
+  state.follow = {}; state.masteredNotified = {}; state.guideBadges = {};
   if (content.journeyData.length > 0) state.stationStatus[content.journeyData[0].id] = "current";
   saveState();
   kidToast(kidLine("resetDone"), "success");
@@ -85,7 +89,7 @@ function renderDailyCard() {
   if (!info || !btn) return;
   const idx = content.journeyData.findIndex(s => { const st = getStationStatus(s); return st !== "completed" && st !== "locked"; });
   if (idx < 0) {
-    info.textContent = gForm("أكملتَ", "أكملتِ") + " كل المحطات، أحسنتَ! 🎉";
+    info.textContent = gForm("أكملتَ كل المحطات، أحسنتَ! 🎉", "أكملتِ كل المحطات، أحسنتِ! 🎉");
     btn.disabled = true; return;
   }
   const st = content.journeyData[idx];
@@ -114,12 +118,12 @@ function showMap() {
   document.getElementById("stationsArea").style.display = (typeof showStationList !== "undefined" && showStationList) ? "block" : "none";
   updateReviewBadge();
   if (typeof guideShowActions === "function") guideShowActions();
+  if (typeof flushAchievements === "function") setTimeout(flushAchievements, 700);
 }
 
-/* عدد أبيات مراجعة اليوم: المستحقّ من نظام الحفظ، أو حتى 5 من الأبيات المرّ عليها */
+/* عدد أبيات مراجعة اليوم: ما حان موعده في الصناديق (v104: لا عدد وهمي حين لا يوجد مستحق) */
 function dailyReviewCount() {
-  const dueCount = typeof leitnerDueVerses === "function" ? leitnerDueVerses().length : 0;
-  return dueCount || Math.min(5, Object.keys(state.seenVerses).length);
+  return typeof leitnerDueVerses === "function" ? leitnerDueVerses().length : 0;
 }
 /* زر «مراجعة» في الشاشة الرئيسية يعرض مجموع ما ينتظر المراجعة: اليوم + الأخطاء */
 function updateReviewBadge() {
@@ -161,6 +165,7 @@ function startStation(index) {
 }
 
 function enterPlayScreen(title) {
+  if (typeof dailyLimitReached === "function" && dailyLimitReached()) { kidAnnounce(kidLine("timeUp"), "success"); showMap(); return; }
   document.getElementById("mapScreen").style.display = "none";
   document.getElementById("gameScreen").style.display = "block";
   document.getElementById("parentScreen").style.display = "none";
@@ -291,20 +296,33 @@ function baytHTML(v) {
   const k = (v && v.half > 0 && v.half < w.length) ? v.half : Math.ceil(w.length / 2);
   return `<span class="bayt"><span class="shatr">${escapeHtml(w.slice(0, k).join(" "))}</span><span class="shatr">${escapeHtml(w.slice(k).join(" "))}</span></span>`;
 }
+/* v104 (وضع الطفل الصغير، من توصيات v102 المعتمدة): الترتيب شطراً شطراً — كلمات الصدر أولاً،
+   ثم تظهر كلمات العجز بعد إكماله. أقل كلمات أمام ابن السادسة في كل مرة */
+function smallHalves(verse) {
+  const n = (verse.words || []).length;
+  return (typeof isSmallKid === "function" && isSmallKid() && verse.half > 0 && verse.half < n) ? verse.half : 0;
+}
 function renderWordOrder(verse, gameArea, prefix, intro) {
-  const shuffled = [...(verse.words||[])].sort(() => Math.random() - .5);
+  const words = [...(verse.words || [])];
+  const h = smallHalves(verse);
+  const mix = a => a.sort(() => Math.random() - .5);
+  const shuffled = h ? mix(words.slice(0, h)).concat(mix(words.slice(h))) : mix(words);
   const wh = shuffled.map((w, i) =>
-    `<button class="word-btn" id="word-${i}" onclick="selectWord('${escapeForAttr(w)}',${i})">${escapeHtml(w)}</button>`
+    `<button class="word-btn${h && i >= h ? " later" : ""}" id="word-${i}" onclick="selectWord('${escapeForAttr(w)}',${i})"${h && i >= h ? " hidden" : ""}>${escapeHtml(w)}</button>`
   ).join("");
+  // v104 (ربط الأبيات، من توصيات v102 المعتمدة): البيت السابق ظاهر فوق الجديد، وزر يُسمعهما متصلين
+  const prev = intro ? prevVerseOf(getCurrentVerse()) : null;
+  const small = typeof isSmallKid === "function" && isSmallKid();
   const introHTML = intro ? `<div class="verse-intro" id="verseIntro">
+      ${prev ? `<div class="intro-prev">🔗 قبله: <span>${escapeHtml(prev.fullVerse)}</span></div>` : ""}
       <div class="intro-label">👂 ${escapeHtml(kidLine("introListen"))}</div>
       <div class="intro-verse">${baytHTML(verse)}</div>
-      <div class="controls"><button class="tool-btn" onclick="introListen()">🔊 استمع مرة أخرى</button></div>
-      <button class="action-btn btn-success intro-go" id="introGo" onclick="startOrderAfterIntro()">✅ قرأته، أرتّبه الآن</button>
+      <div class="controls"><button class="tool-btn" onclick="introListen()">🔊 استمع مرة أخرى</button>${prev ? `<button class="tool-btn" onclick="introListenChain()">🔗 مع ما قبله</button>` : ""}</div>
+      <button class="action-btn btn-success intro-go" id="introGo" onclick="startOrderAfterIntro()">${small ? "✅ سمعته، أرتّبه الآن" : "✅ قرأته، أرتّبه الآن"}</button>
     </div>` : "";
   gameArea.innerHTML = `${prefix}${sceneBeforeQuestion(verse)}${introHTML}
     <div id="orderPart"${intro ? ' style="display:none"' : ""}>${renderToolbar(verse)}
-    <div class="verse-text" style="font-size:1.2rem;color:#666">رتّب الكلمات:</div>
+    <div class="verse-text order-hint">رتّب الكلمات:</div>
     <div class="drop-zone" id="dropZone"></div>
     <div class="verse-toolbar">
       <button class="tool-btn" onclick="undoWord()">↩️ تراجع</button>
@@ -312,6 +330,26 @@ function renderWordOrder(verse, gameArea, prefix, intro) {
     </div>
     <div class="word-bank" id="wordsBank">${wh}</div></div>`;
   if (intro) { const tok = verseLoadToken; setTimeout(() => { if (tok === verseLoadToken && document.getElementById("verseIntro")) introListen(); }, 350); }
+}
+/* البيت الذي قبله: في المحطة نفسها، أو آخر بيت في المحطة السابقة */
+function prevVerseOf(cur) {
+  if (!cur) return null;
+  const si = cur.stationIndex, vi = cur.verseIndex;
+  const st = content.journeyData[si];
+  if (st && vi > 0) return st.verses[vi - 1] || null;
+  const ps = content.journeyData[si - 1];
+  return ps && ps.verses.length ? ps.verses[ps.verses.length - 1] : null;
+}
+async function introListenChain() {
+  const cur = getCurrentVerse(); const prev = prevVerseOf(cur);
+  if (!cur || !prev || typeof audioBegin !== "function" || !audioBegin()) return;
+  const token = seqToken;
+  for (const v of [prev, cur.verse]) {
+    const rec = await authorRecFor("verse", v, true);
+    if (token !== seqToken) return;
+    await playPart(token, rec, v.fullVerse);
+    if (token !== seqToken) return;
+  }
 }
 function introListen() {
   const cur = getCurrentVerse(); if (!cur) return;
@@ -354,6 +392,8 @@ function selectWord(word, index) {
   const {station, verse} = cur;
   const btn = document.getElementById("word-" + index);
   if (!btn || btn.classList.contains("selected") || btn.disabled) return;
+  // v104: الصغير يسمع الكلمة التي ضغطها، فيربط شكلها بصوتها
+  if (typeof isSmallKid === "function" && isSmallKid() && typeof voicePlay === "function") voicePlay([word], { silent: true });
   const expected = verse.correctOrder[selectedWords.length];
   /* تصحيح كلمة بكلمة: الكلمة الخاطئة ترتد وحدها ولا يُعاد البيت كله.
      أول خطأ في البيت يُسجَّل مرة واحدة، وبعد خطأين في الموضع نفسه تُضاء الكلمة الصحيحة */
@@ -384,6 +424,8 @@ function selectWord(word, index) {
   const chip = document.createElement("button");
   chip.className = "word-btn"; chip.textContent = word; chip.disabled = true;
   dz.appendChild(chip); playClick();
+  const h = smallHalves(verse);
+  if (h && selectedWords.length === h) document.querySelectorAll("#wordsBank .word-btn.later").forEach(b => { b.hidden = false; });
   if (selectedWords.length === verse.correctOrder.length) {
     document.querySelectorAll("#wordsBank .word-btn").forEach(b => b.disabled = true);
     dz.classList.add("success"); playSuccess();
@@ -393,6 +435,8 @@ function selectWord(word, index) {
 }
 /* الإتقان يُحتسب من الدرس العادي فقط، ومرة واحدة في اليوم لكل بيت، حتى لا يُكسب بتكرار البيت نفسه */
 function recordVerseStat(vid, ok) {
+  // v104: بيت لم يُعرض في الدرس بعد لا يُحسب له إتقان (كان «تحدّي الأسبوع» يُحسب أبياتاً لم يرها الطفل)
+  if (!state.seenVerses || !state.seenVerses[vid]) return;
   const s = state.verseStats[vid] || (state.verseStats[vid] = {correct: 0, wrong: 0, lastCorrect: 0, lastWrong: 0});
   leitnerRecord(vid, ok);
   if (!ok) { s.wrong++; s.lastWrong = Date.now(); return; }
@@ -417,6 +461,9 @@ function celebrateMastery(vid) {
 /* flawed: أكمل الطفل البيت بعد خطأ. يُكمل درسه ويأخذ نصف النقاط، لكن لا يُحسب إتقاناً ولا يصعد صندوقه */
 function handleCorrect(verse, key, station, flawed) {
   if (noCredit()) return;
+  // v104: التلميح يكشف الكلمة، فالبيت يُكمَل بنصف النقاط لكنه لا يُحسب إتقاناً ولا يرفع صندوقه ولا ينجز تحدّي الأسبوع
+  if (hintUsedThisVerse) flawed = true;
+  if (flawed && typeof leitnerEnsure === "function") leitnerEnsure(verse.id);
   if (!flawed) {
     recordVerseStat(verse.id, true);
     markWeekly(verse.id);
@@ -436,26 +483,43 @@ function showFullVerse(verse) {
   document.getElementById("nextBtn").style.display = "inline-block";
   document.getElementById("speakFullBtn").onclick = () => playVerseAndStory(verse, false);
   const unlocked = verse.story && state.storyUnlocked && state.storyUnlocked[verse.id];
-  playVerseAndStory(verse, !!(unlocked || noCredit()));
+  const askFirst = !!verse.story && !(noCredit() || unlocked);
   const mb = document.getElementById("meaningBox");
   if (verse.meaning) {
     mb.textContent = "";
     const sp = document.createElement("button"); sp.className = "say-btn"; sp.textContent = "🔊"; sp.setAttribute("aria-label", "استمع للشرح");
     sp.onclick = () => sayText(verse.meaning);
     mb.appendChild(sp); mb.appendChild(document.createTextNode(" " + verse.meaning));
-    mb.style.display = "block";
+    // v104: الشرح كان يظهر فوق سؤال «ماذا حدث هنا؟» فيكشف جوابه؛ يظهر الآن بعد الإجابة
+    mb.style.display = askFirst ? "none" : "block";
   }
   if (verse.story) {
-    if (noCredit() || (state.storyUnlocked && state.storyUnlocked[verse.id])) {
+    if (!askFirst) {
       renderStoryContent(verse);
       document.getElementById("storyBox").style.display = "block";
     } else {
       askEventBeforeStory(verse);
     }
   }
+  /* v104: بعد أن يُسمع البيت: سؤال الحدث بصوت (كان يسقط لأنه يبدأ مع البيت)، أو الشرح إن لم يكن سؤال */
+  const tok = verseLoadToken;
+  Promise.resolve(playVerseAndStory(verse, !!(unlocked || noCredit()))).then(() => {
+    if (tok !== verseLoadToken || !autoReadOn()) return;
+    if (askFirst) {
+      const btns = [...document.querySelectorAll("#storyText .word-btn")];
+      if (btns.length && !btns.some(b => b.disabled)) voicePlay([guideFill(kidLine("askEvent")), ...btns.map(b => b.textContent)], { silent: true });
+    } else if (verse.meaning && !unlocked) voicePlay([verse.meaning], { silent: true });
+  });
+}
+/* بعد إجابة سؤال الحدث: يظهر الشرح ويُقرأ */
+function showMeaningAfterEvent(v) {
+  const mb = document.getElementById("meaningBox");
+  if (!v || !v.meaning || !mb) return;
+  mb.style.display = "block";
 }
 function nextVerse() {
   if (typeof guideHideOffers === "function") guideHideOffers();
+  if (typeof dailyLimitReached === "function" && dailyLimitReached() && playMode !== MODE_PREVIEW) { kidAnnounce(kidLine("timeUp"), "success"); showMap(); return; }
   if (typeof guideOnNextVerse === "function") guideOnNextVerse();
   if (playMode === MODE_PREVIEW) {
     previewTarget = null;
@@ -479,7 +543,7 @@ function nextVerse() {
         state.selectedVerse++;
         if (!isBrowse()) state.versePositions[station.id] = state.selectedVerse;
         saveState(); loadVerse();
-        offerReview();
+        // v104: عرض «سمّع ما سبق» مرة في آخر الدرس، لا بعد كل بيت
       };
       if ((state.selectedVerse + 1) % 5 === 0) showRepeatBatch(station, state.selectedVerse - 4, state.selectedVerse, advance);
       else advance();
@@ -515,9 +579,26 @@ function nextVerse() {
   }
 }
 
-/* درس اليوم: يبدأ من المحطة المفتوحة وموضع الطفل، ويتوقف بعد ثلاثة أبيات دون أن يعبر المحطة */
+/* درس اليوم: يبدأ من المحطة المفتوحة وموضع الطفل، ويتوقف بعد ثلاثة أبيات دون أن يعبر المحطة.
+   v104 (الحصة اليومية، من توصيات v102 المعتمدة): إن كان في الصناديق ما حان موعده، تبدأ الحصة بمراجعته
+   (حتى 10 أبيات) مرة في اليوم، ثم الدرس الجديد. الحفظ القديم أولاً، ثم الجديد. */
+let dailyFlow = false;
 function startDailyLesson() {
   const idx = content.journeyData.findIndex(s => { const st = getStationStatus(s); return st !== "completed" && st !== "locked"; });
+  const due = typeof leitnerDueVerses === "function" ? leitnerDueVerses() : [];
+  const today = new Date().toDateString();
+  if (due.length && state.dailyReviewDay !== today && !noCredit()) {
+    state.dailyReviewDay = today;
+    dailyFlow = idx >= 0;
+    playQueue = due.slice(0, 10).map(d => ({stationIndex: d.stationIndex, verseIndex: d.verseIndex}));
+    playMode = MODE_REVIEW; playIndex = 0;
+    sessionStats = {correct: 0, wrong: 0, total: playQueue.length};
+    saveState();
+    kidToast(kidLine("reviewFirst"), "success");
+    enterPlayScreen("🗃️ مراجعة اليوم");
+    return;
+  }
+  dailyFlow = false;
   if (idx < 0) { kidToast(kidLine("allDone"), "success"); return; }
   const station = content.journeyData[idx];
   state.selectedStation = idx;
@@ -533,11 +614,15 @@ function dailyLessonDone(station) {
   const ids = state.dailyIds || [];
   state.dailyLeft = null; state.dailyIds = [];
   saveState();
-  kidToast(kidLine("lessonDone"), "success");
+  kidAnnounce(kidLine("lessonDone"), "success");
+  // v104: آخر الدرس: عرض التسميع المتصل مرة واحدة (بعد ثلاثة أبيات على الأقل في الحفظ)،
+  // وبعد سؤال المكان إن ظهر، فلا يتراكب العرضان ولا يقطع صوتُ أحدهما الآخر
+  const canOffer = typeof offerReview === "function" && typeof learnedVerses === "function" && learnedVerses("all").length >= 3;
+  const finish = (delay) => () => { showMap(); if (canOffer) setTimeout(() => { if (!document.querySelector(".modal-overlay.active")) offerReview(); }, delay); };
   // سؤال المكان: يظهر إن كان أحد أبيات الدرس مرتبطاً بموضع على الخريطة
   const visit = (typeof PLACE_VISITS !== "undefined" ? PLACE_VISITS : []).find(v => ids.includes(v.ref));
-  if (visit && typeof askPlaceAfterLesson === "function") askPlaceAfterLesson(visit, showMap);
-  else showMap();
+  if (visit && typeof askPlaceAfterLesson === "function") askPlaceAfterLesson(visit, finish(1200));
+  else finish(2600)();
 }
 /* سؤال المكان: ثلاثة خيارات، والجواب الصحيح يُحتسب مرة واحدة لكل بيت في اليوم */
 let placeHubDone = null;
@@ -651,6 +736,7 @@ function finishSession() {
   document.getElementById("summaryTitle").innerText = title;
   document.getElementById("summaryScore").innerText = `${correct} / ${total}`;
   document.getElementById("summaryMessage").innerText = msg;
+  const sb = document.getElementById("summaryCloseBtn"); if (sb) sb.textContent = dailyFlow ? "الدرس الجديد ⬅" : "تمام 👍";
   document.getElementById("summaryPopup").classList.add("active");
   if (perfect) state.stats.perfectSessions = (state.stats.perfectSessions||0) + 1;
   if (playMode === MODE_REVIEW) state.stats.reviewSessions = (state.stats.reviewSessions||0) + 1;
@@ -663,6 +749,9 @@ function closeSummary() {
   closePopup("summaryPopup");
   playMode = MODE_NORMAL; playQueue = []; playIndex = 0;
   focusTarget = null; previewTarget = null;
+  const btn = document.getElementById("summaryCloseBtn"); if (btn) btn.textContent = "تمام 👍";
+  // الحصة اليومية: بعد المراجعة يأتي الدرس الجديد
+  if (dailyFlow) { dailyFlow = false; startDailyLesson(); return; }
   showMap();
 }
 
@@ -690,7 +779,11 @@ function undoWord() {
   const btn = [...document.querySelectorAll("#wordsBank .word-btn")]
     .reverse().find(b => b.classList.contains("selected") && b.textContent === last);
   if (btn) btn.classList.remove("selected");
+  // الترتيب شطراً شطراً: الرجوع إلى الصدر يُخفي كلمات العجز من جديد
+  const h = smallHalves(curVerseOrEmpty());
+  if (h && selectedWords.length < h) document.querySelectorAll("#wordsBank .word-btn.later").forEach(b => { b.hidden = true; });
 }
+function curVerseOrEmpty() { const c = getCurrentVerse(); return c ? c.verse : { words: [] }; }
 
 /* نمط «أكمل الكلمة»: يُولَّد تلقائياً من البيت، والمشتّتات من أبيات أخرى */
 let activeVariant = null;

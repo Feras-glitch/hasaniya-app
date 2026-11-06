@@ -10,12 +10,12 @@ android {
         applicationId "com.hasaniya.app"
         minSdk 26
         targetSdk 34
-        versionCode 103
-        versionName "103.0"
+        versionCode 104
+        versionName "104.0"
     }
 
     /* التوقيع: المفتاح يأتي من أسرار GitHub (انظر SIGNING-AR.md في جذر المستودع)،
-       ولا يُحفظ في المستودع أبداً. المفتاح نفسه في كل نسخة، فتُثبَّت كل نسخة فوق السابقة دون فقد البيانات. */
+       ولا يُحفظ في المستودع أبداً. المفتاح نفسه في كل نسخة release، فتُثبَّت كل نسخة فوق السابقة دون فقد البيانات. */
     def ks = System.getenv("HASANIYA_KEYSTORE")
     signingConfigs {
         if (ks) {
@@ -33,9 +33,11 @@ android {
             minifyEnabled false
             if (ks) signingConfig signingConfigs.release
         }
-        // نسخة الاختبار على الهاتف الافتراضي: بالمفتاح نفسه، ليُختبر تثبيت تحديث فوق نسخة سابقة
+        // نسخة الاختبار (debuggable) بمفتاح debug الافتراضي، لا بمفتاح الإنتاج أبداً: نسخة قابلة للفحص
+        // موقّعة بمفتاح الإنتاج يمكن تثبيتها فوق نسخة الأهل فتكشف بياناتهم. اختبار «التحديث فوق نسخة مثبّتة»
+        // (device-test.yml) يبني نسختيه debug في الخادم نفسه، فكلتاهما بمفتاح debug نفسه.
         debug {
-            if (ks) signingConfig signingConfigs.release
+            signingConfig signingConfigs.debug
         }
     }
 

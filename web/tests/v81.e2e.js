@@ -76,7 +76,8 @@ const { chromium } = require('playwright');
   need('سؤال المكان يظهر بعد الدرس', R.place.hubOpen && /أين وقع/.test(R.place.hubTitle));
   need('سؤال المكان فيه ثلاثة خيارات والصحيح بينها', R.place.options === 3 && R.place.hasCorrect);
   need('بعد الجواب يعود الطفل للشاشة الرئيسية', R.place.hubClosed && R.place.backToMap);
-  need('زر مراجعة اليوم يعرض عدداً', /\d/.test(R.place.dailyLabel));
+  // v104: لا عدد وهمي: بعد أول درس لا شيء مستحق (مراجعة الأبيات الجديدة غداً) ولا أخطاء
+  need('زر المراجعة لا يعرض عدداً وهمياً', !/\d/.test(R.place.dailyLabel));
   // 6) متابعة الوالد: العلامات تُحفظ مع بيانات الطفل، وملخص لوحة الصف يظهر
   R.follow = await p.evaluate(() => {
     openParentFollow();

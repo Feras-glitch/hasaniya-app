@@ -26,7 +26,7 @@ const GUIDE_LINES = {
   ask: () => [gForm("{N}، ماذا حدث هنا؟ اختر الإجابة الصحيحة 🐪", "{N}، ماذا حدث هنا؟ اختاري الإجابة الصحيحة 🐪")],
   finale: () => [
     gForm("أتممتَ الرحلة كاملة {N}! 🏆", "أتممتِ الرحلة كاملة {N}! 🏆"),
-    gForm("لقد حفظتَ القصيدة وعرفتَ السيرة، أنا فخور بك 🐪", "لقد حفظتِ القصيدة وعرفتِ السيرة، أنا فخورة بك 🐪")
+    gForm("لقد حفظتَ القصيدة وعرفتَ السيرة، أنا فخور بك 🐪", "لقد حفظتِ القصيدة وعرفتِ السيرة، أنا فخور بكِ 🐪")
   ],
   back: () => [
     "اشتقتُ إليك {N}! هيا نُكمل الرحلة معاً 💛",
@@ -95,6 +95,11 @@ function guideVocative() {
 function guideFill(t) { return String(t).replace(/\{N\}/g, guideVocative()); }
 /* رسالة للطفل تبدأ باسمه: تنبيه أو تشجيع */
 /* parts: ما يُقرأ إن اختلف عن النص (رسالة فيها كلمة متغيّرة: «الصحيح هو:» ثم الكلمة) */
+/* v104: رسالة مهمة (نهاية الدرس، نتيجة الاختبار) تُقرأ صوتاً أساسياً، فلا تحلّ محلها رسالة ناجي التالية */
+function kidAnnounce(msg, t, parts) {
+  const m = guideVocative() + "، " + msg; showToast(m, t || "");
+  if (autoReadOn() && !(typeof recIsActive === "function" && recIsActive())) voicePlay(parts ? [guideVocative(), ...parts] : [m], { silent: true });
+}
 function kidToast(msg, t, parts) { const m = guideVocative() + "، " + msg; showToast(m, t || ""); autoSay(parts ? [guideVocative(), ...parts] : m); }
 
 function guideSay(mood, customText, extraVoice) {
@@ -218,7 +223,7 @@ function guideShowActions(greet) {
     const pos = state.versePositions[open.id] || 0;
     const left = open.verses.length - pos;
     text = `المحطة الحالية: ${open.title}. ` + (pos > 0 ? `توقّفنا عند البيت ${pos + 1}، ` : "") +
-      `وبقي ${left} ${left === 1 ? "بيت" : "أبيات"}.`;
+      `وبقي ${arCount(left, "بيت واحد", "بيتان", "أبيات", "بيتاً")}.`;
     say = [kidLine("currentStation"), open.title, ...(pos > 0 ? [kidLine("resumeHere")] : []), kidLine("letsContinue")];
     acts.push({ label: "▶ تابع الرحلة", run: () => resumeJourney() });
     if (!guideChallenge) acts.push({ label: "⏱ تحدي 5 دقائق", run: () => guideStartChallenge() });
@@ -236,7 +241,7 @@ function guideShowActions(greet) {
   guidePlaceHidden();
   const due = leitnerDueVerses().length;
   if (due) {
-    text += ` عندي ${due} ${due === 1 ? "بطاقة تنتظر" : "بطاقات تنتظر"} مراجعتك.`;
+    text += ` عندي ${arCount(due, "بطاقة واحدة", "بطاقتان", "بطاقات", "بطاقةً")} ${due === 2 ? "تنتظران" : "تنتظر"} ${gForm("مراجعتَك", "مراجعتَكِ")}.`;
     say.push(kidLine("cardsWaiting"));
     acts.push({ label: "🗃️ راجع البطاقات", run: () => startLeitnerReview() });
   }
@@ -244,7 +249,14 @@ function guideShowActions(greet) {
   acts.push({ label: "📖 دفتر الرحلة", run: () => openGuideJournal() });
   if (guideNudgeDue()) { text = kidLine("missedYou") + " " + text; say.unshift(kidLine("missedYou")); }
   if (guideCheckStreak()) { text += " " + kidLine("streakBadge"); say.push(kidLine("streakBadge")); }
-  if (greet) say.unshift(guideGreeting().trim(), guideFill(kidLine("helloN")));
+  if (greet) {
+    // v104: النداء مرة واحدة: «أهلاً يا دلال!» ثم بقية الكلام بلا نداء ثانٍ
+    const voc = guideVocative() + "،";
+    const strip = t => String(t).replace(/^\{N\}،\s*/, "").replace(voc + " ", "").replace(voc, "");
+    text = strip(text);
+    say = say.map(strip).filter(Boolean);
+    say.unshift(guideGreeting().trim(), guideFill(kidLine("helloN")));
+  }
   guidePanel((greet ? `${guideGreeting()}${kidLine("helloN")} ` : "") + text, acts.slice(0, 5), target, { say });
 }
 /* مساعدة محددة لبيت يتعثر فيه الطفل */
@@ -268,7 +280,7 @@ async function guideOnRecorded(kind) {
   const n = (await recAllForUser(activeUserId)).length;
   if (n === 1) guideAwardBadge("firstRec");
   if (n === 1) guideSay("mastery", kidLine("firstRec"));
-  else if (n % 5 === 0) guideSay("mastery", gForm(`{N}، سجّلتَ ${n} أبيات بصوتك! 🌟`, `{N}، سجّلتِ ${n} أبيات بصوتك! 🌟`), { say: [guideFill(kidLine("recMore"))] });
+  else if (n % 5 === 0) guideSay("mastery", gForm(`{N}، سجّلتَ ${arCount(n, "بيتاً", "بيتين", "أبيات", "بيتاً")} بصوتك! 🌟`, `{N}، سجّلتِ ${arCount(n, "بيتاً", "بيتين", "أبيات", "بيتاً")} بصوتك! 🌟`), { say: [guideFill(kidLine("recMore"))] });
 }
 
 let lastActivity = Date.now();
@@ -282,7 +294,8 @@ function setupGuide() {
     try {
       if (!sessionStorage.getItem("guideWelcomed")) {
         sessionStorage.setItem("guideWelcomed", "1");
-        setTimeout(() => { if (document.getElementById("mapScreen").style.display !== "none") guideShowActions(true); }, 900);
+        // v104: لا ترحيب خلف نافذة إنشاء الطفل؛ يُرحَّب به بعد حفظ اسمه
+        setTimeout(() => { if (document.getElementById("mapScreen").style.display !== "none" && !document.querySelector(".modal-overlay.active")) guideShowActions(true); }, 900);
       }
     } catch(e) {}
   }
@@ -303,10 +316,13 @@ function guideDance(on) {
 /* النوم بعد الغياب: إن لم يفتح الطفل التطبيق منذ يومين */
 const GUIDE_SEEN_KEY = "hasaniya_guide_seen";
 const GUIDE_AWAY_MS = 2 * 24 * 60 * 60 * 1000;
+/* v104: الغياب لكل طفل لا للجهاز كله، ويُعرف به «اشتقتُ لصوتك» بعد يوم من الغياب */
 function guideCheckAbsence() {
+  const key = GUIDE_SEEN_KEY + "|" + (activeUserId || "x");
   let last = 0;
-  try { last = +localStorage.getItem(GUIDE_SEEN_KEY) || 0; } catch(e) {}
-  try { localStorage.setItem(GUIDE_SEEN_KEY, String(Date.now())); } catch(e) {}
+  try { last = +localStorage.getItem(key) || +localStorage.getItem(GUIDE_SEEN_KEY) || 0; } catch(e) {}
+  try { localStorage.setItem(key, String(Date.now())); } catch(e) {}
+  if (typeof guideLastGapMs !== "undefined") guideLastGapMs = last ? Date.now() - last : 0;
   return last && (Date.now() - last > GUIDE_AWAY_MS);
 }
 function guideSleep(on) {

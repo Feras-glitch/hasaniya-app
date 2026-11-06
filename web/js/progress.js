@@ -34,11 +34,24 @@ function stopTimeTracking() {
   if (sessionStartTime) {
     const s = Math.floor((Date.now() - sessionStartTime)/1000);
     state.totalTimeSeconds = (state.totalTimeSeconds||0) + s;
+    const day = new Date().toDateString();
+    state.dayTime = state.dayTime && state.dayTime.day === day ? { day, s: (+state.dayTime.s || 0) + s } : { day, s };
     sessionStartTime = null;
     saveState(); checkAchievements();
   }
 }
 
+/* v104: حدّ اللعب اليومي لكل طفل (من توصيات v102 المعتمدة). يضبطه الوالد في منطقته، والافتراضي بلا حد */
+function todaySeconds() {
+  const day = new Date().toDateString();
+  const saved = state.dayTime && state.dayTime.day === day ? (+state.dayTime.s || 0) : 0;
+  return saved + (sessionStartTime ? Math.floor((Date.now() - sessionStartTime) / 1000) : 0);
+}
+function dailyLimitReached() {
+  const m = +(state && state.dailyLimitMin) || 0;
+  if (!m || (typeof isBrowse === "function" && isBrowse())) return false;
+  return todaySeconds() >= m * 60;
+}
 function mistakeKey(vid, w) { return vid + "::" + w; }
 function buildContext(v, w) {
   if (v.type === "missing_choice") return (v.textPart1||"") + " " + w + " " + (v.textPart2||"");

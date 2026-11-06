@@ -34,8 +34,11 @@ function init() {
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       stopMediaStream();
+      // v104: يتوقف كل صوت (قراءة متصلة، رسائل ناجي) حين يخرج الطفل من التطبيق
+      if (typeof audioStopAll === "function") audioStopAll();
       // الوقت لا يُحسب والتطبيق في الخلفية، ويُحفظ الآن لأن أندرويد قد يغلقه دون إنذار
       if (sessionStartTime) { stopTimeTracking(); timePausedByHide = true; }
+      saveState();
     } else if (timePausedByHide) {
       timePausedByHide = false;
       const gs = document.getElementById("gameScreen");

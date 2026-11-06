@@ -33,6 +33,8 @@ const KID_LINES = {
   answerIs: ["الجواب:"],
   allDone: ["🎉 أكملتَ كل المحطات", "🎉 أكملتِ كل المحطات"],
   lessonDone: ["أحسنتَ! انتهى درس اليوم، ويبقى الباقي للغد 🐪", "أحسنتِ! انتهى درس اليوم، ويبقى الباقي للغد 🐪"],
+  timeUp: ["انتهى وقت اليوم، أحسنتَ! نكمل غداً إن شاء الله 🐪", "انتهى وقت اليوم، أحسنتِ! نكمل غداً إن شاء الله 🐪"],
+  reviewFirst: ["نبدأ بمراجعة ما حفظتَه، ثم نتعلّم الجديد 🐪", "نبدأ بمراجعة ما حفظتِه، ثم نتعلّم الجديد 🐪"],
   noMistakes: ["لا توجد أخطاء، أحسنتَ!", "لا توجد أخطاء، أحسنتِ!"],
   weeklyDone: ["🏅 أتممتَ تحدّي الأسبوع!", "🏅 أتممتِ تحدّي الأسبوع!"],
   reflectionSaved: ["حفظتَ تأمّلَكَ، شكراً لَكَ ✨", "حفظتِ تأمّلَكِ، شكراً لَكِ ✨"],
@@ -265,6 +267,19 @@ function voiceMissingNotice() {
   return "⚠ لا يوجد على هذا الجهاز صوت عربي للقراءة الآلية، فكل ما لم يُسجَّل في «استوديو التسجيل» لن يُسمع. الحل: استورد حزمة صوت المعلم، أو سجّل بصوتك، أو ثبّت صوتاً عربياً من إعدادات الجهاز (تحويل النص إلى كلام).";
 }
 
+/* v104: الطفل يضغط 🔊 والجهاز بلا صوت عربي: رسالة مرئية بدل الصمت (مرة كل دقيقتين على الأكثر) */
+let voiceMutedShownAt = 0;
+function voiceMutedNotice() {
+  if (Date.now() - voiceMutedShownAt < 120000) return;
+  voiceMutedShownAt = Date.now();
+  // في أعلى الشاشة لا أسفلها، حتى لا يغطي «التالي» وأزرار الدرس
+  let el = document.getElementById("voiceMutedNote");
+  if (!el) { el = document.createElement("div"); el.id = "voiceMutedNote"; el.className = "voice-muted-note"; el.setAttribute("role", "status"); document.body.appendChild(el); }
+  el.textContent = "🔇 لا يوجد صوت قراءة عربي على هذا الجهاز. اطلب من والديك تسجيل الصوت في الاستوديو أو تثبيت صوت عربي.";
+  el.classList.add("show");
+  clearTimeout(voiceMutedNotice.t);
+  voiceMutedNotice.t = setTimeout(() => el.classList.remove("show"), 6000);
+}
 function voiceTTS(token, text, wait) {
   return new Promise(resolve => {
     if (token !== seqToken || !("speechSynthesis" in window) || voiceEngineMuted()) return resolve();
@@ -323,6 +338,7 @@ async function voicePlay(texts, opts = {}) {
   if (token !== seqToken || recIsActive()) return;
   if (opts.polite && (voicePoliteTok !== token || audioMainPending())) return;
   segs = voiceMergeSegs(segs);
+  if (!opts.polite && !opts.silent && voiceEngineMuted() && segs.some(x => !x.rec)) voiceMutedNotice();
   for (let i = 0; i < segs.length; i++) {
     if (token !== seqToken) break;
     const s = segs[i];

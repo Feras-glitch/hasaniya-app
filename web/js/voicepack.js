@@ -568,5 +568,9 @@ function maybeOnboard() {
 }
 function afterOnboarding() {
   vpPref("onboarded", true);
+  // v104: إن لم يكن على الجهاز صوت عربي يعرف الوالد ذلك من أول يوم
+  setTimeout(() => { const m = typeof voiceMissingNotice === "function" ? voiceMissingNotice() : ""; if (m) showToast(m, "error"); }, 3500);
+  // v104: الترحيب بعد إنشاء الطفل (كان يُنطق قبله خلف النافذة)
+  setTimeout(() => { if (!document.querySelector(".modal-overlay.active") && typeof guideShowActions === "function") guideShowActions(true); }, 600);
   vpAllAuthorRecs().then(recs => { if (!recs.length) openVoiceImport(); }).catch(() => {});
 }

@@ -46,6 +46,9 @@ function showParentScreen() {
   document.getElementById("gameScreen").style.display = "none";
   document.getElementById("parentScreen").style.display = "block";
   renderAutoReadRow();
+  renderParentAlerts();
+  renderDailyLimitRow();
+  if (typeof renderParentCheckCard === "function") renderParentCheckCard();
   document.getElementById("mainHeader").style.background = "var(--parent-border)";
   document.getElementById("appTitle").innerText = tParent("وضع الأسرة 👨‍👩‍👧");
   document.getElementById("backToMapBtn").style.display = "inline-block";
@@ -228,6 +231,28 @@ function setAutoRead(on) {
   renderAutoReadRow();
   showToast(on ? "القراءة التلقائية مفعّلة" : "القراءة التلقائية متوقفة", "success");
 }
+/* v104: حدّ اللعب اليومي (يُحفظ لكل طفل) */
+function renderDailyLimitRow() {
+  const box = document.getElementById("dailyLimitBtns"); if (!box) return;
+  const cur = +(state.dailyLimitMin || 0);
+  box.innerHTML = [0, 20, 30, 45].map(m => `<button class="word-btn ${m === cur ? "selected-pref" : ""}" onclick="setDailyLimit(${m})">${m ? m + " د" : "بلا حد"}</button>`).join("");
+}
+function setDailyLimit(m) { state.dailyLimitMin = [0, 20, 30, 45].includes(+m) ? +m : 0; saveState(); renderDailyLimitRow(); }
+
+/* v104: تنبيهات تهمّ الوالد في أعلى منطقته: ما جرى على الرقم السري مؤخراً، وتعديلات المحتوى المحفوظة */
+function renderParentAlerts() {
+  const box = document.getElementById("parentAlerts"); if (!box) return;
+  const out = [];
+  const recent = (typeof pinLogGet === "function" ? pinLogGet() : []).filter(x => Date.now() - x.at < 14 * 86400000 && ["remove", "waitExpire", "recover", "waitStart", "change"].includes(x.ev));
+  if (recent.length) {
+    const x = recent[recent.length - 1];
+    let when = ""; try { when = new Date(x.at).toLocaleString("ar-EG", { dateStyle: "medium", timeStyle: "short" }); } catch (e) {}
+    out.push(`<div class="parent-alert">🔐 ${escapeHtml(PIN_LOG_LABELS[x.ev])} — ${escapeHtml(when)}. إن لم يكن ذلك منك فراجع «إدارة الرقم السري».</div>`);
+  }
+  if (typeof contentPrevInfo === "function") { const c = contentPrevInfo(); if (c) out.push(c); }
+  box.innerHTML = out.join("");
+}
+
 function renderAutoReadRow() {
   const on = autoReadOn();
   const a = document.getElementById("autoReadOn"), b = document.getElementById("autoReadOff");

@@ -76,16 +76,31 @@ function showStaleTabNotice() {
     <button class="action-btn btn-success" onclick="location.reload()">↻ حدّث هذه النافذة</button></div>`;
   document.body.appendChild(d);
 }
+/* v104: عدّاد كتابة مشترك بين النوافذ: إن كتبت نافذة أخرى بعد آخر كتابة لهذه النافذة فهي قديمة،
+   فلا تكتب فوق الأحدث (لا يعتمد على وصول حدث storage في الوقت المناسب).
+   ولا يُعاد كتابة المحتوى (نحو 140 ألف حرف) في كل نقرة إن لم يتغيّر. */
+const STORAGE_SEQ = "hasaniya_write_seq";
+let saveSeq = null, lastContentStr = null;
+function saveSeqRead() { try { return localStorage.getItem(STORAGE_SEQ); } catch (e) { return null; } }
 function saveState() {
   if (staleTab) return false;
+  const cur = saveSeqRead();
+  if (saveSeq !== null && cur !== null && cur !== saveSeq) {
+    staleTab = true;
+    if (typeof showStaleTabNotice === "function") showStaleTabNotice();
+    return false;
+  }
   try {
     if (state && activeUserId) {
       const u = getUserById(activeUserId);
       if (u) u.state = state;
     }
-    localStorage.setItem(STORAGE_CONTENT, JSON.stringify({contentVersion: CONTENT_VERSION, journeyData: content.journeyData}));
+    const cStr = JSON.stringify({contentVersion: CONTENT_VERSION, journeyData: content.journeyData, edited: !!content.edited});
+    if (cStr !== lastContentStr) { localStorage.setItem(STORAGE_CONTENT, cStr); lastContentStr = cStr; }
     localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
     localStorage.setItem(STORAGE_ACTIVE, activeUserId || "");
+    saveSeq = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    localStorage.setItem(STORAGE_SEQ, saveSeq);
     return true;
   } catch(e) {
     console.warn("save error", e);
@@ -109,7 +124,7 @@ function migrateFromV12() {
     if (c) content = JSON.parse(c);
     if (u) users = JSON.parse(u);
     if (a) activeUserId = a;
-    if (p) parentPinHash = p;
+    if (p) { parentPinHash = p; pinStoreSave(p); }
     users.forEach(u => {
       u.state = normalizeUserState(u.state || {});
       u.state.version = 13;
@@ -123,17 +138,70 @@ function migrateFromV12() {
   } catch(e) { console.warn("migrate V12 error", e); return false; }
 }
 
+/* v104: الرقم السري في مفتاح جديد لا تعرفه الإصدارات القديمة.
+   كانت نسخة قديمة من التطبيق (ملف أو مجلد قديم على الجهاز نفسه) تشترك في التخزين نفسه،
+   و«نسيت الرقم» القديم فيها يمحو المفتاح القديم فيسقط الرقم هنا. الآن يُقرأ الرقم من المفتاح الجديد وحده،
+   ويُنقل إليه من القديم مرة واحدة فقط، ويُكتب في القديم نسخة حتى تطلبه الإصدارات القديمة أيضاً. */
+function pinStoreLoad() {
+  let h = null;
+  try {
+    h = localStorage.getItem(STORAGE_PIN2) || null;
+    if (!h && !localStorage.getItem(STORAGE_PIN_MIG)) h = localStorage.getItem(STORAGE_PIN) || null;
+    if (h) { localStorage.setItem(STORAGE_PIN2, h); if (localStorage.getItem(STORAGE_PIN) !== h) localStorage.setItem(STORAGE_PIN, h); }
+    localStorage.setItem(STORAGE_PIN_MIG, "1");
+  } catch (e) {}
+  return h;
+}
+function pinStoreSave(h) {
+  try { localStorage.setItem(STORAGE_PIN2, h); localStorage.setItem(STORAGE_PIN, h); localStorage.setItem(STORAGE_PIN_MIG, "1"); } catch (e) {}
+}
+function pinStoreRemove() {
+  try { localStorage.removeItem(STORAGE_PIN2); localStorage.removeItem(STORAGE_PIN); localStorage.setItem(STORAGE_PIN_MIG, "1"); } catch (e) {}
+}
+function pinStoreHas() { try { return !!localStorage.getItem(STORAGE_PIN2); } catch (e) { return false; } }
+
+/* ---------- v104: النسخة السابقة من المحتوى (قبل تحديث أو استيراد أو حذف في المحرر) ---------- */
+const STORAGE_CONTENT_PREV = "hasaniya_content_prev";
+const SEC_EVAL_KEY = /^sec:(all|station-\d{1,2})$/;
+function contentSnapshotSave(journeyData, reason, edited, fromVersion) {
+  try {
+    localStorage.setItem(STORAGE_CONTENT_PREV, JSON.stringify({ at: Date.now(), reason, edited: !!edited, fromVersion: fromVersion || CONTENT_VERSION, journeyData }));
+    return true;
+  } catch (e) { return false; }
+}
+function contentSnapshotGet() {
+  try { const o = JSON.parse(localStorage.getItem(STORAGE_CONTENT_PREV) || "null"); return o && Array.isArray(o.journeyData) && o.journeyData.length ? o : null; } catch (e) { return null; }
+}
+/* تنبيه الوالد: حُدّث المحتوى وكانت فيه تعديلات من المحرر */
+function contentPrevInfo() {
+  const o = contentSnapshotGet();
+  if (!o || !o.edited || o.dismissed || Date.now() - o.at > 30 * 86400000) return "";
+  return `<div class="parent-alert">📝 تغيّر محتوى التطبيق (${escapeHtml(o.reason || "")})، وكانت فيه تعديلات منك في المحرر. التعديلات محفوظة، وتسترجعها من «المحرر» ← «↩️ المحتوى السابق».
+    <button class="tool-btn" onclick="contentPrevDismiss()">حسناً</button></div>`;
+}
+function contentPrevDismiss() {
+  const o = contentSnapshotGet(); if (!o) return;
+  o.dismissed = true; try { localStorage.setItem(STORAGE_CONTENT_PREV, JSON.stringify(o)); } catch (e) {}
+  if (typeof renderParentAlerts === "function") renderParentAlerts();
+}
+
 function loadAll() {
   migrateFromV12();
 
   /* كل مخزن يُقرأ على حدة: تلف أحدها لا يُسقط الآخر، ويُحفظ نصه الخام قبل أن يُكتب فوقه */
-  let cRaw = null, uRaw = null, usersOk = false;
+  let cRaw = null, uRaw = null, usersOk = false, contentChanged = false;
+  saveSeq = saveSeqRead();
   try {
     cRaw = localStorage.getItem(STORAGE_CONTENT);
     if (cRaw) {
       const c = JSON.parse(cRaw);
       if (c && c.contentVersion === CONTENT_VERSION && Array.isArray(c.journeyData) && c.journeyData.length > 0) {
         content.journeyData = c.journeyData;
+        content.edited = !!c.edited;
+      } else if (c && Array.isArray(c.journeyData) && c.journeyData.length > 0) {
+        /* v104: تحديث المحتوى يستبدل المخزّن، فتُحفظ نسخته السابقة (وفيها تعديلات المحرر إن وُجدت) لتُسترجع */
+        contentSnapshotSave(c.journeyData, "قبل تحديث محتوى التطبيق", !!c.edited, c.contentVersion);
+        contentChanged = true;
       }
     }
   } catch(e) {
@@ -152,7 +220,7 @@ function loadAll() {
     stashCorruptRaw("hasaniya_users", uRaw);
   }
   try { activeUserId = localStorage.getItem(STORAGE_ACTIVE) || null; } catch(e) { activeUserId = null; }
-  try { parentPinHash = localStorage.getItem(STORAGE_PIN) || null; } catch(e) { parentPinHash = null; }
+  parentPinHash = pinStoreLoad();
 
   if (!users || !Array.isArray(users) || users.length === 0) {
     const u = createNewUser("طفلي", "🦁");
@@ -166,6 +234,8 @@ function loadAll() {
   state = active.state;
 
   users.forEach(u => migrateLegacyState(u.state));
+  // تحديث المحتوى قد يحذف تقدّم أبيات لم تعد موجودة: نسخة احتياطية قبل ذلك
+  if (contentChanged && usersOk && typeof safetyBackupPush === "function") safetyBackupPush("قبل تحديث المحتوى");
   cleanupOrphanedState();
   users.forEach(u => ensureCurrentStation(u.state));
   saveState();
@@ -290,9 +360,10 @@ function cleanupOrphanedState() {
       if (!st[f] || typeof st[f] !== "object") return;
       Object.keys(st[f]).forEach(id => { if (!validStationIds.has(id)) delete st[f][id]; });
     });
-    ["leitner", "storyUnlocked", "meaningSeen", "recEval", "follow", "eventMisses", "masteredNotified"].forEach(f => {
+    ["leitner", "storyUnlocked", "meaningSeen", "recEval", "follow", "eventMisses", "masteredNotified", "parentChecks"].forEach(f => {
       if (!st[f] || typeof st[f] !== "object") return;
-      Object.keys(st[f]).forEach(id => { if (!validVerseIds.has(id)) delete st[f][id]; });
+      // v104: تقييم التسميع المتصل مفتاحه sec:all أو sec:station-N، لا رقم بيت
+      Object.keys(st[f]).forEach(id => { if (!validVerseIds.has(id) && !(f === "recEval" && SEC_EVAL_KEY.test(id))) delete st[f][id]; });
     });
     Object.keys(st.mistakes || {}).forEach(key => {
       const m = st.mistakes[key];

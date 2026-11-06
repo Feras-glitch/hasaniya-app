@@ -108,6 +108,8 @@
     <p style="text-align:center;color:#666;margin:0 0 16px;font-size:.9rem">
       <span data-i18n="الطفل الحالي:">الطفل الحالي:</span> <strong id="parentUserName">—</strong>
     </p>
+    <div id="parentAlerts"></div>
+    <div id="parentCheckCard"></div>
     <div class="stats-grid">
       <div class="stat-box"><div class="stat-number" id="statCompleted">0</div><div class="stat-label" data-i18n="محطات مكتملة">محطات مكتملة</div></div>
       <div class="stat-box"><div class="stat-number" id="statMistakes" style="color:var(--danger)">0</div><div class="stat-label" data-i18n="كلمات للمراجعة">كلمات للمراجعة</div></div>
@@ -123,6 +125,11 @@
         <button class="word-btn" id="autoReadOn" onclick="setAutoRead(true)" data-i18n="تشغيل">تشغيل</button>
         <button class="word-btn" id="autoReadOff" onclick="setAutoRead(false)" data-i18n="إيقاف">إيقاف</button>
       </span>
+    </div>
+
+    <div class="auto-read-row" id="dailyLimitRow">
+      <span>⏳ حدّ اللعب اليومي لهذا الطفل</span>
+      <span class="word-bank" style="margin:0" id="dailyLimitBtns"></span>
     </div>
 
     <div id="parentIntro" class="parent-intro" style="display:none">
@@ -221,7 +228,8 @@
     <div class="modal-content" style="max-width:520px;text-align:right">
       <h2 style="color:var(--parent-border);margin-top:0;text-align:center">📥 استيراد حزمة الصوت</h2>
       <p class="rec-privacy">اختر ملفات الحزمة (zip) التي أرسلها لك ولي الأمر أو المعلم. يمكنك اختيار أكثر من ملف معاً. بعدها تسمع الأبيات والقصص بصوتهم.</p>
-      <input type="file" id="vpImportFile" multiple accept=".zip,application/zip" onchange="importVoicePacks(this.files); this.value=''" style="width:100%;margin:8px 0">
+      <input type="file" id="vpImportFile" class="file-hidden" multiple accept=".zip,application/zip" onchange="importVoicePacks(this.files); this.value=''">
+      <label for="vpImportFile" class="action-btn btn-info file-pick">📂 اختر ملف حزمة الصوت</label>
       <div id="vpPreview" style="font-size:.92rem;line-height:1.8"></div>
       <button class="action-btn btn-success" id="vpCommitBtn" onclick="vpCommitVoicePacks()" style="display:none;width:100%;margin-top:8px">✔ استيراد التسجيلات المعروضة</button>
       <div id="vpImportStatus" style="white-space:pre-line;font-size:.9rem;color:#444;min-height:1em;margin-top:6px"></div>
@@ -243,9 +251,10 @@
     <div class="modal-content" style="max-width:760px;text-align:right">
       <h2 style="color:var(--parent-border);margin-top:0;text-align:center">🏫 لوحة الصف</h2>
       <p class="rec-privacy">اختر ملف «النسخة الاحتياطية» (💾 نسخة احتياطية) لتظهر كل أطفال الجهاز مع أبياتهم المتعثرة، أو ملفات «تقرير الطفل» (📤 تقرير). تُقرأ على هذا الجهاز ولا تُرسل إلى أي مكان، ولا تُقرأ منها الصور ولا التوقيع.</p>
-      <input type="file" id="dashFiles" multiple accept=".json,application/json" onchange="importDashFiles(this.files); this.value=''" style="width:100%;margin:6px 0">
+      <input type="file" id="dashFiles" class="file-hidden" multiple accept=".json,application/json" onchange="importDashFiles(this.files); this.value=''">
+      <label for="dashFiles" class="action-btn btn-info file-pick">📂 اختر ملفات التقارير أو النسخة الاحتياطية</label>
       <div class="controls" style="flex-wrap:wrap">
-        <select id="dashSort" onchange="renderDashboard()" style="padding:8px;border-radius:10px;font-family:inherit"><option value="percent">ترتيب بالإتقان</option><option value="completed">ترتيب بالمحطات المكتملة</option><option value="name">ترتيب بالاسم</option></select>
+        <select id="dashSort" onchange="renderDashboard()" style="padding:8px;border-radius:10px;font-family:inherit"><option value="mastered">ترتيب بالأبيات المتقنة</option><option value="percent">ترتيب بدقة ما رآه</option><option value="completed">ترتيب بالمحطات المكتملة</option><option value="name">ترتيب بالاسم</option></select>
         <button class="tool-btn" onclick="clearDashboard()">🧹 مسح القائمة</button>
       </div>
       <div id="dashSummary" class="rec-count"></div>
@@ -297,7 +306,8 @@
       <div id="secBox" class="sec-box">
         <div class="sec-title">🔁 التسميع المتصل: القصيدة من أولها إلى آخر ما حُفظ، في تسجيل واحد</div>
         <select id="secRange" onchange="renderSectionStatus()" style="width:100%;padding:8px;border-radius:10px;font-family:inherit"></select>
-        <div id="secText" class="sec-text"></div>
+        <button class="tool-btn" id="secShowBtn" onclick="secToggleText()" style="width:100%;margin-top:6px">👁️ أظهر النص</button>
+        <div id="secText" class="sec-text" hidden></div>
         <div id="secStatus" class="rec-count"></div>
         <div class="controls">
           <button class="tool-btn" onclick="playReview(currentRange())">▶ استمع للتسميع</button>
@@ -379,7 +389,7 @@
       <p><span id="rewardVerb">أتممتَ</span> محطة <strong id="popupStationName"></strong> وحصلت على:</p>
       <div class="reward-big-icon" id="popupRewardIcon"></div>
       <h3 id="popupRewardName" style="color:var(--primary)"></h3>
-      <button class="action-btn btn-info" onclick="certSave(window.lastCompletedStation)" style="width:100%;margin-top:8px">🖼️ حفظ شهادة الإتقان</button>
+      <button class="action-btn btn-info" onclick="certSave(window.lastCompletedStation)" style="width:100%;margin-top:8px">🖼️ حفظ شهادة الإتمام</button>
       <button class="action-btn btn-info" onclick="certPrint(window.lastCompletedStation)" style="width:100%;margin-top:8px">🖨️ طباعة الشهادة</button>
       <button class="action-btn" onclick="closePopup('rewardPopup')" style="width:100%;margin-top:15px">استمر ➡️</button>
     </div>
@@ -480,6 +490,7 @@
           <button class="action-btn btn-info" onclick="loadJsonIntoTextarea()">📥 تحميل الحالي</button>
           <button class="action-btn btn-warn" onclick="importJson()">📤 استيراد</button>
           <button class="action-btn btn-success" onclick="downloadJourneyData()">⬇️ تنزيل</button>
+          <button class="action-btn btn-gray" onclick="restoreContentPrev()">↩️ المحتوى السابق</button>
         </div>
       </div>
       <div style="text-align:center;margin-top:20px">
@@ -495,7 +506,7 @@
         <h2 id="summaryTitle" style="color:var(--primary);margin:8px 0"></h2>
         <div class="score" id="summaryScore"></div>
         <p id="summaryMessage" style="color:#666"></p>
-        <button class="action-btn" onclick="closeSummary()" style="width:100%;margin-top:15px">تمام 👍</button>
+        <button class="action-btn" id="summaryCloseBtn" onclick="closeSummary()" style="width:100%;margin-top:15px">تمام 👍</button>
       </div>
     </div>
   </div>
@@ -506,7 +517,7 @@
       <div class="reward-big-icon" id="newAchIcon">🏆</div>
       <h3 id="newAchName" style="color:var(--primary);margin:8px 0"></h3>
       <p id="newAchDesc" style="color:#666;font-size:.9rem"></p>
-      <button class="action-btn" onclick="closePopup('newAchievementPopup')" style="width:100%;margin-top:12px">رائع!</button>
+      <button class="action-btn" onclick="closePopup('newAchievementPopup'); if (typeof flushAchievements === 'function') setTimeout(flushAchievements, 400)" style="width:100%;margin-top:12px">رائع!</button>
     </div>
   </div>
 
@@ -549,7 +560,8 @@
         <label>صورة الطفل (اختيارية، تبقى على هذا الجهاز)</label>
         <div id="photoRow" class="photo-row"></div>
     <div id="showPhotoRow"></div>
-        <input type="file" accept="image/*" id="photoInput" onchange="pickEditorPhoto(this.files[0])">
+        <input type="file" accept="image/*" id="photoInput" class="file-hidden" onchange="pickEditorPhoto(this.files[0])">
+        <label for="photoInput" class="tool-btn file-pick">📷 اختر صورة</label>
       </div>
       <div class="form-row">
         <label>الرمز التعبيري</label>
@@ -587,6 +599,7 @@
     <div class="modal-content" style="max-width:400px">
       <h2 style="color:var(--parent-border);margin-top:0">🔐 إدارة الرقم السري</h2>
       <p style="color:#666;font-size:.9rem;margin-top:0" id="pinStatusText"></p>
+      <div id="pinLogBox"></div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px">
         <button class="action-btn btn-info" onclick="changePin()" id="changePinBtn">تغيير الرقم السري</button>
         <button class="action-btn btn-info" onclick="newRecoveryCode()" id="pinRecBtn">🔑 إنشاء شفرة الاسترجاع</button>
@@ -620,6 +633,7 @@
 <script src="js/safety.js"></script>
 <script src="js/pin.js"></script>
 <script src="js/pinrecovery.js"></script>
+<script src="js/parentcheck.js"></script>
 <script src="js/users.js"></script>
 <script src="js/progress.js"></script>
 <script src="js/audio.js"></script>

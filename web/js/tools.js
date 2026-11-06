@@ -126,6 +126,9 @@ function answerEventQ(btn, chosen, vid) {
   document.querySelectorAll("#storyText .word-btn").forEach(b => b.disabled = true);
   const good = chosen === v.event;
   btn.classList.add(good ? "success" : "fail");
+  // v104: الخطأ يعلّم: يُضاء الجواب الصحيح، ويظهر الشرح بعد الإجابة لا قبلها
+  if (!good) [...document.querySelectorAll("#storyText .word-btn")].filter(b => b.textContent === v.event).forEach(b => b.classList.add("success"));
+  if (typeof showMeaningAfterEvent === "function") showMeaningAfterEvent(v);
   if (good) { playSuccess(); if (firstCreditToday("event|" + v.id)) addPoints(2); } else playFail();
   if (!good) {
     state.eventMisses = state.eventMisses || {};
@@ -313,7 +316,7 @@ function openReviewHub() {
   openHub("🔁 مراجعة", `<div class="hub-grid">
     ${tile("startDaily", "📅", "مراجعة اليوم", dailyReviewCount())}
     ${tile("startReview", "🎯", "مراجعة الأخطاء", mistakes)}
-    ${tile("showMistakesReview", "🧠", "عرض الأخطاء", mistakes)}
+    ${typeof isSmallKid === "function" && isSmallKid() ? "" : tile("showMistakesReview", "🧠", "عرض الأخطاء", mistakes)}
     ${tile("showLeitnerBoxes", "🗃️", "صناديق الحفظ", 0)}
     ${typeof isSmallKid === "function" && isSmallKid() ? tile("startRiddles", "🧩", "الألغاز", 0) : ""}
   </div>`);

@@ -1,18 +1,23 @@
-# اختبار التطبيق على هاتف أندرويد افتراضي بعد كل رفع:
+# اختبار التطبيق على هاتف أندرويد افتراضي:
 # تثبيت وفتح، زر الرجوع، تدوير، ميكروفون، مشاركة، طباعة، اختيار ملفات، الوضع الليلي،
 # العمل دون إنترنت بعد إغلاق قسري، وتثبيت تحديث فوق نسخة سابقة دون فقد التقدم.
-# النتيجة في ملخص التشغيل، والصور في Artifacts باسم device-screens.
+# يُستدعى من build-all.yml مع كل رفع، والنشر ينتظر نجاحه؛ ويمكن تشغيله وحده يدوياً (Run workflow).
+# نسختا الاختبار debug بمفتاح debug الافتراضي (يُنشأ في خادم الاختبار): لا يحتاج أسرار التوقيع.
+# إن فشلت المحاولة الأولى يُعاد الاختبار مرة واحدة على محاكٍ جديد، مع تحذير ظاهر.
+# النتيجة في ملخص التشغيل، والصور في Artifacts باسم device-screens (المحاولة الثانية في retry/).
 name: Device test
 
 on:
-  push:
-    branches: [ main ]
+  workflow_call:
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   emulator:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v5
 
@@ -40,23 +45,8 @@ jobs:
         with:
           gradle-version: 8.9
 
-      - name: Restore signing key
-        id: key
-        env:
-          KEYSTORE_BASE64: ${{ secrets.HASANIYA_KEYSTORE_BASE64 }}
-        run: |
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/hasaniya.jks"
-            echo "path=$RUNNER_TEMP/hasaniya.jks" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Build two test versions (current, and current + 1)
         working-directory: android
-        env:
-          HASANIYA_KEYSTORE: ${{ steps.key.outputs.path }}
-          HASANIYA_KEYSTORE_PASSWORD: ${{ secrets.HASANIYA_KEYSTORE_PASSWORD }}
-          HASANIYA_KEY_ALIAS: ${{ secrets.HASANIYA_KEY_ALIAS }}
-          HASANIYA_KEY_PASSWORD: ${{ secrets.HASANIYA_KEY_PASSWORD }}
         run: |
           gradle assembleDebug --no-daemon
           cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/v1.apk"
@@ -68,6 +58,19 @@ jobs:
           AAPT="$ANDROID_HOME/build-tools/34.0.0/aapt2"
           echo "::notice::v1: $("$AAPT" dump badging "$RUNNER_TEMP/v1.apk" | head -1)"
           echo "::notice::v2: $("$AAPT" dump badging "$RUNNER_TEMP/v2.apk" | head -1)"
+          # اختبار التحديث يحتاج النسختين بالمفتاح نفسه، وهو مفتاح debug لا مفتاح الإنتاج
+          APKSIGNER="$ANDROID_HOME/build-tools/34.0.0/apksigner"
+          S1="$("$APKSIGNER" verify --print-certs "$RUNNER_TEMP/v1.apk")"
+          S2="$("$APKSIGNER" verify --print-certs "$RUNNER_TEMP/v2.apk")"
+          D1="$(printf '%s\n' "$S1" | grep -m1 'certificate SHA-256 digest' || true)"
+          D2="$(printf '%s\n' "$S2" | grep -m1 'certificate SHA-256 digest' || true)"
+          if [ -z "$D1" ] || [ "$D1" != "$D2" ]; then
+            echo "::error::نسختا الاختبار ليستا بالمفتاح نفسه، فلا معنى لاختبار التحديث: $D1 / $D2"; exit 1
+          fi
+          if ! printf '%s\n' "$S1" | grep -q 'CN=Android Debug'; then
+            echo "::error::نسخة الاختبار (debug) ليست موقّعة بمفتاح debug الافتراضي:"; printf '%s\n' "$S1" | grep 'DN:'; exit 1
+          fi
+          echo "::notice::النسختان بمفتاح debug نفسه: ${D1##*: }"
 
       - name: Enable KVM for the emulator
         run: |
@@ -81,6 +84,9 @@ jobs:
         run: npm install --no-save --no-package-lock playwright@1.49.1
 
       - name: Run tests on the emulator
+        id: run1
+        continue-on-error: true
+        timeout-minutes: 28
         uses: reactivecircus/android-emulator-runner@v2
         env:
           APK_V1: ${{ runner.temp }}/v1.apk
@@ -93,6 +99,41 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-boot-anim -camera-back none -camera-front none
           script: timeout 1200 node web/tests/device/emulator-test.js
+
+      # المحاكي يتعثّر أحياناً (عند «التثبيت والفتح» مثلاً): محاولة ثانية واحدة على محاكٍ جديد
+      - name: Stop the first emulator before retrying
+        if: steps.run1.outcome == 'failure'
+        run: |
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          for d in $("$ADB" devices 2>/dev/null | awk '/^emulator-/{print $1}'); do "$ADB" -s "$d" emu kill || true; done
+          sleep 5
+          pkill -9 -f qemu-system || true
+          "$ADB" kill-server || true
+
+      - name: Run tests again on a fresh emulator (first attempt failed)
+        id: run2
+        if: steps.run1.outcome == 'failure'
+        timeout-minutes: 28
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          APK_V1: ${{ runner.temp }}/v1.apk
+          APK_V2: ${{ runner.temp }}/v2.apk
+          OUT_DIR: device-results/retry
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-boot-anim -camera-back none -camera-front none
+          script: timeout 1200 node web/tests/device/emulator-test.js
+
+      # النجاح بعد إعادة يُظهر تحذيراً، حتى لا يختفي التذبذب
+      - name: Report a flaky first attempt
+        if: steps.run1.outcome == 'failure' && steps.run2.outcome == 'success'
+        run: |
+          MSG="فشلت المحاولة الأولى لاختبار الهاتف ونجحت الثانية على محاكٍ جديد. تقرير الأولى وصورها في device-screens، والثانية في retry/."
+          echo "::warning::$MSG"
+          echo "$MSG" >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
         if: always()

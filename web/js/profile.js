@@ -1,4 +1,4 @@
-/* ملف الطفل: الجنس والصورة، وصيغ المخاطبة، وشهادة الإتقان */
+/* ملف الطفل: الجنس والصورة، وصيغ المخاطبة، وشهادة الإتمام */
 
 /* يختار الصيغة حسب جنس الطفل: ولد أو بنت */
 function gForm(boyForm, girlForm) {
@@ -97,13 +97,14 @@ async function drawCertificate(station, cert = { code: "----", at: Date.now() })
   }
   // النصوص
   x.fillStyle = t.main; x.font = "bold 128px Tahoma, sans-serif";
-  x.fillText("شهادة إتقان", cx, 380);
+  // v104: «إتمام» لا «إتقان»: الشهادة تُمنح بإتمام المحطة، والإتقان يُقاس بالتسميع
+  x.fillText("شهادة إتمام", cx, 380);
   x.fillStyle = "#555"; x.font = "44px Tahoma, sans-serif";
   x.fillText("تُمنح من تطبيق المنظومة الحسنية في السيرة النبوية", cx, 500);
   x.fillStyle = "#222"; fitFont(x, u.name || "الطفل", 1400, 120, "bold");
   x.fillText(u.name || "الطفل", cx, 625);
   x.fillStyle = "#333"; x.font = "56px Tahoma, sans-serif";
-  x.fillText(gForm("قد أتمّ حفظ", "قد أتمّت حفظ") + " محطة", cx, 725);
+  x.fillText(gForm("قد أتمّ", "قد أتمّت") + (station === JOURNEY_CERT ? "" : " محطة"), cx, 725);
   x.fillStyle = t.main; fitFont(x, station.title, 1400, 80, "bold");
   x.fillText(station.title, cx, 820);
   x.fillStyle = "#333"; x.font = "52px Tahoma, sans-serif";
@@ -142,7 +143,7 @@ async function saveCertificate(station) {
     const name = "certificate-" + Date.now() + ".png";
     const file = new File([blob], name, { type: "image/png" });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try { await navigator.share({ files: [file], title: "شهادة إتقان" }); return; } catch(e) {}
+      try { await navigator.share({ files: [file], title: "شهادة إتمام" }); return; } catch(e) {}
     }
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob); a.download = name; a.click();
@@ -157,7 +158,7 @@ async function printCertificate(station) {
     const dataUrl = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
     const w = window.open("", "_blank");
     if (!w) { showToast("افتح النوافذ المنبثقة لطباعة الشهادة", "error"); return; }
-    w.document.write(`<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>شهادة إتقان</title>
+    w.document.write(`<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>شهادة إتمام</title>
 <style>@page{size:A4 landscape;margin:0}html,body{margin:0;height:100%}img{width:100%;height:100vh;object-fit:contain;display:block}</style>
 </head><body><img src="${dataUrl}" onload="setTimeout(function(){window.print()},300)"></body></html>`);
     w.document.close();
