@@ -15,7 +15,8 @@ function leitnerRecord(vid, ok, opts) {
   opts = opts || {};
   if (!state) return;
   if (!state.seenVerses || !state.seenVerses[vid]) return;
-  if (typeof noCredit === "function" && noCredit()) return;
+  // تسميع الوالد دليل حقيقي فيُحسب ولو كان وضع التصفّح مفعّلاً
+  if (!opts.parent && typeof noCredit === "function" && noCredit()) return;
   state.leitner = state.leitner || {};
   const now = Date.now();
   const cur = state.leitner[vid];

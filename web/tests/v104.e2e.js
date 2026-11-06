@@ -247,6 +247,54 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
     const note = document.getElementById('voiceMutedNote');
     o.mutedAtTop = !!note && note.classList.contains('show') && note.getBoundingClientRect().top < 60;
     note.classList.remove('show');
+    o.mutedNoBlock = getComputedStyle(note).pointerEvents === 'none';
+    voiceMutedNotice(); o.mutedOncePerOpen = !note.classList.contains('show');
+
+    /* ---------- 7) إصلاحات المراجعة الثانية ---------- */
+    /* تبويبان مفتوحان معاً لا يختصران الانتظار: لا يُحسب أكثر من الوقت الحقيقي منذ آخر حساب */
+    const rq = pinRecAccrue({ credit: 0, wallCredit: 0, last: { kind: 'web', mono: 5e8, boot: 'tab-other', wall: Date.now() - 30000 } });
+    o.twoTabsNoBoost = rq.credit <= 31000 && rq.credit >= 1000;
+    const rq2 = pinRecAccrue({ credit: 0, wallCredit: 0, last: { kind: 'web', mono: 1, boot: 'old-open', wall: Date.now() - 50 * 3600000 } });
+    o.gapStillCapped = rq2.credit <= 36 * 3600000 + performance.now() + 1000 && rq2.wallCredit <= 36 * 3600000;
+    /* أول فتح بعد التحديث من v103: الرقم ما زال في المفتاح القديم، والطلب القائم لا يسقط */
+    localStorage.removeItem(STORAGE_PIN2); localStorage.removeItem(STORAGE_PIN_MIG); localStorage.setItem(STORAGE_PIN, 'HASH-V103');
+    o.upgradeKeepsWait = pinRecPinStored() === true;
+    localStorage.removeItem(STORAGE_PIN); localStorage.setItem(STORAGE_PIN_MIG, '1');
+    o.noPinNoWait = pinRecPinStored() === false;
+    /* الخروج إلى الخريطة يُنهي الحصة اليومية */
+    dailyFlow = true; showMap(); await w(50); closeAll();
+    o.dailyFlowReset = dailyFlow === false;
+    /* البيت المقطوع لا يُبنى عليه سؤال: playVerseAndStory يعيد false إن قُطع */
+    const anyV = content.journeyData[0].verses[0];
+    const pp = playVerseAndStory(anyV, false); await w(5); audioStopAll();
+    o.playInterrupted = (await pp) === false;
+    o.playComplete = (await playVerseAndStory(anyV, false)) === true;
+    /* العدد والمعدود بعد المئة */
+    o.arCount100 = arCount(100, 'بيت واحد', 'بيتان', 'أبيات', 'بيتاً') === '100 بيت' && arCount(103, 'بيت واحد', 'بيتان', 'أبيات', 'بيتاً') === '103 أبيات'
+      && arCount(161, 'بيت واحد', 'بيتان', 'أبيات', 'بيتاً') === '161 بيتاً';
+    /* المحتوى من إصدار قبل v104 لا يُعرف إن عُدّل: تنبيه مخفف؛ والنسخة نفسها لا تُكتب مرتين */
+    const alt = JSON.parse(JSON.stringify(content.journeyData)); alt[0].title = 'محتوى قديم';
+    contentSnapshotSave(alt, 'قبل تحديث محتوى التطبيق', 'unknown', 38);
+    o.unknownEditAlert = /إن كنت عدّلت/.test(contentPrevInfo());
+    contentPrevDismiss(); contentSnapshotSave(alt, 'قبل تحديث محتوى التطبيق', 'unknown', 38);
+    o.snapshotNoRepeat = contentPrevInfo() === '';
+    const nb0 = safetyBackupList().length; safetyBackupPush('اختبار التكرار'); safetyBackupPush('اختبار التكرار');
+    o.backupDedupe = safetyBackupList().length <= nb0 + 1;
+    /* تسميع الوالد يُحسب ولو كان وضع التصفّح مفعّلاً */
+    state.seenVerses.s1v4 = true; state.leitner.s1v4 = { box: 3, due: Date.now() + 9e7, lastWrong: 0 };
+    sessionStorage.setItem('browseOn', '1');
+    const browsing = typeof isBrowse === 'function' && isBrowse();
+    leitnerRecord('s1v4', false, { parent: true });
+    sessionStorage.removeItem('browseOn');
+    o.parentInBrowse = !browsing || state.leitner.s1v4.box === 1;
+    /* الاستيراد: حدّ اللعب من القيم المسموحة، والنتيجة لا تتجاوز عدد الأسئلة */
+    const imp = JSON.parse(JSON.stringify(state)); imp.dailyLimitMin = 999; imp.quizResults = { [qst.id]: { score: 9, total: 3, at: 1 } };
+    const san = sanitizeImportedState(imp);
+    o.importSanitized = san.ok && san.state.dailyLimitMin === 0 && san.state.quizResults[qst.id].score === 3;
+    /* التصفير يمسح نتائج الاختبار وتسميع الوالد */
+    resetAll(); await w(50); closeAll();
+    o.resetClearsNew = Object.keys(state.quizResults || {}).length === 0 && Object.keys(state.parentChecks || {}).length === 0;
+
     /* حارس الكتابة: نافذة أقدم لا تكتب فوق الأحدث (آخر فحص لأنه يوقف الحفظ) */
     o.saveOk = saveState() === true;
     localStorage.setItem(STORAGE_SEQ, 'from-another-tab');

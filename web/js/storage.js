@@ -99,8 +99,10 @@ function saveState() {
     if (cStr !== lastContentStr) { localStorage.setItem(STORAGE_CONTENT, cStr); lastContentStr = cStr; }
     localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
     localStorage.setItem(STORAGE_ACTIVE, activeUserId || "");
-    saveSeq = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-    localStorage.setItem(STORAGE_SEQ, saveSeq);
+    // يُعتمد الرقم الجديد بعد نجاح كتابته فقط؛ وإلا تظن النافذة أن غيرها كتب بعدها فتتوقف عن الحفظ
+    const seq = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    localStorage.setItem(STORAGE_SEQ, seq);
+    saveSeq = seq;
     return true;
   } catch(e) {
     console.warn("save error", e);
@@ -163,9 +165,13 @@ function pinStoreHas() { try { return !!localStorage.getItem(STORAGE_PIN2); } ca
 /* ---------- v104: النسخة السابقة من المحتوى (قبل تحديث أو استيراد أو حذف في المحرر) ---------- */
 const STORAGE_CONTENT_PREV = "hasaniya_content_prev";
 const SEC_EVAL_KEY = /^sec:(all|station-\d{1,2})$/;
+/* edited: true (عدّله الوالد)، false، أو "unknown" (محتوى من إصدار قبل v104 لم يكن يسجّل التعديل) */
 function contentSnapshotSave(journeyData, reason, edited, fromVersion) {
   try {
-    localStorage.setItem(STORAGE_CONTENT_PREV, JSON.stringify({ at: Date.now(), reason, edited: !!edited, fromVersion: fromVersion || CONTENT_VERSION, journeyData }));
+    // النسخة نفسها محفوظة من قبل (نسخة قديمة من التطبيق تتناوب مع هذه على التخزين نفسه): لا تُكتب فوقها ولا يتكرر التنبيه
+    const old = contentSnapshotGet();
+    if (old && old.fromVersion === (fromVersion || CONTENT_VERSION) && JSON.stringify(old.journeyData) === JSON.stringify(journeyData)) return true;
+    localStorage.setItem(STORAGE_CONTENT_PREV, JSON.stringify({ at: Date.now(), reason, edited: edited === "unknown" ? "unknown" : !!edited, fromVersion: fromVersion || CONTENT_VERSION, journeyData }));
     return true;
   } catch (e) { return false; }
 }
@@ -176,6 +182,8 @@ function contentSnapshotGet() {
 function contentPrevInfo() {
   const o = contentSnapshotGet();
   if (!o || !o.edited || o.dismissed || Date.now() - o.at > 30 * 86400000) return "";
+  if (o.edited === "unknown") return `<div class="parent-alert">📝 تحدّث محتوى التطبيق (تصحيحات علمية). إن كنت عدّلت شيئاً في المحرر قبل التحديث، فالمحتوى السابق محفوظ وتسترجعه من «المحرر» ← «↩️ المحتوى السابق».
+    <button class="tool-btn" onclick="contentPrevDismiss()">حسناً</button></div>`;
   return `<div class="parent-alert">📝 تغيّر محتوى التطبيق (${escapeHtml(o.reason || "")})، وكانت فيه تعديلات منك في المحرر. التعديلات محفوظة، وتسترجعها من «المحرر» ← «↩️ المحتوى السابق».
     <button class="tool-btn" onclick="contentPrevDismiss()">حسناً</button></div>`;
 }
@@ -200,7 +208,8 @@ function loadAll() {
         content.edited = !!c.edited;
       } else if (c && Array.isArray(c.journeyData) && c.journeyData.length > 0) {
         /* v104: تحديث المحتوى يستبدل المخزّن، فتُحفظ نسخته السابقة (وفيها تعديلات المحرر إن وُجدت) لتُسترجع */
-        contentSnapshotSave(c.journeyData, "قبل تحديث محتوى التطبيق", !!c.edited, c.contentVersion);
+        // ما قبل v104 لم يكن يسجّل تعديل المحرر: لا نعرف إن عُدّل، فيُنبَّه الوالد تنبيهاً مخففاً
+        contentSnapshotSave(c.journeyData, "قبل تحديث محتوى التطبيق", c.edited === undefined && +c.contentVersion < 39 ? "unknown" : !!c.edited, c.contentVersion);
         contentChanged = true;
       }
     }

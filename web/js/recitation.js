@@ -258,7 +258,7 @@ async function renderSectionStatus() {
   st.innerText = verses.length ? text : "لم تُحفظ أبيات في هذا النطاق بعد.";
   st.hidden = !secShow && verses.length > 0;
   const sb = document.getElementById("secShowBtn");
-  if (sb) { sb.style.display = verses.length ? "" : "none"; sb.textContent = secShow ? "🙈 أخفِ النص وسمّع من حفظك" : "👁️ أظهر النص"; }
+  if (sb) { sb.style.display = verses.length ? "" : "none"; sb.textContent = secShow ? gForm("🙈 أخفِ النص وسمّع من حفظك", "🙈 أخفي النص وسمّعي من حفظكِ") : gForm("👁️ أظهر النص", "👁️ أظهري النص"); }
   const sec = await recGet(sectionKey(range));
   document.getElementById("secStatus").textContent = sec ? "✅ يوجد تسميع متصل مسجّل لهذا النطاق" : "لا يوجد تسميع متصل بعد";
   document.getElementById("secRecBtn").textContent = recIsRecording(range) ? "⏹ أوقف التسجيل" : "⏺ سجّل التسميع المتصل";
@@ -533,7 +533,7 @@ function saveEvaluation() {
     evaluator: evaluatorName, child: evalDoc.doc.child?.name || "", ratings };
   downloadJson(doc, "evaluation-" + Date.now() + ".json");
   document.getElementById("evalPopup").classList.remove("active");
-  showToast(`تم حفظ تقييم ${n} بيت` + (skipped ? `، وتُرك ${skipped} بلا تقييم` : ""), "success");
+  showToast(`تم حفظ تقييم ${arCount(n, "بيت واحد", "بيتين", "أبيات", "بيتاً")}` + (skipped ? `، وتُرك ${arCount(skipped, "بيت واحد", "بيتان", "أبيات", "بيتاً")} بلا تقييم` : ""), "success");
 }
 
 /* ---------- الطفل يستلم التقييم ---------- */
@@ -544,21 +544,23 @@ function importEvaluation(rawDoc) {
   let n = 0;
   for (const [vid, r] of Object.entries(v.ratings)) { state.recEval[vid] = r; n++; }
   saveState();
-  showToast(`تم استلام تقييم ${n} بيت من ${v.evaluator}`, "success");
+  showToast(`تم استلام تقييم ${arCount(n, "بيت واحد", "بيتين", "أبيات", "بيتاً")} من ${v.evaluator}`, "success");
   if (document.getElementById("recPopup").classList.contains("active")) renderRecList();
 }
 
 /* تشغيل البيت ثم القصة (بصوت الوالد إن وُجد) */
+/* يعيد true إن سُمع حتى آخره، وfalse إن قُطع (ضغط الطفل 🔊 من جديد أو غادر)، فلا يُبنى عليه ما بعده */
 async function playVerseAndStory(v, withStory) {
-  if (!audioBegin()) return;
+  if (!audioBegin()) return false;
   const token = seqToken;
   const vrec = await authorRecFor("verse", v, true);
-  if (token !== seqToken) return;
+  if (token !== seqToken) return false;
   await playPart(token, vrec, v.fullVerse);
   if (withStory && v.story && token === seqToken) {
     const rec = await authorRecFor("story", v, true);
     if (token === seqToken) await playPart(token, rec, v.story);
   }
+  return token === seqToken;
 }
 
 /* صورة الطفل على بطاقة المشاركة */

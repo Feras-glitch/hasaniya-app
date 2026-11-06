@@ -11,6 +11,7 @@ function switchUser(id) {
   saveState();
   closePopup("usersPopup");
   playMode = MODE_NORMAL; playQueue = []; playIndex = 0; focusTarget = null; previewTarget = null;
+  if (typeof achQueue !== "undefined") achQueue.length = 0;   // أوسمة الطفل السابق لا تنبثق للطفل الجديد
   updateUserChip();
   updatePointsDisplay();
   showMap();

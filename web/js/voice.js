@@ -267,15 +267,16 @@ function voiceMissingNotice() {
   return "⚠ لا يوجد على هذا الجهاز صوت عربي للقراءة الآلية، فكل ما لم يُسجَّل في «استوديو التسجيل» لن يُسمع. الحل: استورد حزمة صوت المعلم، أو سجّل بصوتك، أو ثبّت صوتاً عربياً من إعدادات الجهاز (تحويل النص إلى كلام).";
 }
 
-/* v104: الطفل يضغط 🔊 والجهاز بلا صوت عربي: رسالة مرئية بدل الصمت (مرة كل دقيقتين على الأكثر) */
+/* v104: الجهاز بلا صوت عربي: رسالة مرئية بدل الصمت، مرة واحدة في كل فتح للتطبيق (لا في كل درس)،
+   في أعلى الشاشة، ولا تحجب الضغط على ما تحتها */
 let voiceMutedShownAt = 0;
 function voiceMutedNotice() {
-  if (Date.now() - voiceMutedShownAt < 120000) return;
+  if (voiceMutedShownAt) return;
   voiceMutedShownAt = Date.now();
   // في أعلى الشاشة لا أسفلها، حتى لا يغطي «التالي» وأزرار الدرس
   let el = document.getElementById("voiceMutedNote");
   if (!el) { el = document.createElement("div"); el.id = "voiceMutedNote"; el.className = "voice-muted-note"; el.setAttribute("role", "status"); document.body.appendChild(el); }
-  el.textContent = "🔇 لا يوجد صوت قراءة عربي على هذا الجهاز. اطلب من والديك تسجيل الصوت في الاستوديو أو تثبيت صوت عربي.";
+  el.textContent = "🔇 لا يوجد صوت قراءة عربي على هذا الجهاز. " + (typeof gForm === "function" ? gForm("اطلب من والديك", "اطلبي من والديكِ") : "اطلب من والديك") + " تسجيل الصوت في الاستوديو أو تثبيت صوت عربي.";
   el.classList.add("show");
   clearTimeout(voiceMutedNotice.t);
   voiceMutedNotice.t = setTimeout(() => el.classList.remove("show"), 6000);

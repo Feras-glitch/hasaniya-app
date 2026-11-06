@@ -21,7 +21,11 @@ const PINREC_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // بلا 0 وO و1 
 const PINREC_SUBJECT = "شفرة استرجاع الرقم السري — المنظومة الحسنية";
 
 /* الرقم المحفوظ على الجهاز نفسه (لا يعتمد على ترتيب تحميل الملفات) */
-function pinRecPinStored() { return pinStoreHas(); }
+/* الرقم مضبوط: في المفتاح الجديد، أو في القديم قبل نقله (أول فتح بعد التحديث من v103 يسبق loadAll، فلا يُسقط طلباً قائماً) */
+function pinRecPinStored() {
+  if (pinStoreHas()) return true;
+  try { return !localStorage.getItem(STORAGE_PIN_MIG) && !!localStorage.getItem(STORAGE_PIN); } catch (e) { return false; }
+}
 function pinRecLoad(key) { try { return JSON.parse(localStorage.getItem(key) || "null"); } catch (e) { return null; } }
 function pinRecSave(key, o) { try { if (o == null) localStorage.removeItem(key); else localStorage.setItem(key, JSON.stringify(o)); } catch (e) {} }
 function pinRecInfo() { const o = pinRecLoad(PINREC_KEY); return o && typeof o.hash === "string" && o.hash.startsWith("p1:") && o.confirmed !== false ? o : null; }
@@ -261,12 +265,15 @@ function pinRecAccrue(req) {
   if (now.kind === "web") {
     if (last.kind === "web" && last.boot === now.boot) add = Math.max(0, now.mono - last.mono);   // الصفحة نفسها ما زالت مفتوحة
     else {
-      add = now.mono;   // منذ فُتحت هذه الصفحة
+      /* صفحة أخرى (فتحة جديدة، أو تبويب ثانٍ مفتوح معاً): لا يُحسب أكثر من الوقت الحقيقي منذ آخر حساب.
+         ما يغطيه عمر هذه الصفحة موثوق، وما زاد عليه من التاريخ وحده يدخل في سقف الـ36 ساعة.
+         (كان التبويبان المتناوبان يضيف كل منهما عمره كله في كل دقيقة، فتنتهي المدة في ساعة) */
       const d = now.wall - (last.wall || now.wall);
       if (d < 0) { req.credit = 0; req.wallCredit = 0; }   // رجع التاريخ: يبدأ العدّ من جديد
       else {
-        const w = Math.min(d, Math.max(0, PINREC_WEB_WALL_CAP - (+req.wallCredit || 0)));
-        req.wallCredit = (+req.wallCredit || 0) + w; add += w;
+        const trusted = Math.min(now.mono, d);
+        const w = Math.min(d - trusted, Math.max(0, PINREC_WEB_WALL_CAP - (+req.wallCredit || 0)));
+        req.wallCredit = (+req.wallCredit || 0) + w; add = trusted + w;
       }
     }
   } else if (now.mono != null && last.mono != null && last.kind !== "web") {
@@ -350,7 +357,9 @@ function pinRecRenderBanner() {
     el.id = "pinResetBanner"; el.className = "pin-reset-banner"; el.setAttribute("role", "status");
     (document.querySelector(".app-container") || document.body).prepend(el);
   }
-  el.innerHTML = `<span>⏳ طُلب إلغاء الرقم السري، ويُلغى بعد نحو ${pinRecHoursLeft(req)} ساعة.</span>
+  // المتصفح بعد استنفاد ما يُحسب من الغياب: الباقي يُحسب والتطبيق مفتوح فقط، فيُقال ذلك صراحة
+  const openOnly = pinRecClock().kind === "web" && (+req.wallCredit || 0) >= PINREC_WEB_WALL_CAP;
+  el.innerHTML = `<span>⏳ طُلب إلغاء الرقم السري، ويُلغى بعد نحو ${pinRecHoursLeft(req)} ساعة${openOnly ? " والتطبيق مفتوح" : ""}.</span>
     <button class="tool-btn" onclick="pinRecCancelWait()">إلغاء الطلب</button>`;
   document.body.classList.add("has-pin-banner");
 }

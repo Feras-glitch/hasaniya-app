@@ -280,7 +280,7 @@ async function guideOnRecorded(kind) {
   const n = (await recAllForUser(activeUserId)).length;
   if (n === 1) guideAwardBadge("firstRec");
   if (n === 1) guideSay("mastery", kidLine("firstRec"));
-  else if (n % 5 === 0) guideSay("mastery", gForm(`{N}، سجّلتَ ${arCount(n, "بيتاً", "بيتين", "أبيات", "بيتاً")} بصوتك! 🌟`, `{N}، سجّلتِ ${arCount(n, "بيتاً", "بيتين", "أبيات", "بيتاً")} بصوتك! 🌟`), { say: [guideFill(kidLine("recMore"))] });
+  else if (n % 5 === 0) guideSay("mastery", gForm(`{N}، سجّلتَ ${arCount(n, "بيتاً", "بيتين", "أبيات", "بيتاً")} بصوتك! 🌟`, `{N}، سجّلتِ ${arCount(n, "بيتاً", "بيتين", "أبيات", "بيتاً")} بصوتِكِ! 🌟`), { say: [guideFill(kidLine("recMore"))] });
 }
 
 let lastActivity = Date.now();
@@ -318,7 +318,10 @@ const GUIDE_SEEN_KEY = "hasaniya_guide_seen";
 const GUIDE_AWAY_MS = 2 * 24 * 60 * 60 * 1000;
 /* v104: الغياب لكل طفل لا للجهاز كله، ويُعرف به «اشتقتُ لصوتك» بعد يوم من الغياب */
 function guideCheckAbsence() {
-  const key = GUIDE_SEEN_KEY + "|" + (activeUserId || "x");
+  // يُستدعى عند فتح الصفحة قبل أن يُحمَّل الطفل النشط، فيُقرأ معرّفه من المخزن مباشرة
+  let uid = activeUserId;
+  if (!uid) { try { uid = localStorage.getItem(STORAGE_ACTIVE); } catch (e) {} }
+  const key = GUIDE_SEEN_KEY + "|" + (uid || "x");
   let last = 0;
   try { last = +localStorage.getItem(key) || +localStorage.getItem(GUIDE_SEEN_KEY) || 0; } catch(e) {}
   try { localStorage.setItem(key, String(Date.now())); } catch(e) {}

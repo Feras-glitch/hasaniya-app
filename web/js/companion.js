@@ -253,6 +253,9 @@ function guideOnVerseShown(station, verse, verseIndex) {
     const tok = typeof verseLoadToken !== "undefined" ? verseLoadToken : 0;
     guideWhenAudioIdle(() => {
       if (typeof verseLoadToken !== "undefined" && tok !== verseLoadToken) return;
+      // غادر الطفل الدرس (الخريطة أو منطقة الوالدين) قبل أن يحين العرض: لا يظهر في غير مكانه ولا يُعلَّم مُشاهَداً
+      const gs = document.getElementById("gameScreen");
+      if (!gs || gs.style.display === "none") return;
       const fv = document.getElementById("fullVerseBox");
       const started = document.querySelector("#dropZone .word-btn");
       if ((fv && fv.style.display === "block") || started) return;

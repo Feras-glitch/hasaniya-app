@@ -22,9 +22,9 @@ function pcCandidates() {
 }
 function pcLastText() {
   const all = Object.values(state.parentChecks || {}).map(x => +x.at || 0);
-  if (!all.length) return "لم تسمّع له بعد";
+  if (!all.length) return gForm("لم تسمّع له بعد", "لم تسمّع لها بعد");
   const days = Math.floor((Date.now() - Math.max(...all)) / 86400000);
-  return days <= 0 ? "آخر تسميع منك: اليوم" : days === 1 ? "آخر تسميع منك: أمس" : `آخر تسميع منك: قبل ${days} أيام`;
+  return days <= 0 ? "آخر تسميع منك: اليوم" : days === 1 ? "آخر تسميع منك: أمس" : `آخر تسميع منك: قبل ${arCount(days, "يوم", "يومين", "أيام", "يوماً")}`;
 }
 /* بطاقة في منطقة الوالدين: خطة اليوم وزر التسميع */
 function renderParentCheckCard() {
@@ -32,7 +32,7 @@ function renderParentCheckCard() {
   const due = typeof leitnerDueVerses === "function" ? leitnerDueVerses().length : 0;
   const started = Object.keys(state.seenVerses || {}).length > 0;
   box.innerHTML = `<div class="pc-card">
-    <div><strong>📅 اليوم:</strong> ${due ? `${due} ${due === 1 ? "بيت" : due === 2 ? "بيتان" : due <= 10 ? "أبيات" : "بيتاً"} حان موعد مراجعتها، ثم درس جديد` : (started ? "لا مراجعة مستحقة؛ درس جديد" : "لم يبدأ الحفظ بعد")}</div>
+    <div><strong>📅 اليوم:</strong> ${due ? `${arCount(due, "بيت واحد حان موعد مراجعته", "بيتان حان موعد مراجعتهما", "أبيات حان موعد مراجعتها", "بيتاً حان موعد مراجعتها")}، ثم درس جديد` : (started ? "لا مراجعة مستحقة؛ درس جديد" : "لم يبدأ الحفظ بعد")}</div>
     <div class="rec-count">${escapeHtml(pcLastText())}. التسميع منك هو الدليل الأصدق على الحفظ.</div>
     <button class="action-btn btn-success" style="width:100%;margin-top:6px" onclick="pcStart()" ${started ? "" : "disabled"}>🎙️ سمّعه الآن</button>
   </div>`;
@@ -49,7 +49,7 @@ function pcRender() {
   const { v } = list[i];
   const first = (v.words && v.words[0]) || "";
   openHub("🎙️ سمّعه الآن", `
-    <p class="rec-count">البيت ${i + 1} من ${list.length}. اطلب من ${escapeHtml(getUserName())} أن ${gForm("يقول", "تقول")} البيت من حفظه دون أن ${gForm("ينظر", "تنظر")} إلى الشاشة.</p>
+    <p class="rec-count">البيت ${i + 1} من ${list.length}. اطلب من ${escapeHtml(getUserName())} أن ${gForm("يقول البيت من حفظه دون أن ينظر", "تقول البيت من حفظها دون أن تنظر")} إلى الشاشة.</p>
     <div class="pc-cue">للتذكير إن احتجت: الحدث «${escapeHtml(v.event || "")}»، وأوله «${escapeHtml(first)}»</div>
     <div class="pc-verse" id="pcVerse" hidden>${escapeHtml(v.fullVerse)}</div>
     <button class="tool-btn" style="width:100%;margin:6px 0" onclick="document.getElementById('pcVerse').hidden=false;this.remove()">👁️ أظهر البيت لي</button>
@@ -58,9 +58,14 @@ function pcRender() {
       <button class="action-btn btn-warn" onclick="pcRate('fath')">⚠️ فتح واحد</button>
       <button class="action-btn btn-danger" onclick="pcRate('fail')">❌ فتحان فأكثر</button>
     </div>
-    <p class="rec-count">الفتح: أن تذكّره بكلمة نسيها.</p>`);
+    <p class="rec-count">الفتح: أن ${gForm("تذكّره بكلمة نسيها", "تذكّرها بكلمة نسيتها")}.</p>`);
+  // ضغطتان سريعتان لا تحكمان على البيت التالي قبل أن يُسمع: الأزرار تُفعَّل بعد لحظة
+  const bs = [...document.querySelectorAll(".pc-btns button")];
+  bs.forEach(b => { b.disabled = true; });
+  setTimeout(() => bs.forEach(b => { b.disabled = false; }), 450);
 }
 function pcRate(r) {
+  if (!pcState || !pcState.list[pcState.i]) return;
   const { v } = pcState.list[pcState.i];
   const vid = v.id, now = Date.now();
   state.verseStats = state.verseStats || {};

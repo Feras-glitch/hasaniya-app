@@ -172,7 +172,7 @@ function renderDashboard() {
   const weeklyLine = r => {
     const weak = r.weak && r.weak.length ? "، أكثر الأبيات تعثراً: " + r.weak.map(w => w.text).join(" / ") : "";
     const need = r.percent < DASH_LOW_PERCENT ? " — يحتاج متابعة" : "";
-    return `${r.avatar} ${r.name}: ${r.completed} من ${r.total} محطات، ${r.mastered || 0} بيتاً متقناً من ${dashTotalVerses()}، دقة ${r.percent}%${need}${weak}`;
+    return `${r.avatar} ${r.name}: ${r.completed} من ${r.total} محطة، ${r.mastered ? arCount(r.mastered, "بيت واحد متقن", "بيتان متقنان", "أبيات متقنة", "بيتاً متقناً") : "لا أبيات متقنة بعد"} من ${dashTotalVerses()}، دقة ${r.percent}%${need}${weak}`;
   };
   const weekly = `<div style="background:#fbf8f2;border:1px solid #eee;border-radius:12px;padding:8px 10px;margin-bottom:10px;line-height:1.9;font-size:.9rem">
     <strong>ملخص مختصر</strong>${dashSorted.map(r => `<div>• ${escapeHtml(weeklyLine(r))}</div>`).join("")}</div>`;

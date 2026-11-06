@@ -55,7 +55,8 @@ function sanitizeImportedState(raw) {
   const ST = { completed: 1, current: 1, locked: 1 };
   const pick = (obj, ok, map) => { const o = {}; for (const k of Object.keys(obj)) if (ok(k)) { const v = map(obj[k], k); if (v !== undefined) o[k] = v; } return o; };
   s.parentChecks = pick(s.parentChecks, k => verseIds.has(k), v => _isObj(v) && ["ok", "fath", "fail"].includes(v.r) ? ({ at: _num(v.at, 0, 9e15, 0), r: v.r }) : undefined);
-  s.quizResults = pick(s.quizResults, k => stationIds.has(k), v => _isObj(v) ? ({ score: _int(v.score, 0, 50, 0), total: _int(v.total, 0, 50, 0), at: _num(v.at, 0, 9e15, 0) }) : undefined);
+  s.quizResults = pick(s.quizResults, k => stationIds.has(k), v => { if (!_isObj(v)) return undefined; const total = _int(v.total, 0, 50, 0);
+    return { score: _int(v.score, 0, total, 0), total, at: _num(v.at, 0, 9e15, 0) }; });
   s.stationStatus = pick(s.stationStatus, k => stationIds.has(k), v => ST[v] ? v : undefined);
   s.rewardUnlocked = pick(s.rewardUnlocked, k => stationIds.has(k), v => !!v);
   s.versePositions = pick(s.versePositions, k => stationIds.has(k), (v, k) => _int(v, 0, Math.max(0, lenOf[k] - 1), 0));
@@ -88,6 +89,10 @@ function sanitizeImportedState(raw) {
   s.selectedStation = (typeof s.selectedStation === "number" && s.selectedStation >= 0 && s.selectedStation < stations.length) ? Math.floor(s.selectedStation) : 0;
   s.selectedVerse = _int(s.selectedVerse, 0, 1000, 0);
   s.dailyLeft = null; s.dailyIds = [];
+  // v104: حدّ اللعب من القيم المسموحة فقط، ووقت اليوم ويوم المراجعة بصيغتهما
+  s.dailyLimitMin = [0, 20, 30, 45].includes(+s.dailyLimitMin) ? +s.dailyLimitMin : 0;
+  s.dayTime = _isObj(s.dayTime) && typeof s.dayTime.day === "string" ? { day: s.dayTime.day.slice(0, 40), s: _int(s.dayTime.s, 0, 86400, 0) } : null;
+  s.dailyReviewDay = typeof s.dailyReviewDay === "string" ? s.dailyReviewDay.slice(0, 40) : null;
   normalizeUserState(s);
   if (typeof ensureCurrentStation === "function") ensureCurrentStation(s);
   const completed = Object.values(s.stationStatus).filter(v => v === "completed").length;
@@ -193,6 +198,9 @@ function safetyBackupPush(kind, usersList) {
     if (JSON.stringify(entry).length > SAFE_BACKUP_MAX_BYTES) return false;
     let arr = safetyBackupList();
     if (kind === "آخر نسخة سليمة") arr = arr.filter(e => e.kind !== kind);
+    // النسخة نفسها بالسبب نفسه (تناوب نسخة قديمة من التطبيق على التخزين): يُحدَّث وقتها ولا تُزاح بها نسخ أقدم مهمة
+    const last = arr[arr.length - 1];
+    if (last && last.kind === kind && JSON.stringify(last.users) === JSON.stringify(entry.users)) { last.t = entry.t; return safetyBackupWrite(arr); }
     arr.push(entry);
     while (arr.length > SAFE_BACKUP_MAX) { const i = arr.findIndex(e => e.kind !== "آخر نسخة سليمة"); arr.splice(i < 0 ? 0 : i, 1); }
     return safetyBackupWrite(arr);

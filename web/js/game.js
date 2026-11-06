@@ -54,6 +54,8 @@ function resetAll() {
   // v104: ما كان يبقى بعد التصفير
   state.meaningSeen = {}; state.activeDays = []; state.stampDates = {}; state.recEval = {};
   state.follow = {}; state.masteredNotified = {}; state.guideBadges = {};
+  state.quizResults = {}; state.parentChecks = {}; state.dailyReviewDay = null;
+  state.dailyLeft = null; state.dailyIds = [];
   if (content.journeyData.length > 0) state.stationStatus[content.journeyData[0].id] = "current";
   saveState();
   kidToast(kidLine("resetDone"), "success");
@@ -103,6 +105,7 @@ function showMap() {
   stopMediaStream(); stopTimeTracking();
   playMode = MODE_NORMAL; playQueue = []; playIndex = 0;
   focusTarget = null; previewTarget = null;
+  dailyFlow = false;   // الخروج إلى الخريطة يُنهي الحصة اليومية، فلا يبدأ درس بعد تحدٍّ لاحق
   document.getElementById("mapScreen").style.display = "block";
   document.getElementById("gameScreen").style.display = "none";
   document.getElementById("parentScreen").style.display = "none";
@@ -165,7 +168,7 @@ function startStation(index) {
 }
 
 function enterPlayScreen(title) {
-  if (typeof dailyLimitReached === "function" && dailyLimitReached()) { kidAnnounce(kidLine("timeUp"), "success"); showMap(); return; }
+  if (playMode !== MODE_PREVIEW && typeof dailyLimitReached === "function" && dailyLimitReached()) { showMap(); kidAnnounce(kidLine("timeUp"), "success"); return; }
   document.getElementById("mapScreen").style.display = "none";
   document.getElementById("gameScreen").style.display = "block";
   document.getElementById("parentScreen").style.display = "none";
@@ -503,8 +506,8 @@ function showFullVerse(verse) {
   }
   /* v104: بعد أن يُسمع البيت: سؤال الحدث بصوت (كان يسقط لأنه يبدأ مع البيت)، أو الشرح إن لم يكن سؤال */
   const tok = verseLoadToken;
-  Promise.resolve(playVerseAndStory(verse, !!(unlocked || noCredit()))).then(() => {
-    if (tok !== verseLoadToken || !autoReadOn()) return;
+  Promise.resolve(playVerseAndStory(verse, !!(unlocked || noCredit()))).then(done => {
+    if (!done || tok !== verseLoadToken || !autoReadOn()) return;
     if (askFirst) {
       const btns = [...document.querySelectorAll("#storyText .word-btn")];
       if (btns.length && !btns.some(b => b.disabled)) voicePlay([guideFill(kidLine("askEvent")), ...btns.map(b => b.textContent)], { silent: true });
@@ -519,7 +522,7 @@ function showMeaningAfterEvent(v) {
 }
 function nextVerse() {
   if (typeof guideHideOffers === "function") guideHideOffers();
-  if (typeof dailyLimitReached === "function" && dailyLimitReached() && playMode !== MODE_PREVIEW) { kidAnnounce(kidLine("timeUp"), "success"); showMap(); return; }
+  if (typeof dailyLimitReached === "function" && dailyLimitReached() && playMode !== MODE_PREVIEW) { showMap(); kidAnnounce(kidLine("timeUp"), "success"); return; }
   if (typeof guideOnNextVerse === "function") guideOnNextVerse();
   if (playMode === MODE_PREVIEW) {
     previewTarget = null;
@@ -584,6 +587,7 @@ function nextVerse() {
    (حتى 10 أبيات) مرة في اليوم، ثم الدرس الجديد. الحفظ القديم أولاً، ثم الجديد. */
 let dailyFlow = false;
 function startDailyLesson() {
+  if (typeof dailyLimitReached === "function" && dailyLimitReached()) { showMap(); kidAnnounce(kidLine("timeUp"), "success"); return; }
   const idx = content.journeyData.findIndex(s => { const st = getStationStatus(s); return st !== "completed" && st !== "locked"; });
   const due = typeof leitnerDueVerses === "function" ? leitnerDueVerses() : [];
   const today = new Date().toDateString();
@@ -614,15 +618,19 @@ function dailyLessonDone(station) {
   const ids = state.dailyIds || [];
   state.dailyLeft = null; state.dailyIds = [];
   saveState();
-  kidAnnounce(kidLine("lessonDone"), "success");
   // v104: آخر الدرس: عرض التسميع المتصل مرة واحدة (بعد ثلاثة أبيات على الأقل في الحفظ)،
   // وبعد سؤال المكان إن ظهر، فلا يتراكب العرضان ولا يقطع صوتُ أحدهما الآخر
   const canOffer = typeof offerReview === "function" && typeof learnedVerses === "function" && learnedVerses("all").length >= 3;
-  const finish = (delay) => () => { showMap(); if (canOffer) setTimeout(() => { if (!document.querySelector(".modal-overlay.active")) offerReview(); }, delay); };
+  const onMap = () => document.getElementById("mapScreen").style.display !== "none" && document.getElementById("gameScreen").style.display === "none"
+    && document.getElementById("parentScreen").style.display !== "block" && !document.querySelector(".modal-overlay.active");
+  const finish = (delay) => () => {
+    showMap(); kidAnnounce(kidLine("lessonDone"), "success");
+    if (canOffer) setTimeout(() => { if (onMap()) offerReview(); }, delay);
+  };
   // سؤال المكان: يظهر إن كان أحد أبيات الدرس مرتبطاً بموضع على الخريطة
   const visit = (typeof PLACE_VISITS !== "undefined" ? PLACE_VISITS : []).find(v => ids.includes(v.ref));
-  if (visit && typeof askPlaceAfterLesson === "function") askPlaceAfterLesson(visit, finish(1200));
-  else finish(2600)();
+  if (visit && typeof askPlaceAfterLesson === "function") askPlaceAfterLesson(visit, finish(3200));
+  else finish(3200)();
 }
 /* سؤال المكان: ثلاثة خيارات، والجواب الصحيح يُحتسب مرة واحدة لكل بيت في اليوم */
 let placeHubDone = null;

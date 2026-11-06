@@ -664,5 +664,6 @@ body.small-kid .word-btn.speaking{outline:3px solid #ffb300}
 .intro-prev{font-size:.95rem;color:#777;border-bottom:1px dashed #ddd;padding-bottom:6px;margin-bottom:6px}
 .intro-prev span{color:#555}
 body.night .intro-prev,body.night .intro-prev span{color:#b0bec5}
-.voice-muted-note{position:fixed;top:8px;left:50%;transform:translateX(-50%);width:min(92vw,440px);box-sizing:border-box;z-index:400;background:#fff3cd;color:#7a5200;border:1px solid #f0ad4e;border-radius:12px;padding:8px 12px;font-size:.9rem;line-height:1.6;box-shadow:0 4px 12px rgba(0,0,0,.15);display:none}
+.voice-muted-note{pointer-events:none;position:fixed;top:8px;left:50%;transform:translateX(-50%);width:min(92vw,440px);box-sizing:border-box;z-index:400;background:#fff3cd;color:#7a5200;border:1px solid #f0ad4e;border-radius:12px;padding:8px 12px;font-size:.9rem;line-height:1.6;box-shadow:0 4px 12px rgba(0,0,0,.15);display:none}
 .voice-muted-note.show{display:block}
+.timeline-note{color:#666;font-size:.85rem;margin:-4px 0 10px;line-height:1.6}
