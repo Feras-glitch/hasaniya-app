@@ -207,7 +207,7 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
       r.shortTwoSentences = !!shortTxt && shortTxt.length < long.story.length && long.story.startsWith(shortTxt.slice(0, 15));
       u.small = true;
       renderStoryContent(long);
-      r.smallSeesShort = st.textContent.includes(shortTxt.slice(0, 20)) && /أكمل القصة/.test(st.textContent) && !st.textContent.includes(long.story.slice(-25));
+      r.smallSeesShort = st.textContent.includes(storyShortFor(long).slice(0, 20)) && /أكمل القصة/.test(st.textContent) && !st.textContent.includes(long.story.slice(-25));
       u.small = false;
       return r;
     });

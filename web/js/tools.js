@@ -103,13 +103,18 @@ function storyShortPart(story) {
   const parts = String(story || "").match(/[^.!؟]+[.!؟]*/g) || [];
   return parts.length > 2 ? parts.slice(0, 2).join("").trim() : "";
 }
+/* v107: القصة القصيرة المكتوبة باليد (stories-short.js) أولاً، وإلا أول جملتين */
+function storyShortFor(v) {
+  const hand = typeof STORIES_SHORT !== "undefined" && v && STORIES_SHORT[v.id];
+  return hand || storyShortPart(v && v.story);
+}
 function renderStoryContent(v) {
   if (typeof markStoryRead === "function") markStoryRead(v.id);
   renderScene(v);
   renderKhilaf(v);
   if (typeof guideCampfire === "function") guideCampfire();
   const el = document.getElementById("storyText");
-  const short = typeof isSmallKid === "function" && isSmallKid() ? storyShortPart(v.story) : "";
+  const short = typeof isSmallKid === "function" && isSmallKid() ? storyShortFor(v) : "";
   if (storySameAsPrev(v)) {
     el.innerHTML = `<div class="story-same">📖 ${escapeHtml(kidLine("storySame"))}</div>`;
     const more = document.createElement("button");

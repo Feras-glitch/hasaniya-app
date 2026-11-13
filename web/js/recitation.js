@@ -377,8 +377,8 @@ async function playStoryAudio(v, opts) {
   const token = seqToken;
   const rec = await authorRecFor("story", v);
   if (token !== seqToken) return;
-  // الصغير بلا تسجيل للقصة يسمع أول جملتين فقط؛ تسجيل المعلم يُسمع كاملاً لأنه بصوت بشري
-  const short = !rec && !opts.force && typeof isSmallKid === "function" && isSmallKid() && typeof storyShortPart === "function" ? storyShortPart(v.story) : "";
+  // الصغير بلا تسجيل للقصة يسمع القصة القصيرة فقط؛ تسجيل المعلم يُسمع كاملاً لأنه بصوت بشري
+  const short = !rec && !opts.force && typeof isSmallKid === "function" && isSmallKid() && typeof storyShortFor === "function" ? storyShortFor(v) : "";
   if (rec) {
     seqAudio = blobAudio(rec.blob);
     audioPlayEl(seqAudio).catch(() => { if (token === seqToken) speakQueue([short || v.story]); });

@@ -57,6 +57,9 @@ if (run("typeof QUIZZES") !== "undefined") {
       it.wrong.forEach(w => {
         if (norm(w) === norm(it.correct) || norm(it.correct).includes(norm(w)) || norm(w).includes(norm(it.correct))) bad(tag + ": مشتّت «" + w + "» قريب جداً من الإجابة");
       });
+      /* v107: لا يُعرف الجواب بطوله: ليس أطول من أطول مشتّت ولا أقصر من أقصرهما بأكثر من 3 أحرف */
+      const L = s => norm(s).length, lw = it.wrong.map(L);
+      if (L(it.correct) > Math.max(...lw) + 3 || L(it.correct) < Math.min(...lw) - 3) bad(tag + ": طول الإجابة يكشفها (" + L(it.correct) + " مقابل " + lw.join("/") + ")");
     });
   });
   ok("أسئلة المحطات: " + Object.values(Q).reduce((s, a) => s + a.length, 0) + " سؤالاً");

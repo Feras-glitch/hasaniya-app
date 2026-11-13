@@ -20,7 +20,7 @@ const MODE_NORMAL="normal",MODE_REVIEW="review",MODE_CHALLENGE="challenge",
 const AVATARS = ["🦁","🐯","🐻","🐼","🦊","🐰","🐸","🐵","🦄","🐧","🐨","🐺","🦉","🐢","🦋","🌟","⭐","🌙","☀️","🌈"];
 
 /* غيّر هذا الرقم كلما عدّلت نص المنظومة أو القصص أو الشروح ليُحدَّث المحتوى المخزّن عند المستخدمين */
-const CONTENT_VERSION = 41;
+const CONTENT_VERSION = 42;
 
 /* v105: بصمة الصوت البشري المضمّن (audio/voice-pack.zip). فارغة = لا صوت مضمّن.
    لا تُكتب باليد: تكتبها الأداة tools/bundle-voice-pack.js مع الملف نفسه */

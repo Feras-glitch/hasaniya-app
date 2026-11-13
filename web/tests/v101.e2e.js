@@ -73,7 +73,7 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
     o.counter = /\(\d+\/161\)/.test(document.querySelector('#pvKind option[value="verse"]').textContent);
     document.getElementById('pvKind').value = 'opt'; document.getElementById('pvStation').value = 'all'; await renderParentVoice(); await w(200);
     o.optRows = document.querySelectorAll('#pvBody .rec-row').length;
-    o.optCounter = /\(2\/123\)|\(1\/123\)/.test(document.querySelector('#pvKind option[value="opt"]').textContent);
+    o.optCounter = /\(2\/130\)|\(1\/130\)/.test(document.querySelector('#pvKind option[value="opt"]').textContent);
     const it = voiceRegistry().items.find(i => i.section === 'opt' && i.text !== q0.correct);
     await pvUpload('line', it.id, new File([new Uint8Array(3000)], 'o.mp3', { type: 'audio/mpeg' })); await w(300);
     const up = await recGet(lineKey(it.text));
@@ -118,14 +118,14 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
   const manifestV = await p.evaluate(async (bytes) => { const m = await zipRead(new Uint8Array(bytes).buffer); return JSON.parse(new TextDecoder().decode(m.get('manifest.json'))).version; }, [...fs.readFileSync(zipPath)]);
   console.log(JSON.stringify({ R, plan, manifestV, before: before.length, after: after.length }));
   const c = R.counts;
-  need('أعداد السجل: ' + JSON.stringify(c), c.verse === 161 && c.quiz === 48 && c.opt === 123 && c.quizex === 48 && c.expl === 161 && c.story === 150 && c.disc === 32 && c.riddle >= 30 && c.event >= 100 && c.guide >= 60);
+  need('أعداد السجل: ' + JSON.stringify(c), c.verse === 161 && c.quiz === 48 && c.opt === 130 && c.quizex === 48 && c.expl === 161 && c.story === 150 && c.disc === 32 && c.riddle >= 30 && c.event >= 100 && c.guide >= 60);
   need('الرسائل بصيغتي الولد والبنت', R.bothForms && R.noVocInGuide && R.girl);
   need('الرسالة المسجّلة لم تُسمع بالتسجيل بعد النداء', R.recPlayed);
   need('الرسالة غير المسجّلة لم تُقرأ آلياً كاملة', R.ttsWhole);
   need('فقاعة ناجي المسجّلة لم تُسمع', R.guideRec);
   need('خيارات الاختبار بلا زر 🔊 لكل خيار', R.optBtns);
   need('السؤال لم يُقرأ أو الخيار المسجّل قُرئ آلياً', R.quizQ && R.quizOptRec && R.quizNoCorrectTTS);
-  need('أقسام الاستوديو أو عدّاداته', R.kinds === 13 && R.counter && R.optRows === 123 && R.optCounter && R.stationHidden);
+  need('أقسام الاستوديو أو عدّاداته', R.kinds === 13 && R.counter && R.optRows === 130 && R.optCounter && R.stationHidden);
   need('رفع ملف لسطر', R.uploadLine);
   need('التسجيل المتتابع: ' + JSON.stringify({ s: R.seqShown, t: R.seqText, r: R.seqRecording, l: R.navLocked, v: R.seqSaved, a: R.seqAfter, n: R.seqNext, e: R.seqEnded }), R.seqShown && R.seqText && R.seqRecording && R.navLocked && R.seqSaved && R.seqAfter && R.seqNext && R.seqEnded);
   need('المعرّف القديم لم يُصحَّح', R.fixedId);
