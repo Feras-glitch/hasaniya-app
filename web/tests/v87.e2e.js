@@ -1,5 +1,10 @@
 /* اختبار v87: ملفات هجومية فعلية: تسميع خبيث، ZIP كاذب الحجم، تقدّم ناقص، تقييم ملوَّث، تخزين تالف، ومؤشر الإتقان */
 const { chromium } = require('playwright');
+/* v105: انتظار شرط في الصفحة بـ evaluate متكرر. waitForFunction في Playwright 1.49 (المستعمل في GitHub)
+   يحتاج eval داخل الصفحة، وسياسة أمان المحتوى (CSP) تمنعه فيفشل فوراً دون انتظار */
+const waitTrue = async (pg, fn, ms) => { const end = Date.now() + ms;
+  while (Date.now() < end) { try { if (await pg.evaluate(fn)) return true; } catch (e) {} await pg.waitForTimeout(150); }
+  return false; };
 const zlib = require('zlib');
 const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/standalone/hasaniya.html');
 function crc32(buf) { let c, t = []; for (let n = 0; n < 256; n++) { c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } let r = 0xFFFFFFFF; for (const b of buf) r = t[(r ^ b) & 255] ^ (r >>> 8); return (r ^ 0xFFFFFFFF) >>> 0; }
@@ -152,7 +157,7 @@ function makeZip(name, data, declared) {
   need('زر الاستعادة غير موجود في وضع الوالد أو الواجهة فارغة', D.btn && D.hubRows >= 2 && D.hubText);
   await q.evaluate(() => { const i = safetyBackupList().findIndex(e => e.kind === 'آخر نسخة سليمة'); window.__reloaded = false; safetyRestore(i); });
   // ننتظر إعادة التحميل بعد الاستعادة بدل مهلة ثابتة (كانت تفشل أحياناً على جهاز بطيء)
-  await q.waitForTimeout(1500); await q.waitForLoadState('load').catch(() => {}); await q.waitForFunction(() => typeof state !== 'undefined' && state && state.points === 555, null, { timeout: 8000 }).catch(() => {});
+  await q.waitForTimeout(1500); await q.waitForLoadState('load').catch(() => {}); await waitTrue(q, () => typeof state !== 'undefined' && state && state.points === 555, 8000);
   const E = await q.evaluate(() => ({ points: state.points }));
   console.log('after restore', JSON.stringify(E));
   need('الاستعادة من النسخة التلقائية لم ترجّع النقاط: ' + JSON.stringify(E), E.points === 555);

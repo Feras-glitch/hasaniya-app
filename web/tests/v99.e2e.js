@@ -8,6 +8,11 @@
    31-33 النسخة الاحتياطية تُنزَّل، والاستعادة تطلب التأكيد، وتقرير التقدم يُنزَّل
    45  الوضع الليلي والخط الكبير بلا تمرير أفقي */
 const { chromium } = require('playwright');
+/* v105: انتظار شرط في الصفحة بـ evaluate متكرر. waitForFunction في Playwright 1.49 (المستعمل في GitHub)
+   يحتاج eval داخل الصفحة، وسياسة أمان المحتوى (CSP) تمنعه فيفشل فوراً دون انتظار */
+const waitTrue = async (pg, fn, ms) => { const end = Date.now() + ms;
+  while (Date.now() < end) { try { if (await pg.evaluate(fn)) return true; } catch (e) {} await pg.waitForTimeout(150); }
+  return false; };
 const http = require('http'), fs = require('fs'), path = require('path'), os = require('os');
 const ROOT = path.join(__dirname, '..');
 const URL_FILE = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/standalone/hasaniya.html');
@@ -45,7 +50,7 @@ function serve() {
     const ctx = await b.newContext({ viewport: { width: 390, height: 780 } });
     const p = await ctx.newPage(); p.on('pageerror', e => errs.push('offline:' + e.message));
     await p.goto(`http://127.0.0.1:${port}/index.html`);
-    await p.waitForFunction(() => navigator.serviceWorker && navigator.serviceWorker.controller, null, { timeout: 20000 }).catch(() => {});
+    await waitTrue(p, () => !!(navigator.serviceWorker && navigator.serviceWorker.controller), 20000);
     if (!(await p.evaluate(() => !!navigator.serviceWorker.controller))) { await p.reload(); await p.waitForTimeout(1500); }
     const controlled = await p.evaluate(() => !!navigator.serviceWorker.controller);
     srv.close();

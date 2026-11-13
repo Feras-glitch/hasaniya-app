@@ -1,5 +1,10 @@
 /* اختبار v78 (يشمل v77): حزمة الصوت — المراجعة، تقرير ما قبل التصدير، تصدير الفروق، معاينة الاستيراد قبل التأكيد، الملف التالف، الإعداد الأول، الترحيل، ولوحة الصف */
 const { chromium } = require('playwright');
+/* v105: انتظار شرط في الصفحة بـ evaluate متكرر. waitForFunction في Playwright 1.49 (المستعمل في GitHub)
+   يحتاج eval داخل الصفحة، وسياسة أمان المحتوى (CSP) تمنعه فيفشل فوراً دون انتظار */
+const waitTrue = async (pg, fn, ms) => { const end = Date.now() + ms;
+  while (Date.now() < end) { try { if (await pg.evaluate(fn)) return true; } catch (e) {} await pg.waitForTimeout(150); }
+  return false; };
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
@@ -99,7 +104,7 @@ const fs = require('fs');
     ] }));
   await p.evaluate(() => openClassDashboard());
   await p.setInputFiles('#dashFiles', [path.join(dir, 'rep1.json'), path.join(dir, 'other.json'), path.join(dir, 'backup.json')]);
-  await p.waitForFunction(() => typeof dashRows !== 'undefined' && dashRows.length >= 3, null, { timeout: 8000 }).catch(() => {});
+  await waitTrue(p, () => typeof dashRows !== 'undefined' && dashRows.length >= 3, 8000);
   await p.waitForTimeout(200);
   R.dash = await p.evaluate(() => ({ rows: dashRows.length, summary: document.getElementById('dashSummary').textContent,
     hasName: document.getElementById('dashBody').textContent.includes('ليلى'),

@@ -1,6 +1,11 @@
 /* اختبار v88: فقاعة ناجي لا تحجب «التالي»، تنبيه فشل الحفظ، حدّ دفعة حزم الصوت، قفل الرقم السري، تكرار المعرّفات */
 const { chromium } = require('playwright');
 const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/standalone/hasaniya.html');
+/* v105: انتظار شرط في الصفحة بـ evaluate متكرر. waitForFunction في Playwright 1.49 (المستعمل في GitHub)
+   يحتاج eval داخل الصفحة، وسياسة أمان المحتوى (CSP) تمنعه فيفشل فوراً دون انتظار */
+const waitTrue = async (pg, fn, ms) => { const end = Date.now() + ms;
+  while (Date.now() < end) { try { if (await pg.evaluate(fn)) return true; } catch (e) {} await pg.waitForTimeout(150); }
+  return false; };
 (async () => {
   const b = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium', args: ['--no-sandbox'] });
   const bad = []; const need = (m, ok) => { if (!ok) bad.push(m); };
@@ -10,7 +15,7 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
     await p.goto(URL); await p.waitForTimeout(800);
     await p.evaluate(() => { closePopup('userEditorPopup'); startStation(0); });
     // v104: عرض «معرفة المعنى» يأتي بعد أن يسكت صوت البيت
-    await p.waitForFunction(() => !!document.querySelector('#guideFloat.show'), null, { timeout: 8000 }).catch(() => {});
+    await waitTrue(p, () => !!document.querySelector('#guideFloat.show'), 8000);
     await p.waitForTimeout(300);
     const pre = await p.evaluate(() => ({ float: !!document.querySelector('#guideFloat.show'), open: document.body.classList.contains('guide-open'),
       xw: (document.querySelector('#guideFloat .guide-x') || { getBoundingClientRect: () => ({ width: 0, height: 0 }) }).getBoundingClientRect().width }));
