@@ -55,6 +55,7 @@ const fakeClock = () => {
       const closeAll = () => document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
       closeAll();
       const u = getCurrentUser(); u.gender = 'boy'; u.name = 'عمر'; saveState(); vpPref('onboarded', true);
+      window.showNewAchievement = () => {};   // نوافذ الأوسمة المؤجّلة لا تتداخل مع الفحوص التالية
       const all = content.journeyData.flatMap(s => s.verses);
 
       await T('ids', () => ({
@@ -96,14 +97,6 @@ const fakeClock = () => {
         r.retiredHiddenIfNotEarned = !achievementsShown(state).some(a => a.id === 'time30');
         closeAll();
         return r;
-      });
-      await T('lessonDays', async () => {
-        resetAll(); closeAll(); state.dayPlan = null;
-        const st = content.journeyData[0]; state.selectedStation = 0; state.selectedVerse = 0; state.dailyIds = []; state.dailyLeft = 1;
-        dailyLessonDone(st); await w(20); const a = state.lessonDays;
-        state.selectedVerse = 0; dailyLessonDone(st); await w(20);
-        closeAll(); showMap();
-        return { lessonDaysOncePerDay: a === 1 && state.lessonDays === 1 };
       });
       await T('remind', () => {
         resetAll(); closeAll();
@@ -198,9 +191,13 @@ const fakeClock = () => {
       await T('finale', async () => {
         resetAll(); closeAll();
         content.journeyData.forEach(s => { state.stationStatus[s.id] = 'completed'; });
-        guideHidePanel(); startDailyLesson(); await w(50);
-        const f = guideBubbleEl();
-        const r = { finaleOffer: !!f && f.classList.contains('show') && /سمّع المحطة/.test(f.textContent) && /نسمّع من حفظنا محطة/.test(f.textContent) };
+        guideHidePanel(); startDailyLesson();
+        const f = guideBubbleEl();   // في اللحظة نفسها: guidePanel متزامن، ولا يقطعه مؤقّت من خطوة سابقة
+        const ok = !!f && f.classList.contains('show') && /سمّع المحطة/.test(f.textContent) && /نسمّع من حفظنا محطة/.test(f.textContent);
+        // عند الفشل: تفاصيل تكفي لمعرفة السبب من سجل GitHub
+        const r = { finaleOffer: ok || ('تفاصيل: ' + JSON.stringify({ bubble: f && f.id, show: f && f.classList.contains('show'), text: f && f.textContent.slice(0, 80),
+          modals: [...document.querySelectorAll('.modal-overlay.active')].map(m => m.id), rec: typeof recIsActive === 'function' && recIsActive(),
+          map: document.getElementById('mapScreen').style.display, done: content.journeyData.every(st => getStationStatus(st) === 'completed'), due: leitnerDueVerses().length, limit: dailyLimitReached() })) };
         guideHidePanel(); resetAll(); closeAll();
         return r;
       });
@@ -210,6 +207,15 @@ const fakeClock = () => {
         const r = { deviceMove: /على هذا الجهاز/.test(t) && /على الجهاز الجديد/.test(t) && /الرقم السري/.test(t) };
         closeAll();
         return r;
+      });
+      // في الآخر: dailyLessonDone يترك مؤقّتاً (رسالة «انتهى الدرس» بعد 3.2 ثانية) يغيّر الخريطة وفقاعة ناجي
+      await T('lessonDays', async () => {
+        resetAll(); closeAll(); state.dayPlan = null;
+        const st = content.journeyData[0]; state.selectedStation = 0; state.selectedVerse = 0; state.dailyIds = []; state.dailyLeft = 1;
+        dailyLessonDone(st); await w(20); const a = state.lessonDays;
+        state.selectedVerse = 0; dailyLessonDone(st); await w(20);
+        closeAll(); showMap();
+        return { lessonDaysOncePerDay: a === 1 && state.lessonDays === 1 };
       });
       return o;
     }));
