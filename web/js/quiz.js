@@ -76,7 +76,7 @@ function showPoem() {
   document.getElementById("poemBody").innerHTML = content.journeyData.map(st => `
     <div style="margin-bottom:10px">
       <div style="font-weight:bold;color:var(--primary);border-bottom:1px solid #ddd;margin:8px 0">${escapeHtml(st.icon)} ${escapeHtml(st.title)}</div>
-      ${st.verses.map((v, i) => `<div style="font-size:1.05rem">${escapeHtml(v.fullVerse)} <span style="color:#999;font-size:.8rem">(${i + 1})</span></div>`).join("")}
+      ${st.verses.map((v, i) => `<div style="font-size:1.05rem">${escapeHtml(v.fullVerse)} <span style="color:#999;font-size:.8rem">(${v.n || i + 1})</span></div>`).join("")}
     </div>`).join("");
   document.getElementById("poemPopup").classList.add("active");
 }

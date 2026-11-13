@@ -701,3 +701,25 @@ body.night .parent-group.danger-zone>summary{background:#3a2326}
 @font-face{font-family:"HasaniyaNaskh";src:url("../fonts/NotoNaskhArabic.woff") format("woff");font-weight:400 700;font-display:swap}
 .bayt,.intro-verse,.intro-prev span,.full-verse-box,.verse-text,#wordsBank .word-btn,#dropZone .word-btn,#optionsBank .word-btn,.quran-ayah,.hub-row span,.poem-verse{font-family:"HasaniyaNaskh",'Segoe UI','Tahoma',sans-serif}
 body.system-font .bayt,body.system-font .intro-verse,body.system-font .intro-prev span,body.system-font .full-verse-box,body.system-font .verse-text,body.system-font #wordsBank .word-btn,body.system-font #dropZone .word-btn,body.system-font #optionsBank .word-btn,body.system-font .quran-ayah,body.system-font .hub-row span,body.system-font .poem-verse{font-family:'Segoe UI','Tahoma',sans-serif}
+
+/* v106: اختيار الطفل بلا رقم سري، ونقطة التنبيه على زر الوالدين */
+.kid-pick .pick-photo,.kid-confirm .pick-photo{width:56px;height:56px;border-radius:50%;object-fit:cover}
+.kid-pick.current{border-color:var(--primary);box-shadow:0 0 0 2px var(--primary) inset}
+.kid-manage{width:100%;margin-top:12px}
+.kid-confirm{text-align:center}
+.kid-confirm-av{font-size:4rem;line-height:1.2;margin:6px 0}
+.kid-confirm-q{font-size:1.4rem;font-weight:bold;margin:8px 0 14px}
+.parent-entry{position:relative}
+.parent-entry.has-alert::after{content:"";position:absolute;top:6px;left:8px;width:12px;height:12px;border-radius:50%;background:#e53935;box-shadow:0 0 0 2px #fff}
+
+/* v106: سُلّم الإخفاء بالضغط */
+.hide-mode{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:.9rem;color:#666;margin-bottom:6px}
+.hide-tap{min-width:64px;padding:4px 10px;margin:2px;border-radius:8px;border:2px dashed var(--primary);background:#fff;font-family:inherit;font-size:1.05rem;cursor:pointer}
+.hide-tap.shown{border-style:solid;background:#e8f5e9;border-color:var(--success)}
+
+/* v106: نقل إلى جهاز آخر */
+.move-steps{text-align:right;line-height:1.8}
+.move-h{font-weight:bold;color:var(--parent-border);margin:10px 0 4px}
+.move-step{margin:6px 0}
+.move-step .tool-btn{margin-inline-start:6px}
+.move-note{font-size:.85rem;color:#666;margin-top:10px}

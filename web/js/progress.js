@@ -30,9 +30,11 @@ function updateStreak() {
 }
 let sessionStartTime = null;
 function startTimeTracking() { if (!sessionStartTime) sessionStartTime = Date.now(); }
-function stopTimeTracking() {
+/* endAt: نهاية الوقت المحسوب (عند الخمول يُحسب حتى قُبيل آخر لمسة، لا حتى الآن) */
+function stopTimeTracking(endAt) {
   if (sessionStartTime) {
-    const s = Math.floor((Date.now() - sessionStartTime)/1000);
+    const end = Math.min(Date.now(), typeof endAt === "number" && endAt > 0 ? endAt : Date.now());
+    const s = Math.max(0, Math.floor((end - sessionStartTime)/1000));
     state.totalTimeSeconds = (state.totalTimeSeconds||0) + s;
     const day = new Date().toDateString();
     state.dayTime = state.dayTime && state.dayTime.day === day ? { day, s: (+state.dayTime.s || 0) + s } : { day, s };
@@ -51,6 +53,30 @@ function dailyLimitReached() {
   const m = +(state && state.dailyLimitMin) || 0;
   if (!m || (typeof isBrowse === "function" && isBrowse())) return false;
   return todaySeconds() >= m * 60;
+}
+/* v106 (توصية v104 المعتمدة): الوقت يُحسب لكل ما يفعله الطفل، لا لشاشة الدرس وحدها:
+   ما دام التطبيق ظاهراً، والطفل خارج منطقة الوالدين ووضع التصفّح، وقد لمس الشاشة في آخر 3 دقائق أو يسمع صوتاً.
+   والجهاز المتروك مفتوحاً لا يُحسب: يتوقف العدّ بعد 3 دقائق بلا لمس، ويُحسب حتى نصف دقيقة بعد آخر لمسة. */
+const KID_IDLE_MS = 180000;
+let kidLastInput = 0, kidLastActive = 0;
+function kidInParentArea() { const p = document.getElementById("parentScreen"); return !!p && p.style.display === "block"; }
+function kidActivityTick() {
+  if (!state) return;
+  const audio = typeof audioBusy === "function" && audioBusy();
+  const active = document.visibilityState === "visible" && !kidInParentArea() && !(typeof isBrowse === "function" && isBrowse())
+    && (Date.now() - kidLastInput < KID_IDLE_MS || audio);
+  if (active) { startTimeTracking(); kidLastActive = Date.now(); }
+  else if (sessionStartTime) stopTimeTracking(document.visibilityState === "visible" && !kidInParentArea() ? Math.max(kidLastInput + 30000, kidLastActive) : Date.now());
+}
+document.addEventListener("pointerdown", () => { kidLastInput = Date.now(); kidActivityTick(); }, true);
+document.addEventListener("keydown", () => { kidLastInput = Date.now(); }, true);
+setInterval(kidActivityTick, 10000);
+/* بعد انتهاء وقت اليوم لا يبدأ نشاط جديد (العب، المراجعة، الأدوات، التسميع)، كما لا يبدأ درس */
+function kidTimeUp() {
+  if (!dailyLimitReached()) return false;
+  if (typeof closePopup === "function") closePopup("hubPopup");
+  showMap(); kidAnnounce(kidLine("timeUp"), "success");
+  return true;
 }
 function mistakeKey(vid, w) { return vid + "::" + w; }
 function buildContext(v, w) {

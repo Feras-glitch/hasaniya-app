@@ -145,6 +145,7 @@ function recIsRecording(verseId) { return recState.recorder && recState.verseId 
 
 /* ---------- نافذة تسجيلاتي (للطفل فقط؛ صوت الوالد للقصص في استوديو الوالد خلف الرقم السري) ---------- */
 async function openRecPopup(opts = {}) {
+  if (opts.mode === "child" && typeof kidTimeUp === "function" && kidTimeUp()) return;
   const sel = document.getElementById("recStation");
   sel.innerHTML = content.journeyData.map((st, i) => `<option value="${i}">${escapeHtml(st.title)}</option>`).join("");
   sel.value = String(state.selectedStation || 0);
@@ -249,18 +250,40 @@ function learnedVerses(rangeKey) {
 }
 function sectionKey(rangeKey) { return (activeUserId || "x") + "|sec|" + rangeKey; }
 function currentRange() { return document.getElementById("secRange").value || "all"; }
-/* v104: التسميع من الحفظ: النص مخفي، ويُظهره الطفل إن تعثّر (وهو «فتح») */
-let secShow = false;
+document.addEventListener("change", e => { if (e.target && e.target.id === "secRange") { secOpened = 0; secShow = false; } }, true);
+/* v104: التسميع من الحفظ: النص مخفي، ويُظهره الطفل إن تعثّر (وهو «فتح»).
+   v106 (من الدفعة «و» المعتمدة): يُكشف شطر واحد عند كل ضغطة، ويُعدّ كل شطر «فتحاً»، فيعرف الطفل ووالده أين تعثّر */
+let secShow = false, secOpened = 0;
 function secToggleText() { secShow = !secShow; renderSectionStatus(); }
+function secRevealNext() { secOpened++; renderSectionStatus(); }
+function secHalves(verses) {
+  const out = [];
+  verses.forEach(v => {
+    const w = String(v.fullVerse || "").split(/\s+/).filter(Boolean);
+    const k = v.half > 0 && v.half < w.length ? v.half : Math.ceil(w.length / 2);
+    out.push(w.slice(0, k).join(" "), w.slice(k).join(" "));
+  });
+  return out;
+}
 async function renderSectionStatus() {
   const range = currentRange();
   const verses = learnedVerses(range);
-  const text = verses.map(v => v.fullVerse).join("\n");
+  const halves = secHalves(verses);
+  secOpened = Math.min(secOpened, halves.length);
   const st = document.getElementById("secText");
-  st.innerText = verses.length ? text : "لم تُحفظ أبيات في هذا النطاق بعد.";
-  st.hidden = !secShow && verses.length > 0;
+  if (!verses.length) st.innerText = "لم تُحفظ أبيات في هذا النطاق بعد.";
+  else {
+    const shown = secShow ? halves.length : secOpened;
+    const lines = [];
+    for (let i = 0; i < halves.length; i += 2) lines.push([0, 1].map(j => i + j < shown ? halves[i + j] : "…").join("   ·   "));
+    st.innerText = lines.join("\n");
+  }
+  st.hidden = !secShow && !secOpened && verses.length > 0;
+  const nb = document.getElementById("secNextBtn");
+  if (nb) { nb.style.display = verses.length && !secShow && secOpened < halves.length ? "" : "none";
+    nb.textContent = secOpened ? `💡 الشطر التالي (فتحات: ${secOpened})` : "💡 الشطر التالي"; }
   const sb = document.getElementById("secShowBtn");
-  if (sb) { sb.style.display = verses.length ? "" : "none"; sb.textContent = secShow ? gForm("🙈 أخفِ النص وسمّع من حفظك", "🙈 أخفي النص وسمّعي من حفظكِ") : gForm("👁️ أظهر النص", "👁️ أظهري النص"); }
+  if (sb) { sb.style.display = verses.length ? "" : "none"; sb.textContent = secShow ? gForm("🙈 أخفِ النص وسمّع من حفظك", "🙈 أخفي النص وسمّعي من حفظكِ") : gForm("👁️ أظهر النص كله", "👁️ أظهري النص كله"); }
   const sec = await recGet(sectionKey(range));
   document.getElementById("secStatus").textContent = sec ? "✅ يوجد تسميع متصل مسجّل لهذا النطاق" : "لا يوجد تسميع متصل بعد";
   document.getElementById("secRecBtn").textContent = recIsRecording(range) ? "⏹ أوقف التسجيل" : "⏺ سجّل التسميع المتصل";
@@ -269,7 +292,7 @@ async function renderSectionStatus() {
 function recSection() {
   const range = currentRange();
   if (!learnedVerses(range).length) { kidToast(kidLine("noLearned"), "error"); return; }
-  if (!recIsRecording(range)) secShow = false;   // يبدأ التسجيل والنص مخفي
+  if (!recIsRecording(range)) { secShow = false; secOpened = 0; }   // يبدأ التسجيل والنص مخفي
   recToggle(range, () => renderSectionStatus(), { storeKey: sectionKey(range), kind: "section", maxMs: 15 * 60 * 1000 });
   renderSectionStatus();
 }

@@ -10,8 +10,8 @@ android {
         applicationId "com.hasaniya.app"
         minSdk 26
         targetSdk 34
-        versionCode 105
-        versionName "105.0"
+        versionCode 106
+        versionName "106.0"
     }
 
     /* التوقيع: المفتاح يأتي من أسرار GitHub (انظر SIGNING-AR.md في جذر المستودع)،

@@ -97,8 +97,10 @@ async function drawCertificate(station, cert = { code: "----", at: Date.now() })
   }
   // النصوص
   x.fillStyle = t.main; x.font = "bold 128px Tahoma, sans-serif";
-  // v104: «إتمام» لا «إتقان»: الشهادة تُمنح بإتمام المحطة، والإتقان يُقاس بالتسميع
-  x.fillText("شهادة إتمام", cx, 380);
+  // v104: «إتمام» لا «إتقان»: الشهادة تُمنح بإتمام المحطة، والإتقان يُقاس بالتسميع.
+  // v106 (من الدفعة «و»): تصير «شهادة إتقان» إذا كانت أبيات المحطة كلها «يحفظه غيباً» (مؤكَّدة بتسميع الوالد)
+  const cv = certConfirmed(station);
+  x.fillText(cv.all ? "شهادة إتقان" : "شهادة إتمام", cx, 380);
   x.fillStyle = "#555"; x.font = "44px Tahoma, sans-serif";
   x.fillText("تُمنح من تطبيق المنظومة الحسنية في السيرة النبوية", cx, 500);
   x.fillStyle = "#222"; fitFont(x, u.name || "الطفل", 1400, 120, "bold");
@@ -109,6 +111,7 @@ async function drawCertificate(station, cert = { code: "----", at: Date.now() })
   x.fillText(station.title, cx, 820);
   x.fillStyle = "#333"; x.font = "52px Tahoma, sans-serif";
   x.fillText(gForm("أحسنتَ، واصل المسيرة", "أحسنتِ، واصلي المسيرة"), cx, 912);
+  if (cv.text) { x.fillStyle = t.main; x.font = "bold 38px Tahoma, sans-serif"; x.fillText(cv.text, cx, 978); }
   x.fillStyle = "#555"; x.font = "40px Tahoma, sans-serif";
   x.fillText(new Date(cert.at).toLocaleDateString("ar-EG"), cx, 1040);
   x.fillStyle = "#777"; x.font = "26px Tahoma, sans-serif";
@@ -122,6 +125,15 @@ async function drawCertificate(station, cert = { code: "----", at: Date.now() })
   x.fillStyle = "#555"; x.font = "30px Tahoma, sans-serif";
   x.fillText("توقيع الوالد", 1420, 1040);
   return c;
+}
+/* كم بيتاً من المحطة (أو من الرحلة كلها) يحفظه الطفل غيباً بتسميع الوالد */
+function certConfirmed(station) {
+  const vs = station === JOURNEY_CERT ? content.journeyData.flatMap(s => s.verses) : ((station && station.verses) || []);
+  const n = typeof confirmedCount === "function" ? confirmedCount(state, vs) : 0;
+  const all = vs.length > 0 && n === vs.length;
+  const text = all ? gForm("يحفظ أبياتها كلها غيباً، بتسميع والديه", "تحفظ أبياتها كلها غيباً، بتسميع والديها")
+    : n ? `${gForm("يحفظ", "تحفظ")} منها غيباً ${arCount(n, "بيتاً واحداً", "بيتين", "أبيات", "بيتاً")} من ${vs.length}` : "";
+  return { n, all, text };
 }
 function certificateBlob(station, cert) {
   return drawCertificate(station, cert).then(c => new Promise(res => c.toBlob(res, "image/png")));

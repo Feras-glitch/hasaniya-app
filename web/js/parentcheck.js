@@ -36,6 +36,16 @@ function pcReadyList() {
   }));
   return out;
 }
+/* v106 (من الدفعة «و» المعتمدة): سطر «غداً» للوالد: كم بيتاً يُراجَع، وهل يأتي جديد */
+function pcTomorrowText() {
+  if (typeof leitnerDayStart !== "function") return "";
+  const end = leitnerDayStart() + 2 * 86400000;   // نهاية الغد
+  const due = Object.keys(state.leitner || {}).filter(id => (state.leitner[id].due || 0) < end && (state.seenVerses || {})[id]).length;
+  const cap = typeof newPerDayOf === "function" ? newPerDayOf() : 3;
+  const allDone = content.journeyData.every(s => getStationStatus(s) === "completed");
+  const fresh = allDone ? "" : due > (typeof OVERDUE_NO_NEW !== "undefined" ? OVERDUE_NO_NEW : 15) ? " — مراجعة فقط، بلا جديد" : ` — ثم ${arCount(cap, "بيت جديد", "بيتان جديدان", "أبيات جديدة", "بيتاً جديداً")}`;
+  return due ? `🗓️ غداً: مراجعة ${arCount(due, "بيت واحد", "بيتين", "أبيات", "بيتاً")}${fresh}` : `🗓️ غداً: لا مراجعة مستحقة${fresh}`;
+}
 /* بطاقة في منطقة الوالدين: خطة اليوم وزر التسميع */
 function renderParentCheckCard() {
   const box = document.getElementById("parentCheckCard"); if (!box) return;
@@ -43,6 +53,7 @@ function renderParentCheckCard() {
   const started = Object.keys(state.seenVerses || {}).length > 0;
   box.innerHTML = `<div class="pc-card">
     <div><strong>📅 اليوم:</strong> ${due ? `${arCount(due, "بيت واحد حان موعد مراجعته", "بيتان حان موعد مراجعتهما", "أبيات حان موعد مراجعتها", "بيتاً حان موعد مراجعتها")}، ثم درس جديد` : (started ? "لا مراجعة مستحقة؛ درس جديد" : "لم يبدأ الحفظ بعد")}</div>
+    <div class="rec-count">${escapeHtml(pcTomorrowText())}</div>
     ${pcReadyList().length ? `<div class="rec-count">🌟 ${arCount(pcReadyList().length, "بيت واحد جاهز", "بيتان جاهزان", "أبيات جاهزة", "بيتاً جاهزاً")} لتسميعك: «بلا فتح» ينقله إلى المراجعة البعيدة.</div>` : ""}
     <div class="rec-count">${escapeHtml(pcLastText())}. التسميع منك هو الدليل الأصدق على الحفظ.</div>
     <button class="action-btn btn-success" style="width:100%;margin-top:6px" onclick="pcStart()" ${started ? "" : "disabled"}>🎙️ سمّعه الآن</button>
@@ -62,7 +73,7 @@ function pcRender() {
   openHub("🎙️ سمّعه الآن", `
     <p class="rec-count">البيت ${i + 1} من ${list.length}. اطلب من ${escapeHtml(getUserName())} أن ${gForm("يقول البيت من حفظه دون أن ينظر", "تقول البيت من حفظها دون أن تنظر")} إلى الشاشة.</p>
     <div class="pc-cue">للتذكير إن احتجت: الحدث «${escapeHtml(v.event || "")}»، وأوله «${escapeHtml(first)}»</div>
-    <div class="pc-verse" id="pcVerse" hidden>${escapeHtml(v.fullVerse)}</div>
+    <div class="pc-verse" id="pcVerse" hidden>${escapeHtml(v.fullVerse)}${v.n ? ` <small style="color:#888">(البيت ${v.n} في الكتاب)</small>` : ""}</div>
     <button class="tool-btn" style="width:100%;margin:6px 0" onclick="document.getElementById('pcVerse').hidden=false;this.remove()">👁️ أظهر البيت لي</button>
     <div class="pc-btns">
       <button class="action-btn btn-success" onclick="pcRate('ok')">✅ بلا فتح</button>

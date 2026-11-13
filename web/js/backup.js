@@ -18,6 +18,27 @@ function exportBackup() {
   } catch(e) { showToast("تعذّر تجهيز النسخة", "error"); }
 }
 
+/* v106 (من الدفعة «ز»): نقل الأسرة إلى جهاز آخر خطوة بخطوة: النسخة الاحتياطية (تقدّم كل الأطفال)،
+   وحزمة الصوت (تسجيلاتك)، ثم ما يُفعل على الجهاز الجديد. تسجيلات الأطفال لأبياتهم لا تنتقل. */
+async function openDeviceMove() {
+  let own = 0;
+  try { own = (await vpAllAuthorRecs()).filter(r => !(typeof vpIsBundled === "function" && vpIsBundled(r))).length; } catch (e) {}
+  openHub("📦 نقل إلى جهاز آخر", `
+    <div class="move-steps">
+      <div class="move-h">على هذا الجهاز</div>
+      <div class="move-step"><b>1.</b> نسخة احتياطية: تقدّم كل الأطفال وأسماؤهم وصورهم.
+        <button class="tool-btn" onclick="exportBackup()">💾 احفظ النسخة</button></div>
+      ${own ? `<div class="move-step"><b>2.</b> حزمة الصوت: ${arCount(own, "تسجيل واحد", "تسجيلان", "تسجيلات", "تسجيلاً")} بصوتك للأبيات والقصص والرسائل.
+        <button class="tool-btn" onclick="closePopup('hubPopup');requirePin(exportVoicePack,'تصدير حزمة الصوت')">📤 صدّر الحزمة</button></div>` : ""}
+      <div class="move-step">ثم أرسل الملفات إلى الجهاز الجديد (بالبريد أو واتساب أو كابل)، واحتفظ بنسخة منها.</div>
+      <div class="move-h">على الجهاز الجديد</div>
+      <div class="move-step"><b>1.</b> ثبّت التطبيق، ثم «للوالدين» ← «الحذف والاستعادة» ← «📥 استعادة»، واختر ملف النسخة.</div>
+      ${own ? `<div class="move-step"><b>2.</b> «👥 المستخدمون» ← «📥 استيراد حزمة الصوت»، واختر ملفات الحزمة.</div>` : ""}
+      <div class="move-step"><b>${own ? 3 : 2}.</b> اضبط الرقم السري من جديد، فهو لا ينتقل مع النسخة.</div>
+      <div class="move-note">تسجيلات الأطفال لأبياتهم لا تنتقل. ويستطيع الطفل إرسالها إلى معلمه من «🎤 تسجيلاتي» قبل النقل.</div>
+    </div>`);
+}
+
 function isValidBackup(d) {
   return d && d.app === "hasaniya" && Array.isArray(d.users) && d.users.length > 0 &&
     d.users.every(u => u && typeof u.id === "string" && typeof u.name === "string" && u.state && typeof u.state === "object");

@@ -35,19 +35,23 @@ function playSetOf(s) {
   s = s || state;
   const list = Array.isArray(s && s.playSet) ? s.playSet.filter(k => PLAY_ACTIVITIES[k]) : null;
   if (list && list.length) return list;
-  return typeof isSmallKid === "function" && isSmallKid() ? ["riddles", "mistakes"] : ["riddles", "mistakes", "timeline"];
+  // v106: «مراجعة الأخطاء» نصوص يقرؤها الطفل، فلا تكون في «العب» الافتراضي لمن لا يقرأ (من الدفعة «و»)
+  return typeof isSmallKid === "function" && isSmallKid() ? ["riddles", "recordings"] : ["riddles", "mistakes", "timeline"];
 }
 function openPlayHub() {
+  if (typeof kidTimeUp === "function" && kidTimeUp()) return;
   const tiles = playSetOf().map(k => { const a = PLAY_ACTIVITIES[k];
     return `<button class="hub-tile" onclick="openTool('${a.fn}')"><span>${a.icon}</span>${escapeHtml(a.name)}</button>`; }).join("");
   openHub("🎮 العب", `<div class="hub-grid">${tiles}</div>`);
 }
 function applyHomeMode() { document.body.classList.toggle("simple-home", !(state && state.allActivities)); }
 function showTools() {
+  if (typeof kidTimeUp === "function" && kidTimeUp()) return;
   openHub("🧰 أدوات", `<div class="hub-grid">${TOOLS.map(t =>
     `<button class="hub-tile" onclick="openTool('${t.fn}')"><span>${t.icon}</span>${escapeHtml(t.name)}</button>`).join("")}</div>`);
 }
 function openTool(fn) {
+  if (typeof kidTimeUp === "function" && kidTimeUp()) return;
   closePopup("hubPopup");
   setTimeout(() => window[fn](), 0);
 }
@@ -377,6 +381,7 @@ applyPrefs();
 
 /* مراكز مجمّعة: كل واحد يجمع أدوات متقاربة، ويُغلق الصندوق قبل فتح الأداة (openTool) */
 function openReviewHub() {
+  if (typeof kidTimeUp === "function" && kidTimeUp()) return;
   const mistakes = Object.keys(state.mistakes || {}).length;
   const tile = (fn, icon, name, n) => `<button class="hub-tile" onclick="openTool('${fn}')"><span>${icon}</span>${escapeHtml(name)}${n ? ` (${n})` : ""}</button>`;
   openHub("🔁 مراجعة", `<div class="hub-grid">

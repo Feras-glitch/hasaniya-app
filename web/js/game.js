@@ -54,7 +54,7 @@ function resetAll() {
   // v104: ما كان يبقى بعد التصفير
   state.meaningSeen = {}; state.activeDays = []; state.stampDates = {}; state.recEval = {};
   state.follow = {}; state.masteredNotified = {}; state.guideBadges = {};
-  state.quizResults = {}; state.parentChecks = {}; state.dailyReviewDay = null; state.dayPlan = null;
+  state.quizResults = {}; state.parentChecks = {}; state.dailyReviewDay = null; state.dayPlan = null; state.lessonDays = 0;
   state.dailyLeft = null; state.dailyIds = [];
   if (content.journeyData.length > 0) state.stationStatus[content.journeyData[0].id] = "current";
   saveState();
@@ -107,6 +107,7 @@ function renderDailyCard() {
   const where = idx >= 0 ? (() => { const st = content.journeyData[idx]; const pos = Math.min(state.versePositions[st.id] || 0, st.verses.length - 1);
     return `المحطة ${idx + 1}: ${st.title} · البيت ${pos + 1} من ${st.verses.length}`; })() : "";
   info.innerHTML = `<div class="daily-plan">${escapeHtml(planText)}</div>${where ? `<div class="daily-where">${escapeHtml(where)}</div>` : ""}`;
+  if (typeof updateParentDot === "function") updateParentDot();
   btn.disabled = !parts.length;
 }
 function showMap() {
@@ -606,6 +607,7 @@ function nextVerse() {
       // وضع التصفّح يعبر إلى المحطة التالية دون أن يُتمّ المحطة أو يفتح ما بعدها
       if (isBrowse()) { browseNext(); return; }
       state.versePositions[station.id] = 0;
+      if (state.dailyLeft) creditLessonDay();   // درس اليوم انتهى بإكمال المحطة
       state.dailyLeft = null; state.dailyIds = [];
       markStationCompleted(station);
       startStationQuiz(station, () => {
@@ -644,16 +646,20 @@ let dailyFlow = false;
 const REVIEW_PER_SESSION = 10, REVIEW_SESSIONS_PER_DAY = 2, OVERDUE_NO_NEW = 15, LESSON_MAX = 3;
 function dayPlanToday() {
   const today = new Date().toDateString();
-  if (!state.dayPlan || state.dayPlan.day !== today)
-    state.dayPlan = { day: today, reviews: state.dailyReviewDay === today ? 1 : 0, newCount: 0 };
+  if (!state.dayPlan || state.dayPlan.day !== today) {
+    // v106 (من الدفعة «و»): بعد غياب 4 أيام فأكثر يكون أول يوم للمراجعة، وبيت جديد واحد فقط
+    const gap = state.lastPracticeDate && typeof daysBetween === "function" && typeof todayISO === "function" ? daysBetween(state.lastPracticeDate, todayISO()) : 0;
+    state.dayPlan = { day: today, reviews: state.dailyReviewDay === today ? 1 : 0, newCount: 0, back: gap >= RETURN_GAP_DAYS };
+  }
   return state.dayPlan;
 }
+const RETURN_GAP_DAYS = 4;
 /* الأبيات الجديدة في اليوم: يضبطها الوالد لكل طفل، والافتراضي 3 للكبير و2 للصغير */
 function newPerDayOf(s) {
   s = s || state;
   const n = +(s && s.newPerDay);
-  if (n >= 1 && n <= 5) return n;
-  return typeof isSmallKid === "function" && isSmallKid() ? 2 : 3;
+  const base = n >= 1 && n <= 5 ? n : (typeof isSmallKid === "function" && isSmallKid() ? 2 : 3);
+  return s && s.dayPlan && s.dayPlan.back && s.dayPlan.day === new Date().toDateString() ? 1 : base;
 }
 function newVerseBlockReason() {
   if (noCredit()) return "";
@@ -674,14 +680,18 @@ function startDailyLesson(opts) {
     playMode = MODE_REVIEW; playIndex = 0;
     sessionStats = {correct: 0, wrong: 0, total: playQueue.length};
     saveState();
-    kidToast(kidLine(plan.reviews === 1 ? "reviewFirst" : "reviewAgain"), "success");
+    kidToast(kidLine(plan.back && plan.reviews === 1 ? "welcomeBack" : plan.reviews === 1 ? "reviewFirst" : "reviewAgain"), "success");
     enterPlayScreen("🗃️ مراجعة اليوم");
     return;
   }
   dailyFlow = false;
-  if (idx < 0) { kidToast(kidLine("allDone"), "success"); return; }
+  if (idx < 0) { postCompletionOffer(); return; }
   const why = newVerseBlockReason();
-  if (why) { showMap(); kidAnnounce(kidLine(why), "success"); return; }
+  if (why) {
+    // أنهى الطفل ما في اليوم (مراجعة أو جديداً): يُحتسب يوم درس، ولو كان اليوم للمراجعة وحدها
+    if (opts.afterReview || plan.newCount > 0) { creditLessonDay(); saveState(); }
+    showMap(); kidAnnounce(kidLine(why), "success"); return;
+  }
   const station = content.journeyData[idx];
   state.selectedStation = idx;
   state.selectedVerse = Math.min(state.versePositions[station.id] || 0, station.verses.length - 1);
@@ -690,13 +700,32 @@ function startDailyLesson(opts) {
   state.dailyIds = [];
   enterPlayScreen(station.title);
 }
+/* v106 (من الدفعة «ز»): بعد إكمال القسم تستمر المراجعة اليومية، ويقترح ناجي كل يوم تسميع محطة كاملة من الحفظ
+   بالتناوب، فتُراجَع المنظومة كلها كل 16 يوماً */
+function postCompletionOffer() {
+  const n = content.journeyData.length; if (!n) return;
+  const k = Math.floor(leitnerDayStart() / 86400000) % n, st = content.journeyData[k];
+  showMap();
+  if (typeof guidePanel === "function") guidePanel(`${kidLine("allDone")}. ${kidLine("finaleRecite")} «${st.title}»`, [
+    { label: "🔁 سمّع المحطة", run: () => openRecPopup({ mode: "child", range: "station-" + k }) }
+  ], null, { say: [kidLine("allDone"), kidLine("finaleRecite"), st.title] });
+  else kidToast(kidLine("allDone"), "success");
+}
+/* v106: يوم درس مكتمل: نقاط المواظبة ويوم لوسام «مواظب»، مرة في اليوم.
+   يُحتسب في كل نهاية لدرس اليوم: آخر بيت فيه، أو إكمال محطة في أثنائه، أو انتهاء مراجعة يوم «المراجعة فقط».
+   (اختبار الأسبوع كشف أن الدرس الذي ينتهي بآخر بيت في محطة لم يكن يُحتسب) */
+function creditLessonDay() {
+  if (noCredit() || !firstCreditToday("dailyPlan")) return false;
+  addPoints(5); state.lessonDays = (state.lessonDays || 0) + 1;
+  return true;
+}
 function dailyLessonDone(station) {
   state.selectedVerse++;
   state.versePositions[station.id] = Math.min(state.selectedVerse, station.verses.length - 1);
   const ids = state.dailyIds || [];
   state.dailyLeft = null; state.dailyIds = [];
   // v105: المكافأة على المواظبة (درس اليوم كاملاً) لا على السرعة
-  if (!noCredit() && firstCreditToday("dailyPlan")) addPoints(5);
+  creditLessonDay();
   saveState();
   // v104: آخر الدرس: عرض التسميع المتصل مرة واحدة (بعد ثلاثة أبيات على الأقل في الحفظ)،
   // وبعد سؤال المكان إن ظهر، فلا يتراكب العرضان ولا يقطع صوتُ أحدهما الآخر

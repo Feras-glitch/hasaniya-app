@@ -32,9 +32,11 @@ const KID_LINES = {
   correctIs: ["💡 الصحيح هو:"],
   answerIs: ["الجواب:"],
   allDone: ["🎉 أكملتَ كل المحطات", "🎉 أكملتِ كل المحطات"],
+  finaleRecite: ["اليوم نسمّع من حفظنا محطة:"],
   lessonDone: ["أحسنتَ! انتهى درس اليوم، ويبقى الباقي للغد 🐪", "أحسنتِ! انتهى درس اليوم، ويبقى الباقي للغد 🐪"],
   timeUp: ["انتهى وقت اليوم، أحسنتَ! نكمل غداً إن شاء الله 🐪", "انتهى وقت اليوم، أحسنتِ! نكمل غداً إن شاء الله 🐪"],
   reviewFirst: ["نبدأ بمراجعة ما حفظتَه، ثم نتعلّم الجديد 🐪", "نبدأ بمراجعة ما حفظتِه، ثم نتعلّم الجديد 🐪"],
+  welcomeBack: ["اشتقنا إليك! 🐪 نبدأ بمراجعة ما حفظت، ثم بيت جديد واحد", "اشتقنا إليكِ! 🐪 نبدأ بمراجعة ما حفظتِ، ثم بيت جديد واحد"],
   reviewAgain: ["نراجع أبياتاً أخرى حان موعدها 🐪", "نراجع أبياتاً أخرى حان موعدها 🐪"],
   storySame: ["قصة هذا البيت هي قصة البيت السابق نفسها، والشرح أعلاه يبيّن ما أضافه هذا البيت.", "قصة هذا البيت هي قصة البيت السابق نفسها، والشرح أعلاه يبيّن ما أضافه هذا البيت."],
   newDoneToday: ["أحسنتَ! أنهيتَ أبيات اليوم الجديدة، ونكمل غداً إن شاء الله 🐪", "أحسنتِ! أنهيتِ أبيات اليوم الجديدة، ونكمل غداً إن شاء الله 🐪"],
@@ -153,13 +155,13 @@ function voiceRegistry() {
   const sIndex = id => J.findIndex(s => s.id === id);
   voiceNameLines().forEach(t => line("names", t, -1));
   J.forEach((st, si) => st.verses.forEach((v, vi) =>
-    add({ section: "verse", kind: "verse", id: v.id, key: authorKey("verse", v.id), text: v.fullVerse, station: si, n: vi + 1 })));
+    add({ section: "verse", kind: "verse", id: v.id, key: authorKey("verse", v.id), text: v.fullVerse, station: si, n: v.n || vi + 1 })));
   voiceFixedLines().forEach(t => line("guide", t, -1));
   J.forEach((st, si) => line("titles", st.title, si));
   [typeof CUSTOM_BADGES !== "undefined" ? Object.values(CUSTOM_BADGES) : [], typeof GUIDE_BADGES !== "undefined" ? Object.values(GUIDE_BADGES) : []]
     .forEach(list => list.forEach(b => { if (b && b.name) line("titles", b.name, -1); }));
   /* الإنجازات تظهر في نافذة تُقرأ: الاسم والوصف */
-  (typeof ACHIEVEMENTS !== "undefined" ? ACHIEVEMENTS : []).forEach(a => { if (a.name) line("titles", a.name, -1); if (a.desc) line("titles", a.desc, -1); });
+  (typeof ACHIEVEMENTS !== "undefined" ? ACHIEVEMENTS : []).filter(a => !a.retired).forEach(a => { if (a.name) line("titles", a.name, -1); if (a.desc) line("titles", a.desc, -1); });
   J.forEach((st, si) => {
     const qs = (typeof QUIZZES !== "undefined" && QUIZZES[st.id]) || [];
     qs.forEach(q => line("quiz", q.q, si));
@@ -168,7 +170,7 @@ function voiceRegistry() {
   });
   J.forEach((st, si) => st.verses.forEach(v => { if (v.meaning) line("expl", v.meaning, si); }));
   J.forEach((st, si) => st.verses.forEach((v, vi) => {
-    if (v.story) add({ section: "story", kind: "story", id: v.id, key: authorKey("story", v.id), text: v.story, station: si, n: vi + 1 });
+    if (v.story) add({ section: "story", kind: "story", id: v.id, key: authorKey("story", v.id), text: v.story, station: si, n: v.n || vi + 1 });
   }));
   if (typeof RIDDLES !== "undefined") RIDDLES.forEach(r => { const si = sIndex(r.station); line("riddle", r.riddle, si); line("riddle", r.answer, si); });
   J.forEach((st, si) => st.verses.forEach(v => { if (v.event) line("event", v.event, si); }));

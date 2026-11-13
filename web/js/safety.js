@@ -97,8 +97,9 @@ function sanitizeImportedState(raw) {
   s.newPerDay = [1, 2, 3, 4, 5].includes(+s.newPerDay) ? +s.newPerDay : null;
   s.playSet = Array.isArray(s.playSet) ? s.playSet.filter(k => typeof k === "string" && /^[a-zA-Z]{1,20}$/.test(k)).slice(0, 5) : null;
   s.allActivities = s.allActivities === true;
+  s.lessonDays = _int(s.lessonDays, 0, 100000, 0);   // v106: أيام إكمال درس اليوم (وسام «مواظب»)
   s.dayPlan = _isObj(s.dayPlan) && typeof s.dayPlan.day === "string"
-    ? { day: s.dayPlan.day.slice(0, 40), reviews: _int(s.dayPlan.reviews, 0, 9, 0), newCount: _int(s.dayPlan.newCount, 0, 99, 0) } : null;
+    ? { day: s.dayPlan.day.slice(0, 40), reviews: _int(s.dayPlan.reviews, 0, 9, 0), newCount: _int(s.dayPlan.newCount, 0, 99, 0), back: s.dayPlan.back === true } : null;
   normalizeUserState(s);
   if (typeof ensureCurrentStation === "function") ensureCurrentStation(s);
   const completed = Object.values(s.stationStatus).filter(v => v === "completed").length;

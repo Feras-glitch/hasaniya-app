@@ -18,6 +18,24 @@ function switchUser(id) {
   showToast("مرحباً " + u.name + " " + u.avatar, "success");
 }
 
+/* v106 (قرار فراس): الطفل يختار ملفه بنفسه بلا رقم سري، مع تأكيد «أنا فلان»؛
+   أما إضافة الأطفال وتعديلهم وحذفهم فتبقى بالرقم السري */
+function showKidPicker() {
+  const tiles = (users || []).map(u => `<button class="hub-tile kid-pick${u.id === activeUserId ? " current" : ""}" onclick="kidPickConfirm('${escapeForAttr(u.id)}')"><span>${avatarHTML(u, "pick-photo")}</span>${escapeHtml(u.name)}</button>`).join("");
+  openHub("👋 من يلعب الآن؟", `<div class="hub-grid">${tiles}</div>
+    <button class="tool-btn kid-manage" onclick="closePopup('hubPopup');requirePin(showUsersModal,'إدارة المستخدمين')">👨‍👩‍👧 إضافة طفل أو تعديله (للوالدين)</button>`);
+}
+function kidPickConfirm(id) {
+  const u = getUserById(id); if (!u) return;
+  if (id === activeUserId) { closePopup("hubPopup"); return; }
+  const girl = u.gender === "girl";
+  openHub("👋", `<div class="kid-confirm"><div class="kid-confirm-av">${avatarHTML(u, "pick-photo")}</div>
+    <div class="kid-confirm-q">${girl ? "هل أنتِ" : "هل أنت"} ${escapeHtml(u.name)}؟</div>
+    <div class="controls"><button class="action-btn btn-success" onclick="kidPickDo('${escapeForAttr(id)}')">✅ نعم، أنا ${escapeHtml(u.name)}</button>
+    <button class="action-btn btn-gray" onclick="showKidPicker()">↩️ لا</button></div></div>`);
+}
+function kidPickDo(id) { closePopup("hubPopup"); switchUser(id); }
+
 function updateUserChip() {
   document.getElementById("userAvatar").innerHTML = avatarHTML(getCurrentUser(), "chip-photo");
   document.getElementById("userName").textContent = getUserName();

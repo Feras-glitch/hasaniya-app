@@ -25,7 +25,7 @@ function updateStats() {
   document.getElementById("statPoints").innerText = state.points || 0;
   document.getElementById("statTime").innerText = Math.floor((state.totalTimeSeconds||0)/60) + "د";
   document.getElementById("statAccuracy").innerText = Math.round(completed/Math.max(1,content.journeyData.length)*100) + "%";
-  document.getElementById("statAchievements").innerText = Object.keys(state.achievements).length + "/" + ACHIEVEMENTS.length;
+  document.getElementById("statAchievements").innerText = Object.keys(state.achievements).length + "/" + achievementsShown(state).length;
 
   const mastery = calculateMastery(state);
   document.getElementById("masteryStars").textContent = "⭐".repeat(mastery.stars);
@@ -36,7 +36,7 @@ function updateStats() {
     <div>📚 ${"إتقان الحفظ"}: <strong>${mastery.mastered} ${"متقنة من"} ${mastery.seen} ${"بيتاً مرئياً"}</strong></div>
     <div>🗺️ ${"التقدم في المنظومة"}: <strong>${mastery.progress}%</strong></div>
     <div>🔥 ${"الالتزام"}: <strong>${mastery.commitment}%</strong></div>
-    <div>🏆 ${"الإنجازات"} (${"لا تدخل في الإتقان"}): <strong>${mastery.details.achievements}/${ACHIEVEMENTS.length}</strong></div>
+    <div>🏆 ${"الإنجازات"} (${"لا تدخل في الإتقان"}): <strong>${mastery.details.achievements}/${achievementsShown(state).length}</strong></div>
   `;
 }
 /* دليل أول زيارة للوالد: يظهر مرة واحدة على هذا الجهاز ثم يُخفى */
@@ -166,7 +166,7 @@ function shareResult() {
     ["⭐ النقاط", state.points || 0],
     ["🔥 السلسلة", (state.streak||0) + " أيام"],
     ["📚 محطات مكتملة", content.journeyData.filter(s => getStationStatus(s) === "completed").length + " / " + content.journeyData.length],
-    ["🏆 إنجازات", Object.keys(state.achievements).length + " / " + ACHIEVEMENTS.length],
+    ["🏆 إنجازات", Object.keys(state.achievements).length + " / " + achievementsShown(state).length],
     ["🎯 مستوى الإتقان", mastery.percent + "%"]
   ];
   ctx.font = "bold 24px 'Segoe UI',Tahoma";
@@ -296,6 +296,10 @@ function renderParentAlerts() {
   }
   if (typeof contentPrevInfo === "function") { const c = contentPrevInfo(); if (c) out.push(c); }
   const b = backupReminderHTML(); if (b) out.push(b);
+  // v106 (قرار فراس): «سمّعه الآن» اختياري، ويُذكَّر به الوالد إذا تجمّعت أبيات جاهزة له
+  const ready = typeof pcReadyList === "function" ? pcReadyList().length : 0;
+  if (ready >= PC_REMIND_AT) out.push(`<div class="parent-alert" id="pcRemind">🎙️ عند ${escapeHtml(getUserName())} ${arCount(ready, "بيت واحد جاهز", "بيتان جاهزان", "أبيات جاهزة", "بيتاً جاهزاً")} للتسميع. تسميعك ${gForm("له", "لها")} بلا فتح ينقلها إلى «يحفظ غيباً».
+    <div class="parent-alert-btns"><button class="tool-btn" onclick="pcStart()">🎙️ سمّعه الآن</button></div></div>`);
   if (iosNeedsInstall()) out.push(`<div class="parent-alert">${iosInstallHTML((users || []).some(u => Object.keys((u.state && u.state.seenVerses) || {}).length))}</div>`);
   box.innerHTML = out.join("");
   // حزمة الصوت: كانت تنبثق للطفل بعد إنشاء ملفه؛ صارت تنبيهاً هنا للوالد
@@ -323,6 +327,19 @@ function iosInstallHTML(hasProgress) {
   return `📱 <strong>على الآيفون والآيباد:</strong> أضف التطبيق إلى الشاشة الرئيسية، فإن بقي في Safari قد يُمسح تقدّم الأطفال إن لم يُفتح أياماً.
     الطريقة: زر المشاركة في Safari، ثم «إضافة إلى الشاشة الرئيسية»، ثم افتحه من أيقونته.` +
     (hasProgress ? `<br>للأطفال تقدّم هنا: احفظ نسخة احتياطية أولاً، ثم استعدها داخل التطبيق بعد إضافته، لأن الآيفون يفصل بينهما.` : "");
+}
+
+const PC_REMIND_AT = 5;
+/* v106: نقطة حمراء على زر «للوالدين» إن كان فيه ما ينتظر الوالد (تسميع أو نسخة احتياطية) */
+function parentNeedsAttention() {
+  try {
+    const ready = typeof pcReadyList === "function" ? pcReadyList().length : 0;
+    return ready >= PC_REMIND_AT || !!backupReminderHTML();
+  } catch (e) { return false; }
+}
+function updateParentDot() {
+  const b = document.getElementById("parentEntryBtn");
+  if (b) b.classList.toggle("has-alert", parentNeedsAttention());
 }
 
 /* v105: تذكير بالنسخة الاحتياطية: كل شيء على هذا الجهاز وحده (النسخ التلقائي في أندرويد معطّل للخصوصية) */

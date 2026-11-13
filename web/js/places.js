@@ -2,8 +2,8 @@
 let geoAnim = false;
 
 function placeVisitOpen(v) {
-  const sid = v.ref.split("v")[0];
-  const st = content.journeyData.find(s => s.id === sid);
+  // v106: المحطة من مكان البيت فعلاً، لا من شكل معرّفه (المعرّف ثابت ولو نُقل البيت)
+  const st = content.journeyData.find(s => s.verses.some(x => x.id === v.ref));
   return !!st && getStationStatus(st) !== "locked";
 }
 function showPlacesMap() {

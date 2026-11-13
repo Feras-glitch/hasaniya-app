@@ -71,22 +71,53 @@ function hideMask(v, level) {
 function stationMastery(st) {
   return { done: masteredCount(state, st.verses), total: st.verses.length };
 }
+/* v106 (من الدفعة «ز»): سُلّم الإخفاء بالضغط: يقول الطفل الكلمة المخفية في نفسه ثم يضغطها فتظهر.
+   بلا كتابة (ابن السادسة لا يكتب، والكتابة المشكولة على الهاتف صعبة على الجميع). الضغط تدريب بحكم الطفل
+   على نفسه، فلا يغيّر الصندوق (كـ«تذكّرتُه»)؛ والكتابة باقية لمن أرادها، وهي التي ترفع الصندوق */
+let hideTap = null;
+function hideTapMode() {
+  if (hideTap === null) hideTap = typeof isSmallKid === "function" && isSmallKid();
+  return hideTap;
+}
+function hideSetMode(tap) { hideTap = !!tap; if (hideState) renderHideLevel(hideState.v, hideState.level); }
 function renderHideLevel(v, level) {
   const mask = hideMask(v, level);
+  const tap = hideTapMode();
   const parts = v.words.map((w, i) => {
     if (!mask[i]) return `<span class="hide-shown">${escapeHtml(w)}</span>`;
     const hint = level === 2 ? normalizeArabic(w).charAt(0) : "";
+    if (tap) return `<button class="hide-tap" data-i="${i}" onclick="hideReveal(this)">${escapeHtml(hint ? hint + "…" : "؟")}</button>`;
     return `<input class="hide-in" data-i="${i}" placeholder="${escapeForAttr(hint || "…")}" autocomplete="off">`;
   }).join(" ");
-  hideState = { v, level };
+  hideState = { v, level, peeks: 0 };
   openHub(`🧩 إخفاء تدريجي — المستوى ${level} من 3`, `
+    <div class="hide-mode">${tap ? gForm("قل الكلمة في نفسك، ثم اضغطها لترى هل أصبت", "قولي الكلمة في نفسكِ، ثم اضغطيها لتري هل أصبتِ") : ""}
+      <button class="tool-btn" onclick="hideSetMode(${tap ? "false" : "true"})">${tap ? "⌨️ بالكتابة" : "👆 بالضغط"}</button></div>
     <div class="hide-verse">${parts}</div>
     <div id="hideMsg" style="min-height:26px;font-weight:bold;margin:8px 0"></div>
-    <div class="hub-actions"><button class="action-btn btn-success" onclick="checkHideLevel()">تحقّق ✔️</button></div>`);
-  setTimeout(() => { const f = document.querySelector(".hide-in"); if (f) f.focus(); }, 100);
+    <div class="hub-actions"><button class="action-btn btn-success" onclick="checkHideLevel()">${tap ? "أنهيت ✔️" : "تحقّق ✔️"}</button></div>`);
+  if (!tap) setTimeout(() => { const f = document.querySelector(".hide-in"); if (f) f.focus(); }, 100);
+}
+function hideReveal(btn) {
+  if (!hideState || btn.classList.contains("shown")) return;
+  btn.textContent = hideState.v.words[+btn.dataset.i];
+  btn.classList.add("shown");
+  hideState.peeks++;
 }
 function checkHideLevel() {
   const { v, level } = hideState;
+  const body0 = document.getElementById("hubBody");
+  if (body0 && body0.querySelector(".hide-tap")) {
+    // بالضغط: يُكشف ما بقي مخفياً، والنقاط مرة في اليوم، ولا تغيير في الصندوق
+    body0.querySelectorAll(".hide-tap:not(.shown)").forEach(b => { b.textContent = v.words[+b.dataset.i]; b.classList.add("shown"); });
+    body0.querySelectorAll(".hide-next").forEach(b => b.remove());
+    if (firstCreditToday("hidetap|" + level + "|" + v.id)) addPoints(level);
+    saveState(); playSuccess();
+    document.getElementById("hideMsg").innerHTML = `<span style="color:var(--success)">✅ ${escapeHtml(guideVocative())}، ${gForm("أحسنتَ", "أحسنتِ")}! ${gForm("قارِن ما قلتَه بالكلمات الظاهرة", "قارِني ما قلتِه بالكلمات الظاهرة")}</span>`;
+    const label = level < 3 ? "المستوى التالي ⬅️" : "بيت جديد 🎲";
+    body0.insertAdjacentHTML("beforeend", `<button class="action-btn btn-success hide-next" style="width:100%" onclick="${level < 3 ? `renderHideLevel(hideState.v, ${level + 1})` : "startHideLevels()"}">${label}</button>`);
+    return;
+  }
   let wrong = 0;
   document.querySelectorAll(".hide-in").forEach(inp => {
     const ok = normalizeArabic(inp.value) === normalizeArabic(v.words[+inp.dataset.i]) && inp.value.trim() !== "";

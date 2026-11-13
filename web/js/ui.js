@@ -79,7 +79,7 @@ function trainMistake(i) {
 }
 function showAchievements() {
   const grid = document.getElementById("achievementsGrid");
-  grid.innerHTML = ACHIEVEMENTS.map(a => {
+  grid.innerHTML = achievementsShown(state).map(a => {
     const u = !!state.achievements[a.id];
     return `<div class="ach-card ${u?'':'locked'}">
       <div class="ach-icon">${u?a.icon:"🔒"}</div>

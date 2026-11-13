@@ -9,13 +9,21 @@ const ACHIEVEMENTS = [
   {id:"points500", icon:"🌟", name:"خمسمئة نقطة", desc:"اجمع 500 نقطة", check:s=>(s.points||0)>=500},
   {id:"perfect", icon:"✨", name:"بلا أخطاء", desc:"جلسة كاملة دون خطأ", check:s=>(s.stats?.perfectSessions||0)>=1},
   {id:"reviewer", icon:"🧠", name:"مراجع مجتهد", desc:"5 جلسات مراجعة", check:s=>(s.stats?.reviewSessions||0)>=5},
-  {id:"time30", icon:"⏱️", name:"مثابر الوقت", desc:"30 دقيقة تدريب", check:s=>(s.totalTimeSeconds||0)>=1800},
+  // v106 (قرار فراس): «مثابر الوقت» كان يكافئ طول الجلوس أمام الشاشة؛ لا يُمنح بعد اليوم، ويبقى لمن أخذه.
+  // وحلّ محله «مواظب»: المكافأة على المواظبة على درس اليوم
+  {id:"time30", icon:"⏱️", name:"مثابر الوقت", desc:"30 دقيقة تدريب", retired:true, check:()=>false},
+  {id:"steady7", icon:"📅", name:"مواظب", desc:"أكمل درس اليوم في 7 أيام", check:s=>(s.lessonDays||0)>=7},
   {id:"sharer", icon:"📸", name:"سفير", desc:"شارك نتيجتك", check:s=>(s.stats?.shared||0)>=1}
 ];
 
+/* الأوسمة الظاهرة للطفل: كل الأوسمة، والمتقاعد منها لمن أخذه فقط */
+function achievementsShown(s) {
+  const got = (s && s.achievements) || {};
+  return ACHIEVEMENTS.filter(a => !a.retired || got[a.id]);
+}
 function checkAchievements() {
   ACHIEVEMENTS.forEach(a => {
-    if (state.achievements[a.id]) return;
+    if (a.retired || state.achievements[a.id]) return;
     try {
       if (a.check(state)) {
         state.achievements[a.id] = {unlockedAt: Date.now()};

@@ -32,11 +32,15 @@ function hemistichSplit(id, words) {
   return cands.length ? cands[0] : Math.ceil(n / 2);
 }
 
+/* v106: معرّف البيت ثابت في آخر سطره (البيت||الحدث||المعرّف)، ورقمه في الكتاب (n) من ترتيب الأسطر.
+   سطر بلا معرّف (محتوى قديم أو خطأ) يأخذ المعرّف المحسوب من موضعه مع تحذير، حتى لا يتوقف التطبيق */
+const VERSE_ID_RE = /^[a-z][a-z0-9]{1,19}$/i;
 function parseManzumah(rawText, stories, explanations) {
   stories = stories || {};
   explanations = explanations || {};
   const stations = [];
-  let current = null, counter = 0;
+  let current = null, counter = 0, bookNo = 0;
+  const usedIds = new Set();
 
   rawText.split("\n").map(l => l.trim()).filter(Boolean).forEach(line => {
     if (line.startsWith("@")) {
@@ -55,8 +59,14 @@ function parseManzumah(rawText, stories, explanations) {
     const words = fullVerse.split(/\s+/).filter(Boolean);
     if (words.length < 2) return;
 
-    counter++;
-    const id = current.id + "v" + counter;
+    counter++; bookNo++;
+    const fixedId = (p[2] || "").trim();
+    let id = fixedId;
+    if (!VERSE_ID_RE.test(fixedId) || usedIds.has(fixedId)) {
+      id = current.id + "v" + counter;
+      PARSE_WARNINGS.push(fixedId ? `معرّف غير صالح أو مكرر «${fixedId}» للبيت ${bookNo}` : `البيت ${bookNo} بلا معرّف ثابت`);
+    }
+    usedIds.add(id);
     let st = stories[id];
     let shared = false;
     // قصة واحدة قد تغطي عدة أبيات: البيت التابع يحيل إلى بيت القصة بـ share
@@ -73,7 +83,7 @@ function parseManzumah(rawText, stories, explanations) {
       }
     }
     current.verses.push({
-      id, type: "word_order", fullVerse,
+      id, n: bookNo, type: "word_order", fullVerse,
       words: words.slice(), correctOrder: words.slice(), half: hemistichSplit(id, words),
       event: (p[1] || "").trim() || current.title,
       meaning: explanations[id] || "",

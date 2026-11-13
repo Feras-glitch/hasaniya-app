@@ -20,7 +20,7 @@
       <span id="appTitle">رحلة السيرة 🧭</span>
     </div>
     <div class="header-right">
-      <button class="user-chip" id="userChip" onclick="requirePin(showUsersModal,'إدارة المستخدمين')">
+      <button class="user-chip" id="userChip" onclick="showKidPicker()" aria-label="من يلعب الآن؟">
         <span id="userAvatar">🦁</span>
         <span class="user-name" id="userName">طفلي</span>
       </button>
@@ -198,6 +198,7 @@
         <button class="action-btn btn-warn" onclick="requirePin(managePin,'إدارة الرقم السري')">🔐 الرقم السري</button>
         <button class="action-btn btn-parent" onclick="requirePin(showUsersModal,'إدارة المستخدمين')">👥 المستخدمون</button>
         <button class="action-btn btn-info" onclick="requirePin(openSignature,'توقيع الوالد')">✍️ توقيع الوالد</button>
+        <button class="action-btn btn-parent" onclick="openDeviceMove()">📦 نقل إلى جهاز آخر</button>
       </div>
     </details>
 
@@ -353,7 +354,10 @@
       <div id="secBox" class="sec-box">
         <div class="sec-title">🔁 التسميع المتصل: القصيدة من أولها إلى آخر ما حُفظ، في تسجيل واحد</div>
         <select id="secRange" onchange="renderSectionStatus()" style="width:100%;padding:8px;border-radius:10px;font-family:inherit"></select>
-        <button class="tool-btn" id="secShowBtn" onclick="secToggleText()" style="width:100%;margin-top:6px">👁️ أظهر النص</button>
+        <div class="controls sec-help">
+          <button class="tool-btn" id="secNextBtn" onclick="secRevealNext()">💡 الشطر التالي</button>
+          <button class="tool-btn" id="secShowBtn" onclick="secToggleText()">👁️ أظهر النص</button>
+        </div>
         <div id="secText" class="sec-text" hidden></div>
         <div id="secStatus" class="rec-count"></div>
         <div class="controls">
