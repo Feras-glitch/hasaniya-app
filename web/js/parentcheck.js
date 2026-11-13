@@ -15,6 +15,8 @@ function pcCandidates() {
     if (v && !seen.has(v.id) && state.seenVerses && state.seenVerses[v.id]) { seen.add(v.id); out.push({ si, vi, v }); }
   };
   (typeof leitnerDueVerses === "function" ? leitnerDueVerses() : []).forEach(d => add(d.stationIndex, d.verseIndex));
+  // v105: ما بلغ الصندوق الخامس جاهز لتسميعك: «بلا فتح» ينقله إلى المراجعة البعيدة (كل 32 ثم 64 يوماً)
+  pcReadyList().forEach(([si, vi]) => add(si, vi));
   const learned = [];
   content.journeyData.forEach((st, si) => st.verses.forEach((v, vi) => { if (state.seenVerses && state.seenVerses[v.id]) learned.push([si, vi]); }));
   learned.slice(-5).reverse().forEach(([si, vi]) => add(si, vi));
@@ -26,6 +28,14 @@ function pcLastText() {
   const days = Math.floor((Date.now() - Math.max(...all)) / 86400000);
   return days <= 0 ? "آخر تسميع منك: اليوم" : days === 1 ? "آخر تسميع منك: أمس" : `آخر تسميع منك: قبل ${arCount(days, "يوم", "يومين", "أيام", "يوماً")}`;
 }
+function pcReadyList() {
+  const out = [];
+  content.journeyData.forEach((st, si) => st.verses.forEach((v, vi) => {
+    const e = (state.leitner || {})[v.id];
+    if (e && e.box === LEITNER_SOLO_MAX) out.push([si, vi]);
+  }));
+  return out;
+}
 /* بطاقة في منطقة الوالدين: خطة اليوم وزر التسميع */
 function renderParentCheckCard() {
   const box = document.getElementById("parentCheckCard"); if (!box) return;
@@ -33,6 +43,7 @@ function renderParentCheckCard() {
   const started = Object.keys(state.seenVerses || {}).length > 0;
   box.innerHTML = `<div class="pc-card">
     <div><strong>📅 اليوم:</strong> ${due ? `${arCount(due, "بيت واحد حان موعد مراجعته", "بيتان حان موعد مراجعتهما", "أبيات حان موعد مراجعتها", "بيتاً حان موعد مراجعتها")}، ثم درس جديد` : (started ? "لا مراجعة مستحقة؛ درس جديد" : "لم يبدأ الحفظ بعد")}</div>
+    ${pcReadyList().length ? `<div class="rec-count">🌟 ${arCount(pcReadyList().length, "بيت واحد جاهز", "بيتان جاهزان", "أبيات جاهزة", "بيتاً جاهزاً")} لتسميعك: «بلا فتح» ينقله إلى المراجعة البعيدة.</div>` : ""}
     <div class="rec-count">${escapeHtml(pcLastText())}. التسميع منك هو الدليل الأصدق على الحفظ.</div>
     <button class="action-btn btn-success" style="width:100%;margin-top:6px" onclick="pcStart()" ${started ? "" : "disabled"}>🎙️ سمّعه الآن</button>
   </div>`;

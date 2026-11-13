@@ -12,6 +12,8 @@ function exportBackup() {
     a.href = url; a.download = "hasaniya_backup_" + new Date().toISOString().slice(0, 10) + ".json";
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
+    try { localStorage.setItem(STORAGE_LAST_BACKUP, String(Date.now())); } catch (e) {}
+    if (typeof renderParentAlerts === "function") renderParentAlerts();
     showToast("تم تجهيز النسخة الاحتياطية", "success");
   } catch(e) { showToast("تعذّر تجهيز النسخة", "error"); }
 }

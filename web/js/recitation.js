@@ -113,6 +113,8 @@ async function recStart(verseId, onDone, opts) {
         const row = { key: sk, verseId: rid || vid, kind, uid: isAuthor ? "author" : activeUserId, mime: type, blob, fp, source: src, at: Date.now() };
         if (rtext) row.text = rtext;
         await recPut(row);
+        // v105: تسجيلات المعلم/الوالد عمل ساعات على هذا الجهاز وحده: تُعدّ حتى يُذكَّر بتصديرها
+        if (isAuthor) { try { localStorage.setItem(STORAGE_RECS_SINCE, String((+localStorage.getItem(STORAGE_RECS_SINCE) || 0) + 1)); } catch (e) {} }
         if (!isAuthor && typeof guideOnRecorded === "function") guideOnRecorded(kind);
         if (chk && typeof vpQualityCheck === "function") vpQualityCheck(sk, blob, mx);
       } catch(e) { showToast("تعذّر حفظ التسجيل على هذا المتصفح، لم يُحفظ", "error"); }
@@ -343,16 +345,21 @@ async function playReview(rangeKey) {
 }
 
 /* صوت الوالد للقصة: يُسمع بدل القراءة الآلية إن وُجد */
-async function playStoryAudio(v) {
+async function playStoryAudio(v, opts) {
+  opts = opts || {};
   if (!v || !v.story) return;
+  // v105: القصة نفسها سُمعت مع البيت السابق، فلا تُعاد إلا إذا طلبها الطفل
+  if (!opts.force && typeof storySameAsPrev === "function" && storySameAsPrev(v)) return;
   if (!audioBegin()) return;
   const token = seqToken;
   const rec = await authorRecFor("story", v);
   if (token !== seqToken) return;
+  // الصغير بلا تسجيل للقصة يسمع أول جملتين فقط؛ تسجيل المعلم يُسمع كاملاً لأنه بصوت بشري
+  const short = !rec && !opts.force && typeof isSmallKid === "function" && isSmallKid() && typeof storyShortPart === "function" ? storyShortPart(v.story) : "";
   if (rec) {
     seqAudio = blobAudio(rec.blob);
-    audioPlayEl(seqAudio).catch(() => { if (token === seqToken) speakQueue([v.story]); });
-  } else speakQueue([v.story]);
+    audioPlayEl(seqAudio).catch(() => { if (token === seqToken) speakQueue([short || v.story]); });
+  } else speakQueue([short || v.story]);
 }
 
 /* عرض تنبيه لطيف بعد كل بيت جديد يقترح التسميع المتصل */
@@ -551,6 +558,7 @@ function importEvaluation(rawDoc) {
 /* تشغيل البيت ثم القصة (بصوت الوالد إن وُجد) */
 /* يعيد true إن سُمع حتى آخره، وfalse إن قُطع (ضغط الطفل 🔊 من جديد أو غادر)، فلا يُبنى عليه ما بعده */
 async function playVerseAndStory(v, withStory) {
+  if (withStory && typeof storySameAsPrev === "function" && storySameAsPrev(v)) withStory = false;   // v105: القصة المكررة لا تُعاد
   if (!audioBegin()) return false;
   const token = seqToken;
   const vrec = await authorRecFor("verse", v, true);

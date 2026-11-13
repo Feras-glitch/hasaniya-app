@@ -12,7 +12,7 @@ const { chromium } = require('playwright');
     const vis = c => getComputedStyle(document.getElementById(c) || document.body).display !== 'none';
     // 1) الإغلاق بـ ✕ و appDismiss
     for (const how of ['close', 'dismiss']) {
-      state.versePositions[content.journeyData[4].id] = 0; saveState(); showMap(); startDailyLesson();
+      state.versePositions[content.journeyData[4].id] = 0; state.dayPlan = null; saveState(); showMap(); startDailyLesson();
       for (let k = 0; k < 3; k++) { await w(40); nextVerse(); }
       await w(100);
       const shown = document.getElementById('hubPopup').classList.contains('active');

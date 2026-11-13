@@ -15,6 +15,34 @@ const TOOLS = [
   {icon: "📜", name: "الأبيات", fn: "showPoem"},
   {icon: "🎤", name: "تسجيلاتي", fn: "openRecPopup"}
 ];
+/* v105: «🎮 العب» في شاشة الطفل: أنشطة يختارها الوالد لكل طفل (الافتراضي ثلاثة، واثنان للصغير).
+   و«المراجعة» و«الأدوات» كاملتين في «المزيد» لا تظهران إلا إذا سمح بهما الوالد */
+const PLAY_ACTIVITIES = {
+  riddles: { icon: "🧩", name: "الألغاز", fn: "startRiddles" },
+  mistakes: { icon: "🎯", name: "مراجعة الأخطاء", fn: "startReview" },
+  timeline: { icon: "🕰️", name: "ترتيب الأحداث", fn: "showTimeline" },
+  boxes: { icon: "🗃️", name: "صناديق الحفظ", fn: "showLeitnerBoxes" },
+  stationOrder: { icon: "🔀", name: "رتّب المحطات", fn: "startStationOrder" },
+  places: { icon: "🌍", name: "أماكن القصص", fn: "showPlacesMap" },
+  hide: { icon: "🙈", name: "إخفاء تدريجي", fn: "startHideLevels" },
+  recall: { icon: "🔑", name: "تذكّر", fn: "showRecallMenu" },
+  glossary: { icon: "📜", name: "الغريب", fn: "showGlossary" },
+  poem: { icon: "📖", name: "الأبيات", fn: "showPoem" },
+  recordings: { icon: "🎤", name: "تسجيلاتي", fn: "openRecPopup" },
+  achievements: { icon: "🏆", name: "إنجازاتي", fn: "showAchievementsHub" }
+};
+function playSetOf(s) {
+  s = s || state;
+  const list = Array.isArray(s && s.playSet) ? s.playSet.filter(k => PLAY_ACTIVITIES[k]) : null;
+  if (list && list.length) return list;
+  return typeof isSmallKid === "function" && isSmallKid() ? ["riddles", "mistakes"] : ["riddles", "mistakes", "timeline"];
+}
+function openPlayHub() {
+  const tiles = playSetOf().map(k => { const a = PLAY_ACTIVITIES[k];
+    return `<button class="hub-tile" onclick="openTool('${a.fn}')"><span>${a.icon}</span>${escapeHtml(a.name)}</button>`; }).join("");
+  openHub("🎮 العب", `<div class="hub-grid">${tiles}</div>`);
+}
+function applyHomeMode() { document.body.classList.toggle("simple-home", !(state && state.allActivities)); }
 function showTools() {
   openHub("🧰 أدوات", `<div class="hub-grid">${TOOLS.map(t =>
     `<button class="hub-tile" onclick="openTool('${t.fn}')"><span>${t.icon}</span>${escapeHtml(t.name)}</button>`).join("")}</div>`);
@@ -37,7 +65,9 @@ function renderScene(v) {
   const img = document.getElementById("storyImg");
   if (!img) return;
   const src = (typeof SCENES !== "undefined") ? SCENES[v.id] : null;
-  if (src) { img.src = src; img.style.display = "block"; } else { img.removeAttribute("src"); img.style.display = "none"; }
+  // v105: الصورة نفسها ظاهرة أعلى الدرس، فلا تتكرر داخل بطاقة القصة
+  const shown = !!document.querySelector("#gameArea .scene-img") && document.getElementById("gameScreen").style.display !== "none";
+  if (src && !shown) { img.src = src; img.style.display = "block"; } else { img.removeAttribute("src"); img.style.display = "none"; }
 }
 /* القصة الطويلة تُعرض أولاً حتى نهاية جملة قريبة، ثم «أكمل القصة» لمن أراد. الاستماع يقرأ القصة كاملة */
 const STORY_FOLD = 230;
@@ -54,12 +84,41 @@ function setStoryText(el, story) {
   el.appendChild(document.createElement("br"));
   el.appendChild(more);
 }
+/* v105: 24 قصة تتكرر على 67 بيتاً (قصة بحيرى بعد سبعة أبيات متتالية)؛ فإن كانت قصة البيت هي قصة البيت قبله
+   في المحطة نفسها لا تُعاد قراءتها، وتظهر مطويّة، ويكفي شرح البيت لبيان ما أضافه */
+function storySameAsPrev(v) {
+  if (!v || !v.story) return false;
+  for (const st of content.journeyData) {
+    const i = st.verses.findIndex(x => x.id === v.id);
+    if (i >= 0) return i > 0 && st.verses[i - 1].story === v.story;
+  }
+  return false;
+}
+/* v105: القصة القصيرة للصغير: أول جملتين، والباقي بزر */
+function storyShortPart(story) {
+  const parts = String(story || "").match(/[^.!؟]+[.!؟]*/g) || [];
+  return parts.length > 2 ? parts.slice(0, 2).join("").trim() : "";
+}
 function renderStoryContent(v) {
   if (typeof markStoryRead === "function") markStoryRead(v.id);
   renderScene(v);
   renderKhilaf(v);
   if (typeof guideCampfire === "function") guideCampfire();
-  setStoryText(document.getElementById("storyText"), v.story || "");
+  const el = document.getElementById("storyText");
+  const short = typeof isSmallKid === "function" && isSmallKid() ? storyShortPart(v.story) : "";
+  if (storySameAsPrev(v)) {
+    el.innerHTML = `<div class="story-same">📖 ${escapeHtml(kidLine("storySame"))}</div>`;
+    const more = document.createElement("button");
+    more.className = "tool-btn story-more"; more.type = "button"; more.textContent = "📖 القصة كاملة";
+    more.onclick = () => { setStoryText(el, v.story || ""); if (typeof playStoryAudio === "function") playStoryAudio(v, { force: true }); };
+    el.appendChild(more);
+  } else if (short) {
+    el.textContent = short;
+    const more = document.createElement("button");
+    more.className = "tool-btn story-more"; more.type = "button"; more.textContent = "📖 أكمل القصة";
+    more.onclick = () => { el.textContent = v.story; };
+    el.appendChild(document.createElement("br")); el.appendChild(more);
+  } else setStoryText(el, v.story || "");
   const srcs = (v.sources && v.sources.length) ? v.sources : (v.source ? [v.source] : []);
   document.getElementById("storySource").innerHTML =
     (srcs.length ? srcs.map(escapeHtml).join("<br>• ") : "غير موثق") + docGradeHtml(v) + noteHtml(v) + quranHtml(v);
@@ -94,19 +153,27 @@ const EVENT_STOP = new Set(["نبي", "رسول", "الله", "صلي", "علي�
 function eventWords(e) {
   return new Set(normalizeArabic(e).split(" ").map(t => t.replace(/^(و|ف|ب|ل)?ال/, "")).filter(t => t.length >= 3 && !EVENT_STOP.has(t)));
 }
+/* v105: كان الجواب الصحيح يشارك البيتَ لفظاً في 43% من الأبيات («ففرّ» ← «فرار الصحابة») والمشتّتات من محطات بعيدة،
+   فيُحلّ السؤال بمطابقة الكلمة. الآن يُقدَّم من المشتّتات ما يشارك البيت لفظاً أيضاً، ومن المحطة نفسها أو المجاورة،
+   ولا يُختار حدث بيتٍ قصتُه قصةُ هذا البيت، ولا حدثٌ يشارك الجوابَ لفظاً (فلا يكون للسؤال جوابان). */
+function eventLexShare(a, b) {
+  return [...a].some(x => [...b].some(y => x.length >= 3 && y.length >= 3 && (x === y || x.includes(y) || y.includes(x))));
+}
 function eventChoicesFor(v) {
-  const mine = eventWords(v.event);
-  const home = content.journeyData.find(st => st.verses.some(x => x.id === v.id));
-  const far = [], near = [];
-  content.journeyData.forEach(st => st.verses.forEach(x => {
-    if (x.id === v.id || !x.event || normalizeArabic(x.event) === normalizeArabic(v.event)) return;
-    if (far.includes(x.event) || near.includes(x.event)) return;
-    const overlap = [...eventWords(x.event)].some(t => mine.has(t));
-    (st !== home && !overlap ? far : near).push(x.event);
+  const mine = eventWords(v.event), verseW = eventWords(v.fullVerse || "");
+  const homeSi = content.journeyData.findIndex(st => st.verses.some(x => x.id === v.id));
+  const seen = new Set([normalizeArabic(v.event)]), cand = [];
+  content.journeyData.forEach((st, si) => st.verses.forEach(x => {
+    if (x.id === v.id || !x.event) return;
+    const key = normalizeArabic(x.event); if (seen.has(key)) return; seen.add(key);
+    if (v.story && x.story === v.story) return;
+    const ew = eventWords(x.event);
+    if (eventLexShare(ew, mine)) return;
+    const score = (eventLexShare(ew, verseW) ? 2 : 0) + (si === homeSi ? 1 : Math.abs(si - homeSi) === 1 ? 0.5 : 0) + Math.random() * 0.6;
+    cand.push({ e: x.event, score });
   }));
-  const pick = far.sort(() => Math.random() - .5).slice(0, 2);
-  if (pick.length < 2) pick.push(...near.sort(() => Math.random() - .5).slice(0, 2 - pick.length));
-  return [v.event, ...pick].sort(() => Math.random() - .5);
+  cand.sort((a, b) => b.score - a.score);
+  return [v.event, ...cand.slice(0, 2).map(c => c.e)].sort(() => Math.random() - .5);
 }
 /* قبل القصة: سؤال واحد عن حدث البيت، ثم تظهر القصة مباشرة */
 function askEventBeforeStory(v) {
@@ -124,6 +191,8 @@ function answerEventQ(btn, chosen, vid) {
   const v = content.journeyData.flatMap(st => st.verses).find(x => x.id === vid);
   if (!v) return;
   document.querySelectorAll("#storyText .word-btn").forEach(b => b.disabled = true);
+  // v105: فقاعة «ماذا حدث هنا؟» تُغلق بعد الإجابة، وكانت تبقى فوق سطر من القصة
+  if (typeof guideHidePanel === "function") guideHidePanel();
   const good = chosen === v.event;
   btn.classList.add(good ? "success" : "fail");
   // v104: الخطأ يعلّم: يُضاء الجواب الصحيح، ويظهر الشرح بعد الإجابة لا قبلها
@@ -188,7 +257,7 @@ function browseNext() {
 const PREFS_KEY = "hasaniya_prefs";
 /* night و reduceMotion: null = حسب إعداد الجهاز، true/false = اختيار الطفل أو الوالد */
 function getPrefs() {
-  const d = { rate: "normal", big: false, night: null, reduceMotion: null, parentLang: "ar" };
+  const d = { rate: "normal", big: false, night: null, reduceMotion: null, systemFont: false };
   try { return Object.assign(d, JSON.parse(localStorage.getItem(PREFS_KEY) || "{}")); }
   catch(e) { return d; }
 }
@@ -209,7 +278,7 @@ function applyPrefs() {
   document.body.classList.toggle("text-big", !!p.big);
   document.body.classList.toggle("night", dark);
   document.body.classList.toggle("reduce-motion", still);
-  if (typeof setParentLang === "function") setParentLang(p.parentLang || "ar");
+  document.body.classList.toggle("system-font", !!p.systemFont);
 }
 /* يتابع تغيّر إعداد الجهاز ما دام الطفل لم يختر بنفسه */
 if (window.matchMedia) {
@@ -235,8 +304,8 @@ function renderSettings() {
       ${btn("حسب الجهاز", p.night === null || p.night === undefined, "setPref('night',null)")}${btn("إيقاف", p.night === false, "setPref('night',false)")}${btn("تشغيل", p.night === true, "setPref('night',true)")}</div></div>
     <div class="set-row"><div class="set-label">🎞️ تقليل الحركة</div><div class="word-bank">
       ${btn("حسب الجهاز", p.reduceMotion === null || p.reduceMotion === undefined, "setPref('reduceMotion',null)")}${btn("إيقاف", p.reduceMotion === false, "setPref('reduceMotion',false)")}${btn("تشغيل", p.reduceMotion === true, "setPref('reduceMotion',true)")}</div></div>
-    <div class="set-row"><div class="set-label">🌐 لغة واجهة الأسرة (المحتوى يبقى عربياً)</div><div class="word-bank">
-      ${btn("العربية", p.parentLang !== "en", "setPref('parentLang','ar')")}${btn("English", p.parentLang === "en", "setPref('parentLang','en')")}</div></div>
+    <div class="set-row"><div class="set-label">🔤 خط الأبيات</div><div class="word-bank">
+      ${btn("خط النسخ المضمّن", !p.systemFont, "setPref('systemFont',false)")}${btn("خط الجهاز", !!p.systemFont, "setPref('systemFont',true)")}</div></div>
     <div class="set-row"><div class="set-label">🏖️ وضع الإجازة لناجي</div><div class="word-bank">
       ${btn("إيقاف", !p.vacation, "setPref('vacation',false)")}${btn("تشغيل", !!p.vacation, "setPref('vacation',true)")}</div></div>
     <div class="set-row"><div class="set-label">🔔 تذكير لطيف بعد الغياب</div><div class="word-bank">
@@ -267,11 +336,8 @@ function toggleStationList() {
 }
 
 /* ---------- أكمل من حيث توقفت ---------- */
-function resumeJourney() {
-  const idx = content.journeyData.findIndex(s => { const st = getStationStatus(s); return st !== "completed" && st !== "locked"; });
-  if (idx < 0) { kidToast(kidLine("noOpenStation"), "error"); return; }
-  startStation(idx);
-}
+/* v105: «تابع الرحلة» يمر بالخطة اليومية نفسها: المراجعة أولاً ثم الجديد في حدّه */
+function resumeJourney() { startDailyLesson(); }
 
 /* ---------- قفزة إلى بيت في وضع التصفّح ---------- */
 function updateBrowsePanel() {

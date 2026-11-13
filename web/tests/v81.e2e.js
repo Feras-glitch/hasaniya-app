@@ -59,6 +59,7 @@ const { chromium } = require('playwright');
     content.journeyData.slice(0, 2).forEach(s => state.stationStatus[s.id] = 'completed');
     state.stationStatus[content.journeyData[2].id] = 'current';
     state.versePositions[content.journeyData[2].id] = 5;
+    state.dayPlan = null;   // v105: يوم جديد (سقف الجديد اليومي)
     startDailyLesson();
     for (let k = 0; k < 3; k++) nextVerse();
     out.hubOpen = document.getElementById('hubPopup').classList.contains('active');

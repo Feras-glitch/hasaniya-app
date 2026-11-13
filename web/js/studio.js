@@ -101,7 +101,7 @@ function pvRowHTML(it, rec) {
   const recording = recIsRecording("pv:" + it.key);
   const status = !rec ? ""
     : stale ? `<small class="rec-count" style="color:var(--danger)">⚠ النص تغيّر بعد التسجيل، أعد التسجيل</small>`
-    : `<small class="rec-count">${rec.source === "upload" ? "ملف مرفوع" : "مسجّل"}${rec.author ? " · من: " + escapeHtml(rec.author) : ""} · ${fmtBytes(rec.blob.size)}</small>`;
+    : `<small class="rec-count">${rec.source === "upload" ? "ملف مرفوع" : rec.source === "bundled" ? "مضمّن في التطبيق" : "مسجّل"}${rec.author ? " · من: " + escapeHtml(rec.author) : ""} · ${fmtBytes(rec.blob.size)}</small>`;
   const warn = rec && rec.q && rec.q.warnings && rec.q.warnings.length ? `<small class="rec-count" style="color:#b26a00">⚠ ${escapeHtml(rec.q.warnings.join("، "))}</small>` : "";
   return `<div class="rec-row${rec && !stale ? " pv-done" : ""}">
       <div class="rec-text">${it.n ? it.n + ". " : ""}${escapeHtml(it.text)}</div>

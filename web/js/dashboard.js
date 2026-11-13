@@ -31,6 +31,7 @@ function dashRow(d, now = Date.now()) {
     avatar: String(d.user.avatar || "👤").slice(0, 4),
     percent: Math.max(0, Math.min(100, Math.round(d.mastery.percent))),
     mastered: Math.max(0, Math.floor(+d.mastery.mastered || 0)), seen: Math.max(0, Math.floor(+d.mastery.seen || 0)),
+    confirmed: Math.max(0, Math.floor(+d.mastery.confirmed || 0)),
     completed: d.completedStations, total: d.totalStations,
     points: +d.points || 0, streak: +d.streak || 0, minutes: +d.totalTimeMinutes || 0,
     mistakes: Array.isArray(d.mistakes) ? d.mistakes.length : 0,
@@ -62,12 +63,12 @@ function dashWeakVerses(state, lookup, limit = 3) {
 function dashRowFromUser(u, when, now, lookup, mastery, totalStations) {
   const s = u.state || {};
   const exported = Date.parse(when) || 0;
-  let percent = 0, calcFailed = false, mastered = 0, seen = 0;
+  let percent = 0, calcFailed = false, mastered = 0, seen = 0, confirmed = 0;
   try {
     const p = mastery(u);
     const pc = p && typeof p === "object" ? p.percent : p;
     if (typeof pc === "number" && isFinite(pc)) percent = pc; else calcFailed = true;
-    if (p && typeof p === "object") { mastered = Math.max(0, Math.floor(+p.mastered || 0)); seen = Math.max(0, Math.floor(+p.seen || 0)); }
+    if (p && typeof p === "object") { mastered = Math.max(0, Math.floor(+p.mastered || 0)); seen = Math.max(0, Math.floor(+p.seen || 0)); confirmed = Math.max(0, Math.floor(+p.confirmed || 0)); }
   }
   catch(e) { calcFailed = true; }
   const status = s.stationStatus && typeof s.stationStatus === "object" ? s.stationStatus : {};
@@ -76,7 +77,7 @@ function dashRowFromUser(u, when, now, lookup, mastery, totalStations) {
     childId: isSafeId(u.id) ? u.id : "",
     avatar: String(u.avatar || "👤").slice(0, 4),
     percent: Math.max(0, Math.min(100, Math.round(percent))),
-    mastered, seen,
+    mastered, seen, confirmed,
     completed: Math.min(totalStations, Object.values(status).filter(v => v === "completed").length),
     total: totalStations,
     points: +s.points || 0, streak: +s.streak || 0,
@@ -190,7 +191,7 @@ function renderDashboard() {
     </tr></thead>
     <tbody>${dashSorted.map((r, i) => `<tr onclick="dashShow(${i})" style="border-bottom:1px solid #eee;cursor:pointer">
       <td style="padding:6px">${escapeHtml(r.avatar)} ${escapeHtml(r.name)}</td>
-      <td style="text-align:center"><strong>${r.mastered || 0}</strong><small style="color:#888">/${dashTotalVerses()}</small></td>
+      <td style="text-align:center"><strong>${r.mastered || 0}</strong><small style="color:#888">/${dashTotalVerses()}</small><br><small style="color:var(--success)" title="يحفظه غيباً بتسميع الوالد">✔ ${r.confirmed || 0}</small></td>
       <td style="text-align:center"><strong>${r.percent}%</strong>
         <div style="height:6px;background:#eee;border-radius:4px;margin-top:3px"><div style="height:6px;width:${r.percent}%;background:${r.percent < DASH_LOW_PERCENT ? "var(--danger)" : "var(--success)"};border-radius:4px"></div></div></td>
       <td style="text-align:center">${r.completed}/${r.total}</td>

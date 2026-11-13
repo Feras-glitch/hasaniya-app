@@ -54,7 +54,7 @@ function resetAll() {
   // v104: ما كان يبقى بعد التصفير
   state.meaningSeen = {}; state.activeDays = []; state.stampDates = {}; state.recEval = {};
   state.follow = {}; state.masteredNotified = {}; state.guideBadges = {};
-  state.quizResults = {}; state.parentChecks = {}; state.dailyReviewDay = null;
+  state.quizResults = {}; state.parentChecks = {}; state.dailyReviewDay = null; state.dayPlan = null;
   state.dailyLeft = null; state.dailyIds = [];
   if (content.journeyData.length > 0) state.stationStatus[content.journeyData[0].id] = "current";
   saveState();
@@ -90,14 +90,24 @@ function renderDailyCard() {
   const btn = document.getElementById("dailyMainBtn");
   if (!info || !btn) return;
   const idx = content.journeyData.findIndex(s => { const st = getStationStatus(s); return st !== "completed" && st !== "locked"; });
-  if (idx < 0) {
-    info.textContent = gForm("أكملتَ كل المحطات، أحسنتَ! 🎉", "أكملتِ كل المحطات، أحسنتِ! 🎉");
-    btn.disabled = true; return;
-  }
-  const st = content.journeyData[idx];
-  const pos = Math.min(state.versePositions[st.id] || 0, st.verses.length - 1);
-  info.textContent = `المحطة ${idx + 1}: ${st.title} · البيت ${pos + 1} من ${st.verses.length}`;
-  btn.disabled = false;
+  // v105: سطر خطة اليوم فوق الزر: ما يُراجَع وما يُتعلَّم، أو «أنهيتَ درس اليوم»
+  const due = typeof leitnerDueVerses === "function" ? leitnerDueVerses().length : 0;
+  const plan = dayPlanToday();
+  const revNow = plan.reviews < REVIEW_SESSIONS_PER_DAY ? Math.min(due, REVIEW_PER_SESSION) : 0;
+  const block = idx >= 0 ? newVerseBlockReason() : "allDone";
+  const newNow = block ? 0 : Math.max(0, Math.min(LESSON_MAX, newPerDayOf() - plan.newCount));
+  const parts = [];
+  if (revNow) parts.push(`مراجعة ${arCount(revNow, "بيت واحد", "بيتين", "أبيات", "بيتاً")}`);
+  if (newNow) parts.push(`${arCount(newNow, "بيت جديد", "بيتان جديدان", "أبيات جديدة", "بيتاً جديداً")}`);
+  let planText;
+  if (parts.length) planText = "اليوم: " + parts.join("، ثم ");
+  else if (block === "reviewOnlyToday") planText = gForm("اليوم للمراجعة فقط، وقد أنهيتَ جلستيها. أحسنتَ!", "اليوم للمراجعة فقط، وقد أنهيتِ جلستيها. أحسنتِ!");
+  else if (idx < 0) planText = gForm("أكملتَ كل المحطات، أحسنتَ! 🎉 ونراجع ما يحين موعده.", "أكملتِ كل المحطات، أحسنتِ! 🎉 ونراجع ما يحين موعده.");
+  else planText = gForm("أنهيتَ درس اليوم 🎉 نكمل غداً إن شاء الله.", "أنهيتِ درس اليوم 🎉 نكمل غداً إن شاء الله.");
+  const where = idx >= 0 ? (() => { const st = content.journeyData[idx]; const pos = Math.min(state.versePositions[st.id] || 0, st.verses.length - 1);
+    return `المحطة ${idx + 1}: ${st.title} · البيت ${pos + 1} من ${st.verses.length}`; })() : "";
+  info.innerHTML = `<div class="daily-plan">${escapeHtml(planText)}</div>${where ? `<div class="daily-where">${escapeHtml(where)}</div>` : ""}`;
+  btn.disabled = !parts.length;
 }
 function showMap() {
   if ("speechSynthesis" in window) window.speechSynthesis.cancel();
@@ -113,7 +123,7 @@ function showMap() {
   document.getElementById("backToMapBtn").style.display = "none";
   document.getElementById("eventBadge").classList.add("hidden");
   document.getElementById("progressBars").style.display = "none";
-  document.getElementById("appTitle").innerText = "خريطة السيرة 🧭";
+  document.getElementById("appTitle").innerText = "رحلة السيرة 🧭";
   updateUserChip();
   updatePointsDisplay();
   renderMap();
@@ -203,6 +213,12 @@ function loadVerse() {
 
   // بيت يراه الطفل أول مرة في درسه: يُعرض كاملاً ويُسمع قبل الترتيب
   const firstTime = playMode === MODE_NORMAL && !noCredit() && !state.seenVerses[verse.id];
+  // v105: بيت جديد له سقف يومي، ولا جديد إذا تراكمت المراجعة (من أي باب دخل الطفل)
+  if (firstTime) {
+    const why = newVerseBlockReason();
+    if (why) { showMap(); kidAnnounce(kidLine(why), "success"); return; }
+    dayPlanToday().newCount++;
+  }
   if (playMode === MODE_NORMAL && !noCredit()) {
     state.seenVerses[verse.id] = true;
   }
@@ -254,12 +270,19 @@ function loadVerse() {
   }
 
   activeVariant = null;
-  let shown = verse;
-  if (verse.type !== "missing_choice" && playMode === MODE_CHALLENGE && Math.random() < 0.5) {
+  let shown = verse, tiles = null;
+  /* v105: كلما صعد البيت في الصناديق قلّ العون في مراجعته:
+     الصندوق 1–2 ترتيب، والثالث كلمتان ناقصتان، ومن الرابع ترتيب من أول الحروف فقط */
+  const box = playMode === MODE_REVIEW && !noCredit() ? reviewBoxOf(verse.id) : 0;
+  if (verse.type !== "missing_choice" && box === 3) {
+    activeVariant = makeMissingVariant(verse, 2); if (activeVariant) { activeVariant._prefix = prefix; shown = activeVariant; }
+  } else if (verse.type !== "missing_choice" && box >= 4) {
+    tiles = "initials";
+  } else if (verse.type !== "missing_choice" && playMode === MODE_CHALLENGE && Math.random() < 0.5) {
     activeVariant = makeMissingVariant(verse); if (activeVariant) shown = activeVariant;
   }
   if (shown.type === "missing_choice") renderMissingChoice(shown, gameArea, prefix);
-  else if (verse.type === "word_order") renderWordOrder(verse, gameArea, prefix, firstTime);
+  else if (verse.type === "word_order") renderWordOrder(verse, gameArea, prefix, firstTime, tiles);
   else gameArea.innerHTML = "<p>نوع غير مدعوم</p>";
   updateRecBar();
 }
@@ -282,15 +305,27 @@ function sceneBeforeQuestion(verse) {
   return src ? `<img class="scene-img" src="${src}" alt="" style="display:block">` : "";
 }
 function renderMissingChoice(verse, gameArea, prefix) {
-  const blankHTML = verse.textPart2 && verse.textPart2.trim() !== ""
-    ? `<span class="blank" id="blankSpan">( ... )</span> ${escapeHtml(verse.textPart2)}`
-    : ` <span class="blank" id="blankSpan">( ... )</span>`;
+  let textHTML;
+  if (Array.isArray(verse.blanks)) {
+    // v105: فراغان أو أكثر: الحالي «( ... )»، واللاحق «( … )»، وما مُلئ يظهر
+    textHTML = verse.words.map((w, i) => {
+      const k = verse.blanks.indexOf(i);
+      if (k < 0) return escapeHtml(w);
+      if (k < verse.step) return `<span class="filled">${escapeHtml(w)}</span>`;
+      return k === verse.step ? `<span class="blank" id="blankSpan">( ... )</span>` : `<span class="blank later-blank">( … )</span>`;
+    }).join(" ");
+  } else {
+    textHTML = escapeHtml(verse.textPart1) + (verse.textPart2 && verse.textPart2.trim() !== ""
+      ? `<span class="blank" id="blankSpan">( ... )</span> ${escapeHtml(verse.textPart2)}`
+      : ` <span class="blank" id="blankSpan">( ... )</span>`);
+  }
   const shuffled = [...(verse.options||[])].sort(() => Math.random() - .5);
   const opts = shuffled.map(o =>
     `<button class="word-btn" onclick="checkChoice(this,'${escapeForAttr(o)}')">${escapeHtml(o)}</button>`
   ).join("");
   gameArea.innerHTML = `${prefix}${sceneBeforeQuestion(verse)}${renderToolbar(verse)}
-    <div class="verse-text">${escapeHtml(verse.textPart1)}${blankHTML}</div>
+    ${Array.isArray(verse.blanks) ? `<div class="verse-text order-hint">${gForm("أكمل الكلمتين الناقصتين:", "أكملي الكلمتين الناقصتين:")}</div>` : ""}
+    <div class="verse-text">${textHTML}</div>
     <div class="word-bank" id="optionsBank">${opts}</div>`;
 }
 /* البيت مقسوماً إلى شطرين (صدر وعجز) */
@@ -305,13 +340,15 @@ function smallHalves(verse) {
   const n = (verse.words || []).length;
   return (typeof isSmallKid === "function" && isSmallKid() && verse.half > 0 && verse.half < n) ? verse.half : 0;
 }
-function renderWordOrder(verse, gameArea, prefix, intro) {
+function renderWordOrder(verse, gameArea, prefix, intro, tiles) {
   const words = [...(verse.words || [])];
-  const h = smallHalves(verse);
+  const h = tiles ? 0 : smallHalves(verse);
   const mix = a => a.sort(() => Math.random() - .5);
   const shuffled = h ? mix(words.slice(0, h)).concat(mix(words.slice(h))) : mix(words);
+  const labels = tiles === "initials" ? initialsLabels(shuffled) : shuffled;
+  orderTiles = tiles || null;
   const wh = shuffled.map((w, i) =>
-    `<button class="word-btn${h && i >= h ? " later" : ""}" id="word-${i}" onclick="selectWord('${escapeForAttr(w)}',${i})"${h && i >= h ? " hidden" : ""}>${escapeHtml(w)}</button>`
+    `<button class="word-btn${h && i >= h ? " later" : ""}${tiles ? " initial-tile" : ""}" id="word-${i}" data-word="${escapeHtml(w)}" onclick="selectWord('${escapeForAttr(w)}',${i})"${h && i >= h ? " hidden" : ""}>${escapeHtml(labels[i])}</button>`
   ).join("");
   // v104 (ربط الأبيات، من توصيات v102 المعتمدة): البيت السابق ظاهر فوق الجديد، وزر يُسمعهما متصلين
   const prev = intro ? prevVerseOf(getCurrentVerse()) : null;
@@ -325,7 +362,7 @@ function renderWordOrder(verse, gameArea, prefix, intro) {
     </div>` : "";
   gameArea.innerHTML = `${prefix}${sceneBeforeQuestion(verse)}${introHTML}
     <div id="orderPart"${intro ? ' style="display:none"' : ""}>${renderToolbar(verse)}
-    <div class="verse-text order-hint">رتّب الكلمات:</div>
+    <div class="verse-text order-hint">${tiles === "initials" ? gForm("رتّب الكلمات من أول حروفها (قلها في نفسك أولاً):", "رتّبي الكلمات من أول حروفها (قوليها في نفسك أولاً):") : "رتّب الكلمات:"}</div>
     <div class="drop-zone" id="dropZone"></div>
     <div class="verse-toolbar">
       <button class="tool-btn" onclick="undoWord()">↩️ تراجع</button>
@@ -370,6 +407,15 @@ function checkChoice(btn, selected) {
   const station = cur.station;
   const verse = activeVariant || cur.verse;
   document.querySelectorAll("#optionsBank .word-btn").forEach(b => b.disabled = true);
+  // v105: فراغ صحيح وبعده فراغ آخر: يُملأ وينتقل إليه، والبيت لا يكتمل إلا بآخرها
+  if (selected === verse.correctWord && Array.isArray(verse.blanks) && verse.step < verse.blanks.length - 1) {
+    btn.classList.add("success"); playClick();
+    verse.step++;
+    verse.correctWord = verse.words[verse.blanks[verse.step]];
+    verse.options = verse.optionSets[verse.step];
+    setTimeout(() => { if (activeVariant === verse) renderMissingChoice(verse, document.getElementById("gameArea"), verse._prefix || ""); }, 350);
+    return;
+  }
   if (selected === verse.correctWord) {
     btn.classList.add("success");
     const bs = document.getElementById("blankSpan");
@@ -396,7 +442,7 @@ function selectWord(word, index) {
   const btn = document.getElementById("word-" + index);
   if (!btn || btn.classList.contains("selected") || btn.disabled) return;
   // v104: الصغير يسمع الكلمة التي ضغطها، فيربط شكلها بصوتها
-  if (typeof isSmallKid === "function" && isSmallKid() && typeof voicePlay === "function") voicePlay([word], { silent: true });
+  if (!orderTiles && typeof isSmallKid === "function" && isSmallKid() && typeof voicePlay === "function") voicePlay([word], { silent: true });
   const expected = verse.correctOrder[selectedWords.length];
   /* تصحيح كلمة بكلمة: الكلمة الخاطئة ترتد وحدها ولا يُعاد البيت كله.
      أول خطأ في البيت يُسجَّل مرة واحدة، وبعد خطأين في الموضع نفسه تُضاء الكلمة الصحيحة */
@@ -414,7 +460,7 @@ function selectWord(word, index) {
     }
     wrongAtPos++;
     if (wrongAtPos >= 2) {
-      const right = [...document.querySelectorAll("#wordsBank .word-btn")].find(b => !b.classList.contains("selected") && b.textContent === expected);
+      const right = [...document.querySelectorAll("#wordsBank .word-btn")].find(b => !b.classList.contains("selected") && tileWord(b) === expected);
       if (right) { right.classList.add("hint"); hintUsedThisVerse = true; setTimeout(() => right.classList.remove("hint"), 2500); }
     }
     // لا رسالة منفصلة: ارتداد الكلمة وصوتها، وتشجيع ناجي عند أول خطأ، يكفيان
@@ -434,7 +480,12 @@ function selectWord(word, index) {
     dz.classList.add("success"); playSuccess();
     handleCorrect(verse, verse.fullVerse, station, verseFlawed);
     showFullVerse(verse);
+    collapseOrderPart();
   }
+}
+/* v105: بعد الإكمال يُطوى بنك الكلمات الباهت وأزرار التراجع والتلميح، فتقصر الشاشة ويقرب «التالي» */
+function collapseOrderPart() {
+  document.querySelectorAll("#wordsBank, #orderPart .verse-toolbar, #orderPart .order-hint").forEach(e => { e.style.display = "none"; });
 }
 /* الإتقان يُحتسب من الدرس العادي فقط، ومرة واحدة في اليوم لكل بيت، حتى لا يُكسب بتكرار البيت نفسه */
 function recordVerseStat(vid, ok) {
@@ -474,7 +525,8 @@ function handleCorrect(verse, key, station, flawed) {
     recordCorrectAttempt(verse.id, key);
   }
   updateStreak();
-  let pts = playMode === MODE_REVIEW ? 5 : playMode === MODE_CHALLENGE ? 15 : playMode === MODE_FOCUS ? 8 : 10;
+  // v105: المراجعة تُكافأ كالجديد (كانت 5 والتحدي السريع 15)، فلا يتعلّم الطفل أن الجديد والسرعة أهم من التثبيت
+  let pts = playMode === MODE_FOCUS ? 8 : 10;
   if (hintUsedThisVerse || flawed) pts = Math.ceil(pts / 2);
   // النقاط مرة واحدة فقط لكل بيت في اليوم الواحد
   if (firstCreditToday("lesson|" + verse.id)) addPoints(pts);
@@ -586,29 +638,55 @@ function nextVerse() {
    v104 (الحصة اليومية، من توصيات v102 المعتمدة): إن كان في الصناديق ما حان موعده، تبدأ الحصة بمراجعته
    (حتى 10 أبيات) مرة في اليوم، ثم الدرس الجديد. الحفظ القديم أولاً، ثم الجديد. */
 let dailyFlow = false;
-function startDailyLesson() {
+/* v105 (من المراجعة الشاملة): المراجعة لا تلحق بالجديد إذا كانت 10 أبيات مرة في اليوم وأطول مدة 16 يوماً
+   (المحاكاة: نحو 100 بيت متأخر بعد شهرين). الآن: جلستان في اليوم حتى 10 أبيات لكلٍّ، وسقف للجديد لكل طفل،
+   ولا جديد ما دام المستحق أكثر من 15، والصندوقان 6 و7 بعد تسميع الوالد. */
+const REVIEW_PER_SESSION = 10, REVIEW_SESSIONS_PER_DAY = 2, OVERDUE_NO_NEW = 15, LESSON_MAX = 3;
+function dayPlanToday() {
+  const today = new Date().toDateString();
+  if (!state.dayPlan || state.dayPlan.day !== today)
+    state.dayPlan = { day: today, reviews: state.dailyReviewDay === today ? 1 : 0, newCount: 0 };
+  return state.dayPlan;
+}
+/* الأبيات الجديدة في اليوم: يضبطها الوالد لكل طفل، والافتراضي 3 للكبير و2 للصغير */
+function newPerDayOf(s) {
+  s = s || state;
+  const n = +(s && s.newPerDay);
+  if (n >= 1 && n <= 5) return n;
+  return typeof isSmallKid === "function" && isSmallKid() ? 2 : 3;
+}
+function newVerseBlockReason() {
+  if (noCredit()) return "";
+  if (dayPlanToday().newCount >= newPerDayOf()) return "newDoneToday";
+  if (typeof leitnerDueVerses === "function" && leitnerDueVerses().length > OVERDUE_NO_NEW) return "reviewOnlyToday";
+  return "";
+}
+function startDailyLesson(opts) {
+  opts = opts || {};
   if (typeof dailyLimitReached === "function" && dailyLimitReached()) { showMap(); kidAnnounce(kidLine("timeUp"), "success"); return; }
   const idx = content.journeyData.findIndex(s => { const st = getStationStatus(s); return st !== "completed" && st !== "locked"; });
   const due = typeof leitnerDueVerses === "function" ? leitnerDueVerses() : [];
-  const today = new Date().toDateString();
-  if (due.length && state.dailyReviewDay !== today && !noCredit()) {
-    state.dailyReviewDay = today;
+  const plan = dayPlanToday();
+  if (!opts.afterReview && due.length && plan.reviews < REVIEW_SESSIONS_PER_DAY && !noCredit()) {
+    plan.reviews++; state.dailyReviewDay = plan.day;
     dailyFlow = idx >= 0;
-    playQueue = due.slice(0, 10).map(d => ({stationIndex: d.stationIndex, verseIndex: d.verseIndex}));
+    playQueue = due.slice(0, REVIEW_PER_SESSION).map(d => ({stationIndex: d.stationIndex, verseIndex: d.verseIndex}));
     playMode = MODE_REVIEW; playIndex = 0;
     sessionStats = {correct: 0, wrong: 0, total: playQueue.length};
     saveState();
-    kidToast(kidLine("reviewFirst"), "success");
+    kidToast(kidLine(plan.reviews === 1 ? "reviewFirst" : "reviewAgain"), "success");
     enterPlayScreen("🗃️ مراجعة اليوم");
     return;
   }
   dailyFlow = false;
   if (idx < 0) { kidToast(kidLine("allDone"), "success"); return; }
+  const why = newVerseBlockReason();
+  if (why) { showMap(); kidAnnounce(kidLine(why), "success"); return; }
   const station = content.journeyData[idx];
   state.selectedStation = idx;
   state.selectedVerse = Math.min(state.versePositions[station.id] || 0, station.verses.length - 1);
   playMode = MODE_NORMAL;
-  state.dailyLeft = 3;
+  state.dailyLeft = Math.max(1, Math.min(LESSON_MAX, newPerDayOf() - plan.newCount));
   state.dailyIds = [];
   enterPlayScreen(station.title);
 }
@@ -617,6 +695,8 @@ function dailyLessonDone(station) {
   state.versePositions[station.id] = Math.min(state.selectedVerse, station.verses.length - 1);
   const ids = state.dailyIds || [];
   state.dailyLeft = null; state.dailyIds = [];
+  // v105: المكافأة على المواظبة (درس اليوم كاملاً) لا على السرعة
+  if (!noCredit() && firstCreditToday("dailyPlan")) addPoints(5);
   saveState();
   // v104: آخر الدرس: عرض التسميع المتصل مرة واحدة (بعد ثلاثة أبيات على الأقل في الحفظ)،
   // وبعد سؤال المكان إن ظهر، فلا يتراكب العرضان ولا يقطع صوتُ أحدهما الآخر
@@ -759,7 +839,7 @@ function closeSummary() {
   focusTarget = null; previewTarget = null;
   const btn = document.getElementById("summaryCloseBtn"); if (btn) btn.textContent = "تمام 👍";
   // الحصة اليومية: بعد المراجعة يأتي الدرس الجديد
-  if (dailyFlow) { dailyFlow = false; startDailyLesson(); return; }
+  if (dailyFlow) { dailyFlow = false; startDailyLesson({ afterReview: true }); return; }
   showMap();
 }
 
@@ -771,7 +851,7 @@ function giveHint() {
   const next = cur.verse.correctOrder[selectedWords.length];
   if (next === undefined) return;
   const btn = [...document.querySelectorAll("#wordsBank .word-btn")]
-    .find(b => !b.classList.contains("selected") && b.textContent === next);
+    .find(b => !b.classList.contains("selected") && tileWord(b) === next);
   if (!btn) return;
   btn.classList.add("hint");
   hintUsedThisVerse = true;
@@ -785,27 +865,51 @@ function undoWord() {
   const last = selectedWords.pop();
   if (dz.lastChild) dz.removeChild(dz.lastChild);
   const btn = [...document.querySelectorAll("#wordsBank .word-btn")]
-    .reverse().find(b => b.classList.contains("selected") && b.textContent === last);
+    .reverse().find(b => b.classList.contains("selected") && tileWord(b) === last);
   if (btn) btn.classList.remove("selected");
   // الترتيب شطراً شطراً: الرجوع إلى الصدر يُخفي كلمات العجز من جديد
   const h = smallHalves(curVerseOrEmpty());
   if (h && selectedWords.length < h) document.querySelectorAll("#wordsBank .word-btn.later").forEach(b => { b.hidden = true; });
 }
 function curVerseOrEmpty() { const c = getCurrentVerse(); return c ? c.verse : { words: [] }; }
+/* الكلمة التي تمثلها البطاقة (بطاقة الحروف الأولى تكتب جزءاً منها فقط) */
+let orderTiles = null;
+function tileWord(b) { return (b.dataset && b.dataset.word) || b.textContent; }
 
 /* نمط «أكمل الكلمة»: يُولَّد تلقائياً من البيت، والمشتّتات من أبيات أخرى */
 let activeVariant = null;
-function makeMissingVariant(verse) {
+function makeMissingVariant(verse, n) {
+  n = n || 1;
   const words = verse.words, cand = words.map((w, i) => i).filter(i => normalizeArabic(words[i]).length >= 3);
-  if (!cand.length) return null;
-  const i = cand[Math.floor(Math.random() * cand.length)], correct = words[i];
+  if (cand.length < n) return null;
+  const idx = cand.sort(() => Math.random() - .5).slice(0, n).sort((a, b) => a - b);
   const pool = [];
   content.journeyData.forEach(st => st.verses.forEach(v => { if (v.id !== verse.id) v.words.forEach(w => {
-    if (normalizeArabic(w).length >= 3 && normalizeArabic(w) !== normalizeArabic(correct) && !pool.includes(w)) pool.push(w); }); }));
-  const distract = pool.sort(() => Math.random() - .5).slice(0, 3);
-  if (distract.length < 2) return null;
-  return Object.assign({}, verse, {type: "missing_choice", textPart1: words.slice(0, i).join(" "),
-    textPart2: words.slice(i + 1).join(" "), correctWord: correct, options: [correct, ...distract]});
+    if (normalizeArabic(w).length >= 3 && !idx.some(i => normalizeArabic(w) === normalizeArabic(words[i])) && !pool.includes(w)) pool.push(w); }); }));
+  const sets = idx.map(i => { const d = pool.sort(() => Math.random() - .5).slice(0, 3); return [words[i], ...d]; });
+  if (sets.some(s => s.length < 3)) return null;
+  const i = idx[0], correct = words[i];
+  const out = Object.assign({}, verse, {type: "missing_choice", textPart1: words.slice(0, i).join(" "),
+    textPart2: words.slice(i + 1).join(" "), correctWord: correct, options: sets[0]});
+  if (n > 1) Object.assign(out, { blanks: idx, step: 0, optionSets: sets });
+  return out;
+}
+/* صندوق البيت في المراجعة (1 إن لم يدخل الصناديق بعد) */
+function reviewBoxOf(vid) { const e = (state.leitner || {})[vid]; return e && e.box ? e.box : 1; }
+/* v105: أول حروف الكلمة فقط («الحـ…»): مع «ال» وحروف الجر يظهر ما بعدها، وتطول البطاقة حتى لا تتشابه بطاقتان */
+function initialsLabels(words) {
+  const strip = w => String(w).replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, "");
+  const base = words.map(strip);
+  const start = base.map(b => /^(وال|فال|بال|كال)/.test(b) ? 4 : /^(ال|لل)/.test(b) ? 3 : 1);
+  const lab = (i, n) => n >= base[i].length ? base[i] : base[i].slice(0, n) + "…";
+  const len = start.slice();
+  for (let round = 0; round < 8; round++) {
+    const labels = base.map((b, i) => lab(i, len[i]));
+    let changed = false;
+    labels.forEach((L, i) => { if (labels.some((M, j) => j !== i && M === L && base[j] !== base[i])) { len[i]++; changed = true; } });
+    if (!changed) return labels;
+  }
+  return base.map((b, i) => lab(i, len[i]));
 }
 
 /* ---------- شريط البيت: استمع / سجّل / صوتي ---------- */

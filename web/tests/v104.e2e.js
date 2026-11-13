@@ -114,7 +114,7 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
     startDailyLesson(); await w(200);
     o.dailyReviewFirst = playMode === MODE_REVIEW && playQueue.length >= 1 && state.dailyReviewDay === today && dailyFlow === true;
     showMap(); await w(100); closeAll();
-    startDailyLesson(); await w(200);
+    startDailyLesson({ afterReview: true }); await w(200);   // v105: بعد جلسة المراجعة يأتي الجديد
     o.dailyThenLesson = playMode === MODE_NORMAL && state.dailyLeft === 3;
     showMap(); await w(100); closeAll();
 

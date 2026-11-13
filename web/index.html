@@ -2,6 +2,9 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
+<!-- v105: سياسة أمان المحتوى: التطبيق لا يتصل بأي مكان خارجي، فلو تسلّل نص ضار لم يستطع إخراج بيانات الأطفال.
+     file: لنسخة الحاسوب والملف الواحد، وdata:/blob: للصور والتسجيلات. «unsafe-inline» لأن الأزرار تكتب أوامرها داخلها. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; script-src 'self' file: 'unsafe-inline'; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob:; media-src 'self' file: data: blob:; font-src 'self' file: data:; connect-src 'self' file: data: blob:; worker-src 'self'; manifest-src 'self' file: data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#d81b60">
 <title>المنظومة الحسنية — القسم الأول</title>
@@ -14,7 +17,7 @@
   <div class="header" id="mainHeader">
     <div class="header-left">
       <button id="backToMapBtn" class="icon-btn" onclick="showMap()" style="display:none" aria-label="رجوع">←</button>
-      <span id="appTitle">خريطة السيرة 🧭</span>
+      <span id="appTitle">رحلة السيرة 🧭</span>
     </div>
     <div class="header-right">
       <button class="user-chip" id="userChip" onclick="requirePin(showUsersModal,'إدارة المستخدمين')">
@@ -33,6 +36,11 @@
   </div>
 
   <div id="mapScreen">
+    <!-- v105: شاشة الطفل المبسّطة: «درس اليوم» أولاً (مراجعة ثم جديد)، ثم ناجي، ثم ألبومي والعب وللوالدين -->
+    <div class="daily-card" id="dailyCard">
+      <div class="daily-info" id="dailyInfo"></div>
+      <button class="action-btn btn-success daily-main" id="dailyMainBtn" onclick="startDailyLesson()">📖 درس اليوم</button>
+    </div>
     <div class="guide-row">
       <div class="guide" id="guide" onclick="guideTap()" title="اضغط على ناجي">
         <span class="guide-body" id="guideBody">🐪</span>
@@ -42,22 +50,19 @@
       <div class="guide-bubble" id="guideBubble" onclick="guideTap()"></div>
     </div>
     <div class="guide-charms" id="guideCharms" onclick="openGuideJournal()" title="دفتر الرحلة"></div>
-    <div class="top-buttons">
+    <div class="top-buttons kid-row">
+      <button class="action-btn btn-gold" onclick="showInventory()" id="albumBtn">🎒 ألبومي</button>
+      <button class="action-btn btn-info" onclick="openPlayHub()" id="playBtn">🎮 العب</button>
       <button class="action-btn btn-parent parent-entry" id="parentEntryBtn" onclick="parentEntry()">👨‍👩‍👧 للوالدين</button>
-      <button class="action-btn btn-gold" onclick="showInventory()">🎒 الألبوم</button>
-      <button class="action-btn btn-info" onclick="openReviewHub()" id="reviewHubBtn">🔁 مراجعة</button>
-      <button class="action-btn btn-warn" onclick="showTools()" id="toolsBtn">🧰 أدوات</button>
     </div>
     <details class="more-menu">
       <summary>⋯ المزيد</summary>
       <div class="top-buttons">
+        <button class="action-btn btn-info full-only" onclick="openReviewHub()" id="reviewHubBtn">🔁 مراجعة</button>
+        <button class="action-btn btn-warn full-only" onclick="showTools()" id="toolsBtn">🧰 أدوات</button>
         <button class="action-btn btn-gray" id="browseEntryBtn" onclick="openBrowseCode()" title="تصفّح" aria-label="تصفّح">🔐</button>
       </div>
     </details>
-    <div class="daily-card" id="dailyCard">
-      <div class="daily-info" id="dailyInfo"></div>
-      <button class="action-btn btn-success daily-main" id="dailyMainBtn" onclick="startDailyLesson()">📖 درس اليوم</button>
-    </div>
     <div class="browse-panel" id="browsePanel" style="display:none">
       <div class="bp-title">🔐 وضع التصفّح: اذهب إلى بيت</div>
       <div class="bp-row">
@@ -104,45 +109,35 @@
   </div>
 
   <div id="parentScreen">
-    <h2 style="color:var(--parent-border);margin-top:0;text-align:center" data-i18n="📊 تقرير المتابعة">📊 تقرير المتابعة</h2>
+    <h2 style="color:var(--parent-border);margin-top:0;text-align:center">📊 تقرير المتابعة</h2>
     <p style="text-align:center;color:#666;margin:0 0 16px;font-size:.9rem">
-      <span data-i18n="الطفل الحالي:">الطفل الحالي:</span> <strong id="parentUserName">—</strong>
+      <span>الطفل الحالي:</span> <strong id="parentUserName">—</strong>
     </p>
     <div id="parentAlerts"></div>
+    <!-- v105: رقم رئيسي واحد، ثم مجموعات قابلة للطي، ومنطقة حذف واستعادة منفصلة -->
+    <div id="parentHeadline" class="parent-headline"></div>
     <div id="parentCheckCard"></div>
-    <div class="stats-grid">
-      <div class="stat-box"><div class="stat-number" id="statCompleted">0</div><div class="stat-label" data-i18n="محطات مكتملة">محطات مكتملة</div></div>
-      <div class="stat-box"><div class="stat-number" id="statMistakes" style="color:var(--danger)">0</div><div class="stat-label" data-i18n="كلمات للمراجعة">كلمات للمراجعة</div></div>
-      <div class="stat-box"><div class="stat-number" id="statPoints">0</div><div class="stat-label" data-i18n="مجموع النقاط">مجموع النقاط</div></div>
-      <div class="stat-box"><div class="stat-number" id="statTime">0د</div><div class="stat-label" data-i18n="وقت التدريب">وقت التدريب</div></div>
-      <div class="stat-box"><div class="stat-number" id="statAccuracy">—</div><div class="stat-label" data-i18n="نسبة الإنجاز">نسبة الإنجاز</div></div>
-      <div class="stat-box"><div class="stat-number" id="statAchievements">0/11</div><div class="stat-label" data-i18n="الإنجازات">الإنجازات</div></div>
-    </div>
-
-    <div class="auto-read-row" id="autoReadRow">
-      <span data-i18n="🔊 قراءة التعليمات والرسائل للطفل تلقائياً">🔊 قراءة التعليمات والرسائل للطفل تلقائياً</span>
-      <span class="word-bank" style="margin:0">
-        <button class="word-btn" id="autoReadOn" onclick="setAutoRead(true)" data-i18n="تشغيل">تشغيل</button>
-        <button class="word-btn" id="autoReadOff" onclick="setAutoRead(false)" data-i18n="إيقاف">إيقاف</button>
-      </span>
-    </div>
-
-    <div class="auto-read-row" id="dailyLimitRow">
-      <span>⏳ حدّ اللعب اليومي لهذا الطفل</span>
-      <span class="word-bank" style="margin:0" id="dailyLimitBtns"></span>
-    </div>
-
     <div id="parentIntro" class="parent-intro" style="display:none">
-      <strong data-i18n="أهلاً بك في وضع الأسرة 👋">أهلاً بك في وضع الأسرة 👋</strong>
+      <strong>أهلاً بك في وضع الأسرة 👋</strong>
       <ol>
-        <li data-i18n="الأرقام أعلاه تُظهر تقدّم الطفل، وقسم «نقاط تحتاج إلى تكرار» يبيّن ما يحتاج مراجعة.">الأرقام أعلاه تُظهر تقدّم الطفل، وقسم «نقاط تحتاج إلى تكرار» يبيّن ما يحتاج مراجعة.</li>
-        <li data-i18n="التسجيلات تبقى على هذا الجهاز، ولا تُرسل إلا عندما تضغط زر الإرسال بنفسك.">التسجيلات تبقى على هذا الجهاز، ولا تُرسل إلا عندما تضغط زر الإرسال بنفسك.</li>
-        <li data-i18n="أزرار «التوثيق» و«عينة للمراجعة» تساعدك على التحقق من مصادر القصص، والتحرير والحذف يطلبان الرقم السري.">أزرار «التوثيق» و«عينة للمراجعة» تساعدك على التحقق من مصادر القصص، والتحرير والحذف يطلبان الرقم السري.</li>
+        <li>الأرقام أعلاه تُظهر تقدّم الطفل، وقسم «نقاط تحتاج إلى تكرار» يبيّن ما يحتاج مراجعة.</li>
+        <li>التسجيلات تبقى على هذا الجهاز، ولا تُرسل إلا عندما تضغط زر الإرسال بنفسك.</li>
+        <li>أزرار «التوثيق» و«عينة للمراجعة» تساعدك على التحقق من مصادر القصص، والتحرير والحذف يطلبان الرقم السري.</li>
       </ol>
-      <button class="tool-btn" onclick="dismissParentIntro()" data-i18n="فهمت، ابدأ">فهمت، ابدأ</button>
+      <button class="tool-btn" onclick="dismissParentIntro()">فهمت، ابدأ</button>
     </div>
 
-    <div class="parent-list-title" style="margin-top:20px" data-i18n="🎯 مستوى الإتقان">🎯 مستوى الإتقان</div>
+    <details class="parent-group">
+      <summary>📊 المتابعة والتقارير</summary>
+    <div class="stats-grid">
+      <div class="stat-box"><div class="stat-number" id="statCompleted">0</div><div class="stat-label">محطات مكتملة</div></div>
+      <div class="stat-box"><div class="stat-number" id="statMistakes" style="color:var(--danger)">0</div><div class="stat-label">كلمات للمراجعة</div></div>
+      <div class="stat-box"><div class="stat-number" id="statPoints">0</div><div class="stat-label">مجموع النقاط</div></div>
+      <div class="stat-box"><div class="stat-number" id="statTime">0د</div><div class="stat-label">وقت التدريب</div></div>
+      <div class="stat-box"><div class="stat-number" id="statAccuracy">—</div><div class="stat-label">نسبة الإنجاز</div></div>
+      <div class="stat-box"><div class="stat-number" id="statAchievements">0/11</div><div class="stat-label">الإنجازات</div></div>
+    </div>
+    <div class="parent-list-title" style="margin-top:20px">🎯 مستوى الإتقان</div>
     <div id="masteryCard" style="background:#fff;padding:18px;border-radius:14px;border:2px solid var(--parent-border);text-align:center;margin-bottom:20px">
       <div style="font-size:2.4rem" id="masteryStars">⭐</div>
       <div style="font-size:1.6rem;font-weight:bold;color:var(--parent-border);margin:8px 0" id="masteryLevel">—</div>
@@ -153,32 +148,84 @@
       <div id="masteryBreakdown" style="font-size:.82rem;color:#666;text-align:right;line-height:1.8;margin-top:12px"></div>
     </div>
 
-    <div class="parent-list-title" data-i18n="🏅 تحدّي الأسرة هذا الأسبوع">🏅 تحدّي الأسرة هذا الأسبوع</div>
+    <div class="parent-list-title">🏅 تحدّي الأسرة هذا الأسبوع</div>
     <div id="familyBoard"></div>
-    <div class="parent-list-title" data-i18n="📝 نقاط تحتاج إلى تكرار:">📝 نقاط تحتاج إلى تكرار:</div>
+    <div class="parent-list-title">📝 نقاط تحتاج إلى تكرار:</div>
     <div id="parentMistakesList"></div>
+      <div class="parent-actions">
+        <button class="action-btn btn-info" onclick="exportReport()">📤 تقرير</button>
+        <button class="action-btn btn-info" onclick="showWeeklyReport()">📝 تقرير الأسبوع</button>
+        <button class="action-btn btn-info" onclick="printTeacherReport()">🖨️ تقرير للمعلم</button>
+        <button class="action-btn btn-info" onclick="shareResult()">📸 مشاركة</button>
+        <button class="action-btn btn-info" onclick="openParentFollow()">✅ متابعة الأبيات</button>
+        <button class="action-btn btn-info" onclick="openClassDashboard()">🏫 لوحة الصف</button>
+        <button class="action-btn btn-info" onclick="showCertLog()">🎖️ سجل الشهادات</button>
+      </div>
+    </details>
+
+    <details class="parent-group">
+      <summary>🎓 التعليم والتسجيل</summary>
+    <div class="auto-read-row" id="dailyLimitRow">
+      <span>⏳ حدّ اللعب اليومي لهذا الطفل</span>
+      <span class="word-bank" style="margin:0" id="dailyLimitBtns"></span>
+    </div>
+    <div class="auto-read-row" id="playSetRow">
+      <span>🎮 أنشطة «العب» لهذا الطفل</span>
+      <span class="word-bank" style="margin:0" id="playSetBtns"></span>
+    </div>
+    <div class="auto-read-row" id="allActRow">
+      <span>🧰 «المراجعة» و«الأدوات» كاملتين للطفل في «المزيد»</span>
+      <span class="word-bank" style="margin:0" id="allActBtns"></span>
+    </div>
+    <div class="auto-read-row" id="newPerDayRow">
+      <span>📖 الأبيات الجديدة في اليوم <small class="rec-count">(وبعدها مراجعة فقط)</small></span>
+      <span class="word-bank" style="margin:0" id="newPerDayBtns"></span>
+    </div>
+      <div class="parent-actions">
+        <button class="action-btn btn-info" onclick="requirePin(openParentVoice,'استوديو التسجيل')">🎙️ استوديو التسجيل</button>
+        <button class="action-btn btn-info" onclick="showDiscussion()">💬 أسئلة النقاش</button>
+        <button class="action-btn btn-info" onclick="showDocCoverage()">📋 التوثيق</button>
+        <button class="action-btn btn-info" onclick="showReviewSample(false)">🔍 عينة للمراجعة</button>
+        <button class="action-btn btn-warn" onclick="requirePin(openEditor,'فتح محرر المحتوى')">✏️ تحرير</button>
+      </div>
+    </details>
+
+    <details class="parent-group">
+      <summary>🔐 البيانات والأمان</summary>
+      <div class="rec-count" id="backupInfo"></div>
+      <div class="parent-actions">
+        <button class="action-btn btn-info" onclick="exportBackup()">💾 نسخة احتياطية</button>
+        <button class="action-btn btn-warn" onclick="requirePin(managePin,'إدارة الرقم السري')">🔐 الرقم السري</button>
+        <button class="action-btn btn-parent" onclick="requirePin(showUsersModal,'إدارة المستخدمين')">👥 المستخدمون</button>
+        <button class="action-btn btn-info" onclick="requirePin(openSignature,'توقيع الوالد')">✍️ توقيع الوالد</button>
+      </div>
+    </details>
+
+    <details class="parent-group">
+      <summary>⚙️ الإعدادات</summary>
+    <div class="auto-read-row" id="autoReadRow">
+      <span>🔊 قراءة التعليمات والرسائل للطفل تلقائياً</span>
+      <span class="word-bank" style="margin:0">
+        <button class="word-btn" id="autoReadOn" onclick="setAutoRead(true)">تشغيل</button>
+        <button class="word-btn" id="autoReadOff" onclick="setAutoRead(false)">إيقاف</button>
+      </span>
+    </div>
+      <div class="parent-actions">
+        <button class="action-btn btn-parent" onclick="openSettings()">⚙️ الإعدادات</button>
+      </div>
+    </details>
+
+    <details class="parent-group danger-zone">
+      <summary>⚠️ الحذف والاستعادة</summary>
+      <p class="rec-count">هذه الأزرار تستبدل بيانات الأطفال أو تمحوها. تُحفظ نسخة احتياطية تلقائية قبل كل منها.</p>
+      <div class="parent-actions">
+        <button class="action-btn btn-danger" onclick="requirePin(resetAll,'تصفير التقدم')">🔄 تصفير</button>
+        <button class="action-btn btn-info" onclick="importBackupFile()">📥 استعادة نسخة</button>
+        <button class="action-btn btn-info" onclick="requirePin(showRecoveryHub,'استعادة نسخة احتياطية تلقائية')">🛟 استعادة تلقائية</button>
+      </div>
+    </details>
     <div class="parent-actions">
-      <button class="action-btn btn-warn" onclick="requirePin(openEditor,'فتح محرر المحتوى')" data-i18n="✏️ تحرير">✏️ تحرير</button>
-      <button class="action-btn btn-parent" onclick="requirePin(showUsersModal,'إدارة المستخدمين')" data-i18n="👥 المستخدمون">👥 المستخدمون</button>
-      <button class="action-btn btn-info" onclick="shareResult()" data-i18n="📸 مشاركة">📸 مشاركة</button>
-      <button class="action-btn btn-info" onclick="exportReport()" data-i18n="📤 تقرير">📤 تقرير</button>
-      <button class="action-btn btn-warn" onclick="requirePin(managePin,'إدارة الرقم السري')" data-i18n="🔐 الرقم السري">🔐 الرقم السري</button>
-      <button class="action-btn btn-danger" onclick="requirePin(resetAll,'تصفير التقدم')" data-i18n="🔄 تصفير">🔄 تصفير</button>
-      <button class="action-btn btn-parent" onclick="openSettings()" data-i18n="⚙️ الإعدادات">⚙️ الإعدادات</button>
-      <button class="action-btn btn-info" onclick="showDocCoverage()" data-i18n="📋 التوثيق">📋 التوثيق</button>
-      <button class="action-btn btn-info" onclick="showReviewSample(false)" data-i18n="🔍 عينة للمراجعة">🔍 عينة للمراجعة</button>
-      <button class="action-btn btn-info" onclick="requirePin(openSignature,'توقيع الوالد')" data-i18n="✍️ توقيع الوالد">✍️ توقيع الوالد</button>
-      <button class="action-btn btn-info" onclick="showCertLog()" data-i18n="🎖️ سجل الشهادات">🎖️ سجل الشهادات</button>
-      <button class="action-btn btn-info" onclick="requirePin(openParentVoice,'استوديو التسجيل')" data-i18n="🎙️ استوديو التسجيل">🎙️ استوديو التسجيل</button>
-      <button class="action-btn btn-info" onclick="openParentFollow()">✅ متابعة الأبيات</button>
-      <button class="action-btn btn-info" onclick="openClassDashboard()" data-i18n="🏫 لوحة الصف">🏫 لوحة الصف</button>
-      <button class="action-btn btn-info" onclick="showWeeklyReport()" data-i18n="📝 تقرير الأسبوع">📝 تقرير الأسبوع</button>
-      <button class="action-btn btn-info" onclick="showDiscussion()" data-i18n="💬 أسئلة النقاش">💬 أسئلة النقاش</button>
-      <button class="action-btn btn-info" onclick="printTeacherReport()" data-i18n="🖨️ تقرير للمعلم">🖨️ تقرير للمعلم</button>
-      <button class="action-btn btn-info" onclick="exportBackup()" data-i18n="💾 نسخة احتياطية">💾 نسخة احتياطية</button>
-      <button class="action-btn btn-info" onclick="importBackupFile()" data-i18n="📥 استعادة نسخة">📥 استعادة نسخة</button>
-      <button class="action-btn btn-info" onclick="requirePin(showRecoveryHub,'استعادة نسخة احتياطية تلقائية')" data-i18n="🛟 استعادة تلقائية">🛟 استعادة تلقائية</button>
-      <button class="action-btn btn-gray" onclick="showMap()" data-i18n="العودة">العودة</button>
+        <button class="action-btn btn-gray" onclick="showMap()">العودة</button>
     </div>
   </div>
 
@@ -549,6 +596,8 @@
     <div class="modal-content" style="max-width:420px;text-align:right">
       <input type="hidden" id="userEditId">
       <h2 style="color:var(--parent-border);margin-top:0;text-align:center" id="userEditorTitle">👶 بيانات الطفل</h2>
+      <!-- v105: على الآيفون في Safari وحده: أضف التطبيق إلى الشاشة الرئيسية قبل أن يبدأ الطفل -->
+      <div class="parent-alert ios-note" id="iosInstallNote" hidden></div>
       <div class="form-row">
         <label>الاسم</label>
         <input id="userNameInput" placeholder="مثال: عمر" maxlength="20">
@@ -558,16 +607,18 @@
         <div class="word-bank" id="genderRow"></div>
       </div>
       <div class="form-row">
-        <label>صورة الطفل (اختيارية، تبقى على هذا الجهاز)</label>
-        <div id="photoRow" class="photo-row"></div>
-    <div id="showPhotoRow"></div>
-        <input type="file" accept="image/*" id="photoInput" class="file-hidden" onchange="pickEditorPhoto(this.files[0])">
-        <label for="photoInput" class="tool-btn file-pick">📷 اختر صورة</label>
-      </div>
-      <div class="form-row">
         <label>الرمز التعبيري</label>
         <div class="avatar-grid" id="avatarGrid"></div>
       </div>
+      <!-- v105: الصورة وزرّها معاً، ثم وضع الطفل الصغير في آخر النموذج (كان يفصل بين عنوان الصورة وزرّها) -->
+      <div class="form-row">
+        <label>صورة الطفل (اختيارية، تبقى على هذا الجهاز)</label>
+        <div id="photoRow" class="photo-row"></div>
+        <input type="file" accept="image/*" id="photoInput" class="file-hidden" onchange="pickEditorPhoto(this.files[0])">
+        <label for="photoInput" class="tool-btn file-pick">📷 اختر صورة</label>
+        <div id="showPhotoRow"></div>
+      </div>
+      <div class="form-row" id="smallKidHost"></div>
       <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
         <button class="action-btn btn-success" onclick="saveUserEditor()">💾 حفظ</button>
         <button class="action-btn btn-gray" onclick="closePopup('userEditorPopup')">إلغاء</button>
@@ -662,7 +713,6 @@
 <script src="js/data/discussion.js"></script>
 <script src="js/data/places.js"></script>
 <script src="js/extras.js"></script>
-<script src="js/i18n.js"></script>
 <script src="js/exercises.js"></script>
 <script src="js/backup.js"></script>
 <script src="js/voicepack.js"></script>

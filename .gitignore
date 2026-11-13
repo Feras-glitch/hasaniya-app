@@ -11,3 +11,5 @@ android/app/src/main/assets/www/
 # ملفات النظام
 .DS_Store
 node_modules/
+# لقطات اختبار المتصفح (tests/smoke.js) تُكتب هنا محلياً
+scratchpad/

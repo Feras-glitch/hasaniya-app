@@ -1,5 +1,22 @@
 /* شاشة الوالدين + المشاركة */
+/* v105: الرقم الرئيسي للوالد: ما يحفظه الطفل غيباً مؤكَّداً بتسميع الوالد، ثم ما يرتّبه، ثم ما رآه */
+function renderParentHeadline() {
+  const box = document.getElementById("parentHeadline"); if (!box) return;
+  const total = content.journeyData.reduce((n, s) => n + s.verses.length, 0);
+  const confirmed = typeof confirmedCount === "function" ? confirmedCount(state) : 0;
+  const mastered = typeof masteredCount === "function" ? masteredCount(state) : 0;
+  const seen = Object.keys(state.seenVerses || {}).length;
+  const done = content.journeyData.filter(s => getStationStatus(s) === "completed").length;
+  box.innerHTML = `<div class="ph-main">يحفظ غيباً <strong>${confirmed}</strong> من ${total} بيتاً <small>(مؤكَّدة بتسميع الوالد)</small></div>
+    <div class="ph-sub">يرتّب كلماته: ${mastered} · رآه في دروسه: ${seen} · محطات مكتملة: ${done} من ${content.journeyData.length}
+    ${seen && !confirmed ? "<br>«سمّعه الآن» أدناه هو ما ينقل البيت إلى «يحفظ غيباً»." : ""}</div>`;
+  const bi = document.getElementById("backupInfo");
+  if (bi) { const t = typeof backupLastInfo === "function" ? backupLastInfo() : 0;
+    let when = ""; try { when = t ? new Date(t).toLocaleDateString("ar-EG") : ""; } catch (e) {}
+    bi.textContent = t ? `آخر نسخة احتياطية: ${when}` : "لم تُحفظ نسخة احتياطية بعد."; }
+}
 function updateStats() {
+  renderParentHeadline();
   document.getElementById("parentUserName").textContent = getUserAvatar() + " " + getUserName();
   const completed = content.journeyData.filter(s => getStationStatus(s) === "completed").length;
   const mistakes = getMistakesSorted();
@@ -12,14 +29,14 @@ function updateStats() {
 
   const mastery = calculateMastery(state);
   document.getElementById("masteryStars").textContent = "⭐".repeat(mastery.stars);
-  document.getElementById("masteryLevel").textContent = tParent(mastery.level);
+  document.getElementById("masteryLevel").textContent = mastery.level;
   document.getElementById("masteryPercent").textContent = mastery.percent + "%";
   document.getElementById("masteryBar").style.width = mastery.percent + "%";
   document.getElementById("masteryBreakdown").innerHTML = `
-    <div>📚 ${tParent("إتقان الحفظ")}: <strong>${mastery.mastered} ${tParent("متقنة من")} ${mastery.seen} ${tParent("بيتاً مرئياً")}</strong></div>
-    <div>🗺️ ${tParent("التقدم في المنظومة")}: <strong>${mastery.progress}%</strong></div>
-    <div>🔥 ${tParent("الالتزام")}: <strong>${mastery.commitment}%</strong></div>
-    <div>🏆 ${tParent("الإنجازات")} (${tParent("لا تدخل في الإتقان")}): <strong>${mastery.details.achievements}/${ACHIEVEMENTS.length}</strong></div>
+    <div>📚 ${"إتقان الحفظ"}: <strong>${mastery.mastered} ${"متقنة من"} ${mastery.seen} ${"بيتاً مرئياً"}</strong></div>
+    <div>🗺️ ${"التقدم في المنظومة"}: <strong>${mastery.progress}%</strong></div>
+    <div>🔥 ${"الالتزام"}: <strong>${mastery.commitment}%</strong></div>
+    <div>🏆 ${"الإنجازات"} (${"لا تدخل في الإتقان"}): <strong>${mastery.details.achievements}/${ACHIEVEMENTS.length}</strong></div>
   `;
 }
 /* دليل أول زيارة للوالد: يظهر مرة واحدة على هذا الجهاز ثم يُخفى */
@@ -48,9 +65,11 @@ function showParentScreen() {
   renderAutoReadRow();
   renderParentAlerts();
   renderDailyLimitRow();
+  renderNewPerDayRow();
+  renderPlaySetRow();
   if (typeof renderParentCheckCard === "function") renderParentCheckCard();
   document.getElementById("mainHeader").style.background = "var(--parent-border)";
-  document.getElementById("appTitle").innerText = tParent("وضع الأسرة 👨‍👩‍👧");
+  document.getElementById("appTitle").innerText = "وضع الأسرة 👨‍👩‍👧";
   document.getElementById("backToMapBtn").style.display = "inline-block";
   document.getElementById("eventBadge").classList.add("hidden");
   document.getElementById("progressBars").style.display = "none";
@@ -69,8 +88,8 @@ function showParentScreen() {
     </div>`;
   }).join("");
   const started = Object.keys(state.seenVerses || {}).length > 0;
-  if (!started) pl.innerHTML = `<p class="empty-state">🌱 ${tParent("لم يبدأ الطفل الحفظ بعد.")}</p>`;
-  else if (ms.length === 0 && misses.length === 0) pl.innerHTML = `<p class="empty-state">✅ ${tParent("لا توجد أخطاء مسجّلة حتى الآن.")}</p>`;
+  if (!started) pl.innerHTML = `<p class="empty-state">🌱 ${"لم يبدأ الطفل الحفظ بعد."}</p>`;
+  else if (ms.length === 0 && misses.length === 0) pl.innerHTML = `<p class="empty-state">✅ ${"لا توجد أخطاء مسجّلة حتى الآن."}</p>`;
   else pl.innerHTML = ms.map(m => `
     <div class="parent-mistake-item">
       <strong style="color:var(--danger)">${escapeHtml(m.word)}</strong>
@@ -238,6 +257,32 @@ function renderDailyLimitRow() {
   box.innerHTML = [0, 20, 30, 45].map(m => `<button class="word-btn ${m === cur ? "selected-pref" : ""}" onclick="setDailyLimit(${m})">${m ? m + " د" : "بلا حد"}</button>`).join("");
 }
 function setDailyLimit(m) { state.dailyLimitMin = [0, 20, 30, 45].includes(+m) ? +m : 0; saveState(); renderDailyLimitRow(); }
+/* v105: سقف الأبيات الجديدة في اليوم لكل طفل (الافتراضي 3 للكبير و2 للصغير) */
+function renderNewPerDayRow() {
+  const box = document.getElementById("newPerDayBtns"); if (!box) return;
+  const cur = newPerDayOf();
+  box.innerHTML = [1, 2, 3, 4, 5].map(n => `<button class="word-btn ${n === cur ? "selected-pref" : ""}" onclick="setNewPerDay(${n})">${n}</button>`).join("");
+}
+function setNewPerDay(n) { n = +n; state.newPerDay = n >= 1 && n <= 5 ? n : null; saveState(); renderNewPerDayRow(); }
+/* v105: أنشطة «العب» وإظهار المراجعة والأدوات كاملتين، لكل طفل */
+function renderPlaySetRow() {
+  const box = document.getElementById("playSetBtns"), all = document.getElementById("allActBtns");
+  if (box) {
+    const cur = playSetOf();
+    box.innerHTML = Object.keys(PLAY_ACTIVITIES).map(k => { const a = PLAY_ACTIVITIES[k];
+      return `<button class="word-btn ${cur.includes(k) ? "selected-pref" : ""}" onclick="togglePlayAct('${k}')">${a.icon} ${escapeHtml(a.name)}</button>`; }).join("");
+  }
+  if (all) all.innerHTML = `<button class="word-btn ${state.allActivities ? "selected-pref" : ""}" onclick="setAllActivities(true)">نعم</button>
+    <button class="word-btn ${state.allActivities ? "" : "selected-pref"}" onclick="setAllActivities(false)">لا</button>`;
+}
+function togglePlayAct(k) {
+  if (!PLAY_ACTIVITIES[k]) return;
+  const cur = playSetOf().slice(), i = cur.indexOf(k);
+  if (i >= 0) { if (cur.length <= 1) { showToast("يبقى نشاط واحد على الأقل", "error"); return; } cur.splice(i, 1); }
+  else { if (cur.length >= 5) { showToast("خمسة أنشطة على الأكثر، حتى تبقى الشاشة بسيطة", "error"); return; } cur.push(k); }
+  state.playSet = cur; saveState(); renderPlaySetRow();
+}
+function setAllActivities(on) { state.allActivities = !!on; saveState(); renderPlaySetRow(); if (typeof applyHomeMode === "function") applyHomeMode(); }
 
 /* v104: تنبيهات تهمّ الوالد في أعلى منطقته: ما جرى على الرقم السري مؤخراً، وتعديلات المحتوى المحفوظة */
 function renderParentAlerts() {
@@ -250,7 +295,64 @@ function renderParentAlerts() {
     out.push(`<div class="parent-alert">🔐 ${escapeHtml(PIN_LOG_LABELS[x.ev])} — ${escapeHtml(when)}. إن لم يكن ذلك منك فراجع «إدارة الرقم السري».</div>`);
   }
   if (typeof contentPrevInfo === "function") { const c = contentPrevInfo(); if (c) out.push(c); }
+  const b = backupReminderHTML(); if (b) out.push(b);
+  if (iosNeedsInstall()) out.push(`<div class="parent-alert">${iosInstallHTML((users || []).some(u => Object.keys((u.state && u.state.seenVerses) || {}).length))}</div>`);
   box.innerHTML = out.join("");
+  // حزمة الصوت: كانت تنبثق للطفل بعد إنشاء ملفه؛ صارت تنبيهاً هنا للوالد
+  if (typeof vpAllAuthorRecs === "function") vpAllAuthorRecs().then(recs => {
+    if (recs.length || document.getElementById("packAlert")) return;
+    const d = document.createElement("div"); d.className = "parent-alert"; d.id = "packAlert";
+    const noVoice = typeof voiceMissingNotice === "function" && voiceMissingNotice();
+    d.innerHTML = `🎙️ لا توجد على هذا الجهاز حزمة صوت المعلم. بها تُسمع الأبيات صحيحة؛ وبدونها يقرؤها القارئ الآلي${noVoice ? "، ولا صوت عربي على هذا الجهاز فلن تُسمع أصلاً" : ""}.
+      <div class="parent-alert-btns"><button class="tool-btn" onclick="openVoiceImport()">📥 استورد حزمة</button><button class="tool-btn" onclick="requirePin(openParentVoice,'استوديو التسجيل')">🎤 سجّل بنفسك</button></div>`;
+    box.appendChild(d);
+  }).catch(() => {});
+}
+
+/* v105: الآيفون والآيباد: Safari قد يمسح بيانات موقع لم يُفتح أياماً، أما التطبيق المضاف إلى الشاشة الرئيسية فلا.
+   ومخزن التطبيق المضاف منفصل عن مخزن Safari، فمن له تقدّم في Safari ينقله بنسخة احتياطية. */
+function iosNeedsInstall() {
+  try {
+    const ua = navigator.userAgent || "";
+    const ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    if (!ios || !/^https?:$/.test(location.protocol)) return false;
+    return !(navigator.standalone === true || (window.matchMedia && matchMedia("(display-mode: standalone)").matches));
+  } catch (e) { return false; }
+}
+function iosInstallHTML(hasProgress) {
+  return `📱 <strong>على الآيفون والآيباد:</strong> أضف التطبيق إلى الشاشة الرئيسية، فإن بقي في Safari قد يُمسح تقدّم الأطفال إن لم يُفتح أياماً.
+    الطريقة: زر المشاركة في Safari، ثم «إضافة إلى الشاشة الرئيسية»، ثم افتحه من أيقونته.` +
+    (hasProgress ? `<br>للأطفال تقدّم هنا: احفظ نسخة احتياطية أولاً، ثم استعدها داخل التطبيق بعد إضافته، لأن الآيفون يفصل بينهما.` : "");
+}
+
+/* v105: تذكير بالنسخة الاحتياطية: كل شيء على هذا الجهاز وحده (النسخ التلقائي في أندرويد معطّل للخصوصية) */
+function backupLastInfo() {
+  let t = 0; try { t = +localStorage.getItem(STORAGE_LAST_BACKUP) || 0; } catch (e) {}
+  return t;
+}
+function backupReminderHTML() {
+  let snooze = 0, recs = 0;
+  try { snooze = +localStorage.getItem(STORAGE_BACKUP_SNOOZE) || 0; recs = +localStorage.getItem(STORAGE_RECS_SINCE) || 0; } catch (e) {}
+  if (Date.now() < snooze) return "";
+  const last = backupLastInfo();
+  // أول تذكير بعد تقدّم يستحق الحفظ (عشرة أبيات لأحد الأطفال)، ثم كل أسبوع
+  const seenMax = Math.max(0, ...(users || []).map(u => Object.keys((u.state && u.state.seenVerses) || {}).length));
+  const progress = seenMax > 0;
+  const days = last ? Math.floor((Date.now() - last) / 86400000) : null;
+  const needBackup = progress && (days === null ? seenMax >= 10 : days >= 7), needPack = recs >= 20;
+  if (!needBackup && !needPack) return "";
+  const msgs = [];
+  if (needBackup) msgs.push(days === null ? "لم تحفظ نسخة احتياطية من تقدّم الأطفال بعد." : `آخر نسخة احتياطية قبل ${arCount(days, "يوم", "يومين", "أيام", "يوماً")}.`);
+  if (needPack) msgs.push(`على هذا الجهاز ${arCount(recs, "تسجيل جديد", "تسجيلان جديدان", "تسجيلات جديدة", "تسجيلاً جديداً")} لم تُصدَّر في حزمة الصوت بعد.`);
+  return `<div class="parent-alert" id="backupAlert">💾 ${msgs.join(" ")} كل شيء محفوظ على هذا الجهاز وحده، وضياعه أو مسح بياناته يمحوه.
+    <div class="parent-alert-btns">
+      ${needBackup ? `<button class="tool-btn" onclick="exportBackup()">💾 احفظ نسخة الآن</button>` : ""}
+      ${needPack ? `<button class="tool-btn" onclick="exportVoicePack()">📤 صدّر حزمة الصوت</button>` : ""}
+      <button class="tool-btn" onclick="backupSnooze()">لاحقاً</button></div></div>`;
+}
+function backupSnooze() {
+  try { localStorage.setItem(STORAGE_BACKUP_SNOOZE, String(Date.now() + 3 * 86400000)); } catch (e) {}
+  renderParentAlerts();
 }
 
 function renderAutoReadRow() {

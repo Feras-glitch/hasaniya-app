@@ -71,7 +71,7 @@ function sanitizeImportedState(raw) {
     word: String(v.word || "").slice(0, 80), verseId: v.verseId,
     stationId: stationIds.has(v.stationId) ? v.stationId : "", context: String(v.context || "").slice(0, 400),
     level: _int(v.level, 0, 20, 0), addedAt: _num(v.addedAt, 0, 9e15, 0), lastAttempt: _num(v.lastAttempt, 0, 9e15, 0) }) : undefined);
-  s.leitner = pick(s.leitner, k => verseIds.has(k), v => _isObj(v) ? ({ box: _int(v.box, 1, 5, 1), due: _num(v.due, 0, 9e15, 0), lastWrong: _num(v.lastWrong, 0, 9e15, 0) }) : undefined);
+  s.leitner = pick(s.leitner, k => verseIds.has(k), v => _isObj(v) ? ({ box: _int(v.box, 1, 7, 1), due: _num(v.due, 0, 9e15, 0), lastWrong: _num(v.lastWrong, 0, 9e15, 0) }) : undefined);
   s.eventMisses = pick(s.eventMisses, k => verseIds.has(k), v => _int(v, 0, 1000, 0));
   s.follow = pick(s.follow, k => verseIds.has(k), v => _isObj(v) ? ({ h: !!v.h, r: !!v.r, u: !!v.u }) : undefined);
   s.dailyCredits = pick(s.dailyCredits, k => k.length <= 80, v => typeof v === "string" ? v.slice(0, 40) : undefined);
@@ -93,6 +93,12 @@ function sanitizeImportedState(raw) {
   s.dailyLimitMin = [0, 20, 30, 45].includes(+s.dailyLimitMin) ? +s.dailyLimitMin : 0;
   s.dayTime = _isObj(s.dayTime) && typeof s.dayTime.day === "string" ? { day: s.dayTime.day.slice(0, 40), s: _int(s.dayTime.s, 0, 86400, 0) } : null;
   s.dailyReviewDay = typeof s.dailyReviewDay === "string" ? s.dailyReviewDay.slice(0, 40) : null;
+  // v105: سقف الجديد اليومي وخطة اليوم
+  s.newPerDay = [1, 2, 3, 4, 5].includes(+s.newPerDay) ? +s.newPerDay : null;
+  s.playSet = Array.isArray(s.playSet) ? s.playSet.filter(k => typeof k === "string" && /^[a-zA-Z]{1,20}$/.test(k)).slice(0, 5) : null;
+  s.allActivities = s.allActivities === true;
+  s.dayPlan = _isObj(s.dayPlan) && typeof s.dayPlan.day === "string"
+    ? { day: s.dayPlan.day.slice(0, 40), reviews: _int(s.dayPlan.reviews, 0, 9, 0), newCount: _int(s.dayPlan.newCount, 0, 99, 0) } : null;
   normalizeUserState(s);
   if (typeof ensureCurrentStation === "function") ensureCurrentStation(s);
   const completed = Object.values(s.stationStatus).filter(v => v === "completed").length;
@@ -231,7 +237,7 @@ const USER_ID_RESERVED = ["author", "meta", "x"];
 function restoreUsersFromList(list) {
   if (!Array.isArray(list) || !list.length) return { ok: false, error: "النسخة فارغة" };
   const out = []; const seen = new Set();
-  for (const u of list.slice(0, 50)) {
+  for (let u of list.slice(0, 50)) {   // let: قد يُستبدل الطفل بنسخة بمعرّف جديد أدناه (كان const فتتوقف الاستعادة بصمت)
     if (!_isObj(u) || typeof u.name !== "string") continue;
     // v103: معرّف بحروف غريبة قد يحقن كوداً في الأزرار، و«author» و«meta» محجوزان لحزمة الصوت: يُعطى الطفل معرّفاً جديداً
     if (u.id != null && (!isSafeId(u.id) || USER_ID_RESERVED.includes(u.id))) u = Object.assign({}, u, { id: null });

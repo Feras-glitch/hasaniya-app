@@ -5,14 +5,31 @@
 set -euo pipefail
 V="$1"; OUT="$2"; mkdir -p "$OUT"
 SUMS="desktop/electron-sha256.txt"
+# v105: بصمة الإصدار من مصدرين مستقلين إن لم تكن مثبّتة في المستودع:
+# ملف SHASUMS256.txt من إصدارات Electron على GitHub، وchecksums.json داخل حزمة electron على npm.
+# لا يُبنى شيء إلا إذا اتفق المصدران؛ وتُطبع البصمتان لتُثبَّتا في electron-sha256.txt.
+twosrc_sum() {
+  local z="$1" a b tmp
+  tmp="$(mktemp -d)"
+  curl -fsSL -o "$tmp/SHASUMS256.txt" "https://github.com/electron/electron/releases/download/v$V/SHASUMS256.txt" || return 1
+  a="$(awk -v f="$z" '{ n = $2; sub(/^\*/, "", n); if (n == f) print $1 }' "$tmp/SHASUMS256.txt")"
+  (cd "$tmp" && npm pack "electron@$V" --silent >/dev/null 2>&1 && tar -xzf electron-*.tgz package/checksums.json) || return 1
+  b="$(node -e "const c=require(process.argv[1]);process.stdout.write(c[process.argv[2]]||'')" "$tmp/package/checksums.json" "$z")"
+  rm -rf "$tmp"
+  [[ "$a" =~ ^[0-9a-f]{64}$ ]] && [ "$a" = "$b" ] || return 1
+  echo "$a"
+}
 for P in win32 linux; do
   Z="electron-v$V-$P-x64.zip"
-  # البصمة المثبّتة في المستودع لهذا الإصدار وهذه المنصة؛ لا بصمة = لا بناء
-  # السطر كما في SHASUMS256.txt الرسمي («<بصمة> *<اسم>») أو بلا النجمة
+  # البصمة المثبّتة في المستودع لهذا الإصدار وهذه المنصة؛ السطر كما في SHASUMS256.txt الرسمي أو بلا النجمة
   WANT="$(awk -v f="$Z" '$1 !~ /^#/ { n = $2; sub(/^\*/, "", n); if (n == f) print $1 }' "$SUMS")"
   if ! [[ "$WANT" =~ ^[0-9a-f]{64}$ ]]; then
-    echo "::error::لا توجد بصمة sha256 مثبّتة لـ $Z في $SUMS. أضفها من https://github.com/electron/electron/releases/download/v$V/SHASUMS256.txt"
-    exit 1
+    if WANT="$(twosrc_sum "$Z")"; then
+      echo "::notice::بصمة $Z غير مثبّتة، واتفق عليها المصدران (GitHub وnpm): $WANT  $Z — أضف هذا السطر إلى $SUMS"
+    else
+      echo "::error::لا توجد بصمة sha256 مثبّتة لـ $Z في $SUMS، ولم يتفق عليها المصدران المستقلان (GitHub وnpm). لن يُبنى شيء."
+      exit 1
+    fi
   fi
   curl -fsSL -o "el-$P.zip" "https://github.com/electron/electron/releases/download/v$V/$Z"
   GOT="$(sha256sum "el-$P.zip" | cut -d' ' -f1)"
@@ -27,7 +44,7 @@ for P in win32 linux; do
   rm -f "$D/resources/default_app.asar"
   mkdir -p "$D/resources/app/app"
   cp desktop/main.js desktop/preload.js desktop/package.json "$D/resources/app/"
-  cp -r web/index.html web/sw.js web/manifest.json web/css web/js web/img "$D/resources/app/app/"
+  cp -r web/index.html web/sw.js web/manifest.json web/css web/js web/img web/fonts web/audio "$D/resources/app/app/"
   cp desktop/README.txt "$D/"
   if [ $P = win32 ]; then mv "$D/electron.exe" "$D/Hasaniya.exe"; else
     mv "$D/electron" "$D/hasaniya-bin"; chmod +x "$D/hasaniya-bin"

@@ -28,24 +28,35 @@ function weeklyPick(key, list, n) {
   }
   return picks;
 }
+/* v105: التحدّي مراجعة لما حُفظ قبل الأسبوع، فلا يبدأ حتى يكون الطفل قد رأى خمسة أبيات.
+   (كان في أول أسبوع للطفل يُثبَّت على بيت واحد، فيُمنح وسام «بطل الأسبوع» بعد أول بيت) */
+const WEEKLY_MIN_SEEN = 5;
+function weeklyFix(key, s) {
+  const { seen } = weeklyPool(s);
+  if (seen.length < WEEKLY_MIN_SEEN) return { ids: [], off: true };
+  return { ids: weeklyPick(key, seen, WEEKLY_MIN_SEEN), off: false };
+}
 function weeklyVerseIds(key, s) {
   s = s || state;
   const w = s && s.weekly;
-  if (w && w.week === key && Array.isArray(w.ids) && w.ids.length) return w.ids;
-  // v104: من الأبيات التي رآها الطفل فقط؛ التحدّي مراجعة لا درس جديد
-  const { seen } = weeklyPool(s);
-  return weeklyPick(key, seen, 5);
+  if (w && w.week === key && Array.isArray(w.ids) && (w.off || w.ids.length >= WEEKLY_MIN_SEEN)) return w.ids;
+  return weeklyFix(key, s).ids;
 }
 function ensureWeekly(s) {
   const k = weekKey();
   if (!s.weekly || s.weekly.week !== k) s.weekly = {week: k, done: {}};
-  if (!Array.isArray(s.weekly.ids) || !s.weekly.ids.length) s.weekly.ids = weeklyVerseIds(k, Object.assign({}, s, { weekly: null }));
-  return s.weekly;
+  const w = s.weekly;
+  if (!Array.isArray(w.ids) || (!w.off && w.ids.length < WEEKLY_MIN_SEEN)) {
+    const f = weeklyFix(k, Object.assign({}, s, { weekly: null }));
+    w.ids = f.ids; w.off = f.off;
+  }
+  return w;
 }
 function markWeekly(vid) {
   if (!state) return;
   const w = ensureWeekly(state);
-  if (!weeklyVerseIds(w.week).includes(vid) || w.done[vid]) return;
+  const ids = weeklyVerseIds(w.week);
+  if (!ids.length || !ids.includes(vid) || w.done[vid]) return;
   w.done[vid] = true; saveState();
   if (weeklyVerseIds(w.week).every(id => w.done[id])) {
     kidToast(kidLine("weeklyDone"), "success");
@@ -73,7 +84,7 @@ function showWeekly() {
   openHub("🏅 تحدّي الأسبوع", `
     <p style="color:#666;font-size:.9rem">${ids.length
       ? gForm("راجِع هذه الأبيات هذا الأسبوع حتى تُرتّبها بلا خطأ ولا تلميح. اضغط البيت للتدرّب عليه.", "راجِعي هذه الأبيات هذا الأسبوع حتى تُرتّبيها بلا خطأ ولا تلميح. اضغطي البيت للتدرّب عليه.")
-      : gForm("ابدأ «درس اليوم» أولاً؛ أبيات التحدّي مما تعلّمتَ.", "ابدئي «درس اليوم» أولاً؛ أبيات التحدّي مما تعلّمتِ.")}</p>
+      : gForm("يبدأ تحدّيك الأسبوع القادم، بعد أن تحفظ خمسة أبيات على الأقل.", "يبدأ تحدّيكِ الأسبوع القادم، بعد أن تحفظي خمسة أبيات على الأقل.")}</p>
     <div style="font-weight:bold;margin-bottom:8px">التقدّم: ${Object.keys(w.done).filter(k => ids.includes(k)).length} / ${ids.length}</div>
     ${rows}
     <div id="weeklyBoard">${familyRows(key)}</div>`);

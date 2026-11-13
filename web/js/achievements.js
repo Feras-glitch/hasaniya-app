@@ -71,6 +71,22 @@ function masteredCount(userState, verses) {
   const list = verses || content.journeyData.flatMap(x => x.verses);
   return list.filter(v => verseMastered(v.id, userState)).length;
 }
+/* v105: مستويان صريحان في التقارير:
+   «يرتّبه» = verseMastered (من تمرين الترتيب، والكلمات أمامه)،
+   «يحفظه غيباً (مؤكَّد)» = سمّعه الوالد بلا فتح ولم يخطئ فيه بعد ذلك، أو بلغ الصندوقين 6 و7 (لا يدخلهما إلا بتسميع الوالد) */
+function verseConfirmed(vid, userState) {
+  const st = userState || state;
+  if (!st || !st.seenVerses || !st.seenVerses[vid]) return false;
+  const e = (st.leitner || {})[vid];
+  const pc = (st.parentChecks || {})[vid];
+  const lastWrong = ((st.verseStats || {})[vid] || {}).lastWrong || 0;
+  if (pc && pc.r === "ok" && lastWrong <= (+pc.at || 0)) return true;
+  return !!e && e.box >= 6;   // أي خطأ بعده يعيده إلى الصندوق الأول
+}
+function confirmedCount(userState, verses) {
+  const list = verses || content.journeyData.flatMap(x => x.verses);
+  return list.filter(v => verseConfirmed(v.id, userState)).length;
+}
 function calculateMastery(userState) {
   const totalVerses = content.journeyData.reduce((s, st) => s + st.verses.length, 0);
   const empty = { percent: 0, level: "مبتدئ", stars: 0, progress: 0, commitment: 0, mastered: 0, seen: 0,
@@ -102,6 +118,8 @@ function calculateMastery(userState) {
   else if (memory >= 30) { level = "مبتدئ متحسن"; stars = 2; }
   else { level = "مبتدئ"; stars = 1; }
 
-  return { percent: memory, level, stars, progress, commitment, mastered, seen: seenIds.length,
+  // v105: «يحفظه غيباً (مؤكَّد)» بتسميع الوالد، إلى جانب «يرتّبه» (mastered)
+  let confirmed = 0; try { confirmed = confirmedCount(userState); } catch (e) {}
+  return { percent: memory, level, stars, progress, commitment, mastered, confirmed, seen: seenIds.length,
     details: { memory, progress, commitment, achievements } };
 }

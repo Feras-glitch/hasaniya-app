@@ -45,7 +45,8 @@ th{background:#fce4ec} ul{margin:4px 0;padding-right:18px} .meta{color:#666;font
 <div class="meta">الطفل: ${escapeHtml(getUserName())} · التاريخ: ${new Date().toLocaleDateString("ar-EG")}</div>
 <h2>ملخص</h2>
 <div>المحطات المكتملة: ${content.journeyData.filter(s => getStationStatus(s) === "completed").length} من ${content.journeyData.length}</div>
-<div>أبيات أُتقنت (صحيحة في يومين مختلفين، بلا خطأ بعدها): ${mastered} من ${content.journeyData.reduce((n, x) => n + x.verses.length, 0)}</div>
+<div>يرتّب الكلمات (صحيحة في يومين مختلفين، بلا خطأ بعدها): ${mastered} من ${content.journeyData.reduce((n, x) => n + x.verses.length, 0)}</div>
+<div>يحفظه غيباً (سمّعه الوالد بلا فتح): ${confirmedCount(state)} من ${content.journeyData.reduce((n, x) => n + x.verses.length, 0)}</div>
 <div>تحدّي الأسبوع: ${weeklyVerseIds(w.week).filter(id => w.done[id]).length} من ${weeklyVerseIds(w.week).length} (هذا الأسبوع)</div>
 <div>الأوسمة: ${escapeHtml(badges)}</div>
 <h2>المحطات</h2>

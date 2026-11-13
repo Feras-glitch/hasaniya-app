@@ -238,9 +238,12 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
     const fresh = createNewUser('يوسف', '🦁'); fresh.gender = 'boy'; users.push(fresh); saveState();
     // v104: من الأبيات المرئية فقط: لا شيء لطفل لم يبدأ، ثم من بين ما رآه
     const ids0 = weeklyVerseIds(weekKey(), fresh.state);
+    // v105: لا يبدأ التحدي قبل خمسة أبيات مرئية (كان يُمنح الوسام بعد أول بيت)
     fresh.state.seenVerses = { s1v1: true, s1v2: true, s1v3: true };
+    const ids3 = weeklyVerseIds(weekKey(), fresh.state);
+    fresh.state.seenVerses = { s1v1: true, s1v2: true, s1v3: true, s1v4: true, s1v5: true, s1v6: true };
     const ids = weeklyVerseIds(weekKey(), fresh.state);
-    o.weeklyOpenOnly = ids0.length === 0 && ids.length === 3 && ids.every(id => fresh.state.seenVerses[id]);
+    o.weeklyOpenOnly = ids0.length === 0 && ids3.length === 0 && ids.length === 5 && ids.every(id => fresh.state.seenVerses[id]);
     fresh.state.seenVerses = { s1v1: true };
     const st0 = state; state = fresh.state;
     startRecall('riddle'); await w(80);
@@ -265,15 +268,25 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
     u.small = true; saveState(); updateUserChip(); openReviewHub(); await w(50);
     o.smallRiddleTile = /الألغاز/.test(document.getElementById('hubBody').textContent);
     closeAll(); u.small = false; saveState(); updateUserChip();
-    // مشتّتات الحدث: من محطات أخرى ولا تشاركه كلمة مهمة
-    let evOk = true;
+    // مشتّتات الحدث (v105): لا تشارك الجوابَ لفظاً، ولا من بيت قصته قصة هذا البيت،
+    // وتشارك البيتَ لفظاً حيث أمكن فلا تكفي مطابقة الكلمة للحل
+    let evOk = true, lexHelp = 0, lexAll = 0;
     content.journeyData.forEach(st => st.verses.forEach(v => {
       const opts = eventChoicesFor(v);
       if (new Set(opts).size !== 3 || !opts.includes(v.event)) evOk = false;
-      const mine = eventWords(v.event);
-      opts.filter(x => x !== v.event).forEach(x => { if (st.verses.some(y => y.event === x) && content.journeyData.length > 1) evOk = evOk && false; if ([...eventWords(x)].some(t => mine.has(t))) evOk = false; });
+      const mine = eventWords(v.event), vw = eventWords(v.fullVerse);
+      const others = opts.filter(x => x !== v.event);
+      others.forEach(x => {
+        if (eventLexShare(eventWords(x), mine)) evOk = false;
+        const src = content.journeyData.flatMap(s => s.verses).find(y => y.event === x);
+        if (src && v.story && src.story === v.story) evOk = false;
+      });
+      if (eventLexShare(mine, vw)) { lexAll++; if (others.some(x => eventLexShare(eventWords(x), vw))) lexHelp++; }
     }));
-    o.eventChoices = evOk;
+    // كان الحل بالمطابقة مضموناً تقريباً (المشتّتات من محطات بعيدة بلا لفظ مشترك)؛ الهدف ألا يكفي في نحو نصف الحالات على الأقل
+    o.eventBasic = evOk;
+    o.eventChoices = evOk && lexAll > 0 && lexHelp / lexAll >= 0.4;
+    o.eventLex = lexHelp + '/' + lexAll;
     // مشتّتات المكان: لا تُعرض حراء أو العقبة مشتّتاً لمكة
     let nearHit = false;
     for (let k = 0; k < 25; k++) {

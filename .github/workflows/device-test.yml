@@ -28,7 +28,7 @@ jobs:
       - name: Copy web app into Android assets
         run: |
           mkdir -p android/app/src/main/assets/www
-          cp -r web/index.html web/sw.js web/manifest.json web/css web/js web/img android/app/src/main/assets/www/
+          cp -r web/index.html web/sw.js web/manifest.json web/css web/js web/img web/fonts web/audio android/app/src/main/assets/www/
 
       - uses: actions/setup-java@v5
         with:

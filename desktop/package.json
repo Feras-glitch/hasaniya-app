@@ -1,7 +1,7 @@
 {
   "name": "hasaniya",
   "productName": "المنظومة الحسنية",
-  "version": "104.0.0",
+  "version": "105.0.0",
   "description": "المنظومة الحسنية في السيرة النبوية، تطبيق مستقل بلا خادم",
   "main": "main.js",
   "private": true,
@@ -10,7 +10,7 @@
     "dist": "electron-builder"
   },
   "devDependencies": {
-    "electron": "^37.3.1",
+    "electron": "^45.3.0",
     "electron-builder": "^25.1.8"
   },
   "build": {

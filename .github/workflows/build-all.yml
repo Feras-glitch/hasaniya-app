@@ -18,7 +18,7 @@ permissions:
   contents: read
 
 env:
-  ELECTRON_VERSION: 37.3.1
+  ELECTRON_VERSION: 45.3.0
 
 jobs:
   versions:
@@ -86,7 +86,7 @@ jobs:
       - name: Copy web app into Android assets
         run: |
           mkdir -p android/app/src/main/assets/www
-          cp -r web/index.html web/sw.js web/manifest.json web/css web/js web/img android/app/src/main/assets/www/
+          cp -r web/index.html web/sw.js web/manifest.json web/css web/js web/img web/fonts web/audio android/app/src/main/assets/www/
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -144,7 +144,7 @@ jobs:
         run: |
           mkdir -p out
           python3 web/tools/build_standalone.py out/hasaniya-standalone.html
-          (cd web && zip -qr ../out/hasaniya-web.zip index.html sw.js manifest.json README.md css js img)
+          (cd web && zip -qr ../out/hasaniya-web.zip index.html sw.js manifest.json README.md css js img fonts audio)
       - name: Windows and Linux (Electron, sha256-verified download)
         run: bash desktop/package.sh "$ELECTRON_VERSION" desk
       - name: Check that the Linux version opens the app

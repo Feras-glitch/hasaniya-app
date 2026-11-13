@@ -240,6 +240,8 @@ function guideWhenAudioIdle(fn, maxMs) {
 const guideHelpedVerses = {};
 function guideOnVerseShown(station, verse, verseIndex) {
   if (!verse || !verse.words || !verse.words.length) return;
+  // v105: في مراجعة الصناديق العليا (كلمات ناقصة أو حروف أولى) لا يعرض ناجي كلمة البيت الأولى فيكشف الجواب
+  if (typeof playMode !== "undefined" && playMode === MODE_REVIEW && typeof reviewBoxOf === "function" && reviewBoxOf(verse.id) >= 3) return;
   if (verseIndex % 3 === 2 && !guideHelpedVerses[verse.id]) {
     guideHelpedVerses[verse.id] = true;
     guideHelperTurn(verse);

@@ -225,8 +225,8 @@ function guideShowActions(greet) {
     text = `المحطة الحالية: ${open.title}. ` + (pos > 0 ? `توقّفنا عند البيت ${pos + 1}، ` : "") +
       `وبقي ${arCount(left, "بيت واحد", "بيتان", "أبيات", "بيتاً")}.`;
     say = [kidLine("currentStation"), open.title, ...(pos > 0 ? [kidLine("resumeHere")] : []), kidLine("letsContinue")];
-    acts.push({ label: "▶ تابع الرحلة", run: () => resumeJourney() });
-    if (!guideChallenge) acts.push({ label: "⏱ تحدي 5 دقائق", run: () => guideStartChallenge() });
+    // v105: الطريق الوحيد إلى أبيات جديدة هو زر «درس اليوم» أعلى الشاشة (مراجعة ما حان أولاً، وسقف يومي للجديد).
+    // كان «تابع الرحلة» يبدأ المحطة مباشرة، و«تحدي 5 دقائق» يستعجل الجديد، فيتجاوزان المراجعة؛ فلا يكرره ناجي هنا.
   } else {
     text = kidLine("allStationsGuide");
     say = [guideFill(text)];
@@ -242,8 +242,7 @@ function guideShowActions(greet) {
   const due = leitnerDueVerses().length;
   if (due) {
     text += ` عندي ${arCount(due, "بطاقة واحدة", "بطاقتان", "بطاقات", "بطاقةً")} ${due === 2 ? "تنتظران" : "تنتظر"} ${gForm("مراجعتَك", "مراجعتَكِ")}.`;
-    say.push(kidLine("cardsWaiting"));
-    acts.push({ label: "🗃️ راجع البطاقات", run: () => startLeitnerReview() });
+    say.push(kidLine("cardsWaiting"));   // المراجعة داخل «درس اليوم» (v105)، فلا زر منفصل لها هنا
   }
   if (learnedVerses("all").length >= 2) acts.push({ label: "🔁 سمّع ما حفظت", run: () => openRecPopup({ mode: "child", range: "all" }) });
   acts.push({ label: "📖 دفتر الرحلة", run: () => openGuideJournal() });

@@ -117,13 +117,14 @@ function makeZip(name, data, declared) {
   need('أخطاء صفحة: ' + errs.join('|'), errs.length === 0);
 
   // ---- 6) تلف المحتوى وحده: لا يضيع تقدّم الطفل ----
+  // (علامة «أُفسد مرة» في localStorage: sessionStorage في صفحات file:// يضيع أحياناً بعد إعادة التحميل، فيُفسَد الملف مرة ثانية)
   const ctx2 = await b.newContext(); const p2 = await ctx2.newPage(); p2.on('dialog', d => d.accept());
   await p2.goto(URL); await p2.waitForTimeout(800);
   await p2.evaluate(() => { closePopup('userEditorPopup'); state.points = 777; saveState(); });
   const users = await p2.evaluate(() => localStorage.getItem('hasaniya_v13_users'));
   await p2.close();
   const p3 = await ctx2.newPage(); p3.on('dialog', d => d.accept());
-  await p3.addInitScript(u => { if (!sessionStorage.getItem('d')) { sessionStorage.setItem('d', '1'); localStorage.setItem('hasaniya_v13_users', u); localStorage.setItem('hasaniya_v13_content', '{bad'); } }, users);
+  await p3.addInitScript(u => { if (!localStorage.getItem('__v87_done')) { localStorage.setItem('__v87_done', '1'); localStorage.setItem('hasaniya_v13_users', u); localStorage.setItem('hasaniya_v13_content', '{bad'); } }, users);
   await p3.goto(URL); await p3.waitForTimeout(1000);
   const C = await p3.evaluate(() => ({ points: state.points, contentBackup: !!localStorage.getItem('hasaniya_content_corrupt_backup'), usersBackup: !!localStorage.getItem('hasaniya_users_corrupt_backup') }));
   console.log('content-corrupt', JSON.stringify(C));
@@ -135,7 +136,7 @@ function makeZip(name, data, declared) {
   const sb = await q0.evaluate(() => localStorage.getItem('hasaniya_safety_backups'));
   await q0.close();
   const q = await ctx3.newPage(); q.on('dialog', d => d.accept());
-  await q.addInitScript(sbk => { if (!sessionStorage.getItem('d')) { sessionStorage.setItem('d', '1'); localStorage.setItem('hasaniya_v13_users', '[{bad'); localStorage.setItem('hasaniya_safety_backups', sbk); } }, sb);
+  await q.addInitScript(sbk => { if (!localStorage.getItem('__v87_done')) { localStorage.setItem('__v87_done', '1'); localStorage.setItem('hasaniya_v13_users', '[{bad'); localStorage.setItem('hasaniya_safety_backups', sbk); } }, sb);
   await q.goto(URL); await q.waitForTimeout(900);
   const D = await q.evaluate(async () => {
     closePopup('userEditorPopup');

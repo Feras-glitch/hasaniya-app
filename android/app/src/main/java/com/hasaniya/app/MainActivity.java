@@ -147,6 +147,8 @@ public class MainActivity extends Activity {
         if (p.endsWith(".wav")) return "audio/wav";
         if (p.endsWith(".woff2")) return "font/woff2";
         if (p.endsWith(".woff")) return "font/woff";
+        if (p.endsWith(".ttf")) return "font/ttf";
+        if (p.endsWith(".zip")) return "application/zip";
         return "application/octet-stream";
     }
 

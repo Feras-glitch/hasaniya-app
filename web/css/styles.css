@@ -667,3 +667,37 @@ body.night .intro-prev,body.night .intro-prev span{color:#b0bec5}
 .voice-muted-note{pointer-events:none;position:fixed;top:8px;left:50%;transform:translateX(-50%);width:min(92vw,440px);box-sizing:border-box;z-index:400;background:#fff3cd;color:#7a5200;border:1px solid #f0ad4e;border-radius:12px;padding:8px 12px;font-size:.9rem;line-height:1.6;box-shadow:0 4px 12px rgba(0,0,0,.15);display:none}
 .voice-muted-note.show{display:block}
 .timeline-note{color:#666;font-size:.85rem;margin:-4px 0 10px;line-height:1.6}
+.parent-alert-btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+/* v105: بطاقات الحروف الأولى، والفراغ اللاحق في «الكلمتين الناقصتين» */
+.word-btn.initial-tile{min-width:58px;font-size:1.25rem;letter-spacing:.5px}
+.blank.later-blank{opacity:.55}
+.verse-text .filled{color:var(--success);font-weight:bold}
+.story-same{color:#555;font-size:.95rem;line-height:1.8;margin-bottom:6px}
+/* v105: شاشة الطفل المبسّطة */
+body.simple-home #mapScreen .full-only{display:none!important}
+#mapScreen .daily-card{margin-top:4px}
+.daily-plan{font-weight:bold;font-size:1.02rem;margin-bottom:2px}
+.daily-where{font-size:.85rem;color:#666}
+.kid-row .action-btn{flex:1 1 0;font-size:1rem}
+/* v105: منطقة الوالدين: رقم رئيسي، ومجموعات تُطوى، ومنطقة حذف منفصلة */
+.parent-headline{background:#fff;border:2px solid var(--parent-border);border-radius:14px;padding:12px 14px;margin:8px 0 10px;text-align:center}
+.parent-headline .ph-main{font-size:1.15rem;font-weight:bold;color:var(--parent-border)}
+.parent-headline .ph-main strong{font-size:1.8rem;color:var(--success)}
+.parent-headline .ph-sub{font-size:.85rem;color:#666;margin-top:4px;line-height:1.7}
+.parent-group{border:1px solid #e3e3ef;border-radius:12px;margin:10px 0;background:#fff;overflow:hidden}
+.parent-group>summary{cursor:pointer;font-weight:bold;padding:12px 14px;list-style:none;background:#f6f6fb}
+.parent-group>summary::-webkit-details-marker{display:none}
+.parent-group>summary::after{content:"▾";float:left;color:#888}
+.parent-group[open]>summary::after{content:"▴"}
+.parent-group>:not(summary){margin-left:10px;margin-right:10px}
+.parent-group .parent-actions{margin-bottom:10px}
+.parent-group.danger-zone{border-color:#f5b5b5}
+.parent-group.danger-zone>summary{background:#fdecec;color:var(--danger)}
+body.night .parent-headline,body.night .parent-group{background:#1f2430;border-color:#3a4150}
+body.night .parent-group>summary{background:#272d3a}
+body.night .parent-group.danger-zone>summary{background:#3a2326}
+/* v105: خط نسخ مضمّن (Noto Naskh Arabic، ترخيص OFL في fonts/) للأبيات والآيات المشكولة،
+   فلا يختلف شكل الحركات من جهاز لآخر. ومن الإعدادات يمكن الرجوع إلى خط الجهاز. */
+@font-face{font-family:"HasaniyaNaskh";src:url("../fonts/NotoNaskhArabic.woff") format("woff");font-weight:400 700;font-display:swap}
+.bayt,.intro-verse,.intro-prev span,.full-verse-box,.verse-text,#wordsBank .word-btn,#dropZone .word-btn,#optionsBank .word-btn,.quran-ayah,.hub-row span,.poem-verse{font-family:"HasaniyaNaskh",'Segoe UI','Tahoma',sans-serif}
+body.system-font .bayt,body.system-font .intro-verse,body.system-font .intro-prev span,body.system-font .full-verse-box,body.system-font .verse-text,body.system-font #wordsBank .word-btn,body.system-font #dropZone .word-btn,body.system-font #optionsBank .word-btn,body.system-font .quran-ayah,body.system-font .hub-row span,body.system-font .poem-verse{font-family:'Segoe UI','Tahoma',sans-serif}

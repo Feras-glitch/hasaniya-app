@@ -22,7 +22,8 @@ const closeAch = p => p.evaluate(() => document.getElementById("newAchievementPo
     }
     await p.waitForSelector("#nextBtn", {state:"visible"});
     if (v === 0) { console.log("شرح:", (await p.innerText("#meaningBox")).slice(0,60)); }
-    await closeAch(p); await p.click("#nextBtn");
+    // v105: سقف الأبيات الجديدة في اليوم: كل بيت هنا كأنه في يوم جديد
+    await closeAch(p); await p.evaluate(() => { state.dayPlan = null; }); await p.click("#nextBtn");
     if (v === 4) { await p.waitForSelector("#repeatPopup.active"); await p.click("#repeatNextBtn"); }
   }
   // الاختبار القصير بعد المحطة: أجب كل سؤال بالخيار الصحيح

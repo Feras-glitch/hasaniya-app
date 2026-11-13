@@ -55,7 +55,8 @@ async function authorRecFor(kind, v, notify) {
   const rec = await recGet(authorKey(kind, v.id));
   if (!rec || !rec.blob) return null;
   if (rec.fp && rec.fp !== textFingerprint(vpTextOf(kind, v))) {
-    if (notify) showToast("تسجيل الوالد لهذا " + (kind === "story" ? "القصة" : "البيت") + " لم يعد مطابقاً للنص، فيُقرأ آلياً. أعد تسجيله من خانة الوالدين", "error");
+    // الصوت المضمّن ليس تسجيل الوالد، فلا يُطلب منه إعادته (وأداة البناء ترفض صوتاً لا يطابق النص)
+    if (notify && rec.source !== "bundled") showToast("تسجيل الوالد لهذا " + (kind === "story" ? "القصة" : "البيت") + " لم يعد مطابقاً للنص، فيُقرأ آلياً. أعد تسجيله من خانة الوالدين", "error");
     return null;
   }
   return rec;
@@ -295,8 +296,11 @@ async function vpToggleReviewed(kind, id) {
 async function vpPlanExport(opts) {
   const recs = (await vpAllAuthorRecs()).sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
   const exported = await vpGetExportedMap();
-  const unreviewed = recs.filter(r => !r.reviewed).length;
-  const selected = recs.filter(r =>
+  // v105: الصوت المضمّن في التطبيق لا يُصدَّر (هو في كل نسخة)، لكنه يُحسب في «ما سُجّل»
+  const own = recs.filter(r => !vpIsBundled(r));
+  const bundled = recs.length - own.length;
+  const unreviewed = own.filter(r => !r.reviewed).length;
+  const selected = own.filter(r =>
     (!opts.onlyReviewed || r.reviewed) &&
     (!opts.deltaOnly || exported[r.key] !== (r.at || 0)));
   const stale = recs.filter(r => {
@@ -317,7 +321,7 @@ async function vpPlanExport(opts) {
   });
   const totalV = content.journeyData.reduce((s, st) => s + st.verses.length, 0);
   const totalS = content.journeyData.reduce((s, st) => s + st.verses.filter(v => v.story).length, 0);
-  return { recs, selected, unreviewed, stale, flagged, seconds, stations, sections, totalV, totalS,
+  return { recs, selected, unreviewed, stale, flagged, seconds, stations, sections, totalV, totalS, bundled,
     doneV: stations.reduce((s, x) => s + x.vDone, 0), doneS: stations.reduce((s, x) => s + x.sDone, 0) };
 }
 function vpFmtDuration(sec) {
@@ -336,6 +340,7 @@ async function vpRefreshExportReport() {
     <div><strong>مسجّل:</strong> ${p.doneV}/${p.totalV} بيتاً · ${p.doneS}/${p.totalS} قصة</div>
     <div><strong>سيُرسل الآن:</strong> ${p.selected.length} تسجيلاً · مدة تقريبية ${vpFmtDuration(p.seconds)}</div>
     <div style="color:#666">غير مراجَع: ${p.unreviewed} · نص تغيّر ويحتاج إعادة: ${p.stale} · تنبيه صوت: ${p.flagged}</div>
+    ${p.bundled ? `<div style="color:#666">${p.bundled} تسجيلاً مضمّناً في التطبيق لا تُصدَّر، لأنها في كل نسخة منه</div>` : ""}
     <div style="margin-top:8px"><strong>ما بقي للتسجيل:</strong></div>
     ${rows || "<div>✅ كل النصوص مسجّلة</div>"}`;
   document.getElementById("vpDoExportBtn").disabled = p.selected.length === 0;
@@ -345,7 +350,7 @@ async function vpRefreshExportReport() {
 async function exportVoicePack() {
   if (!vpAuthorName()) { showToast("اكتب اسم المعلم أو الوالد أولاً، ثم صدّر", "error"); return; }
   try {
-    if (!(await vpAllAuthorRecs()).length) { showToast("لا توجد تسجيلات للتصدير بعد", "error"); return; }
+    if (!(await vpAllAuthorRecs()).filter(r => !vpIsBundled(r)).length) { showToast("لا توجد تسجيلات للتصدير بعد", "error"); return; }
   } catch(e) { showToast("تعذّر قراءة التسجيلات", "error"); return; }
   document.getElementById("vpExportPopup").classList.add("active");
   vpRefreshExportReport();
@@ -384,6 +389,7 @@ async function vpDoExport() {
     const map = Object.assign({}, await vpGetExportedMap());
     for (const r of list) map[r.key] = r.at || 0;
     await recPut({ key: "meta|exported", map, at: Date.now() });
+    try { localStorage.setItem(STORAGE_RECS_SINCE, "0"); } catch (e) {}
     closePopup("vpExportPopup");
     showToast(parts.length > 1 ? `تم تصدير ${list.length} تسجيلاً في ${parts.length} ملفات` : `تم تصدير ${list.length} تسجيلاً`, "success");
   } catch(e) {
@@ -481,6 +487,68 @@ async function vpCommitVoicePacks() {
   if (typeof voiceCacheReset === "function") voiceCacheReset();
 }
 
+/* ---------- v105: الصوت البشري المضمّن في التطبيق (القرار 11) ----------
+   قارئ واحد متقن يسجّل الأبيات من استوديو التسجيل ويصدّر حزمته، فتبني منها الأداة tools/bundle-voice-pack.js
+   الملف audio/voice-pack.zip، وتكتب بصمته في BUNDLED_VOICE_ID. يُثبَّت في مخزن التسجيلات مرة واحدة لكل بصمة،
+   فيسمعه الطفل من أول يوم بدل القارئ الآلي:
+   - لا يحلّ محل تسجيل سجّله الوالد بنفسه أو استورده من معلم: ذلك اختيار الأسرة.
+   - تاريخه 1، فأي حزمة معلم تُستورد بعده تحلّ محله.
+   - علامة التثبيت في مخزن التسجيلات نفسه (meta|bundled): إن مُسح المخزن أُعيد التثبيت.
+   - لا يُصدَّر مع حزمة الوالد، لأنه في كل نسخة من التطبيق.
+   - نسخة الملف الواحد تحمله في داخلها (HASANIYA_VOICE_PACK_B64)، لأنها لا تقرأ ملفاً بجانبها. */
+const BUNDLED_VOICE_FILE = "audio/voice-pack.zip";
+function vpIsBundled(rec) { return !!(rec && rec.source === "bundled"); }
+async function vpBundledBuffer() {
+  const b64 = typeof window !== "undefined" ? window.HASANIYA_VOICE_PACK_B64 : null;
+  if (typeof b64 === "string" && b64) {
+    const bin = atob(b64), u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    return u8.buffer;
+  }
+  const res = await fetch(BUNDLED_VOICE_FILE);
+  if (!res.ok) throw new Error("ملف الصوت المضمّن غير موجود");
+  return res.arrayBuffer();
+}
+let vpBundledRun = null;
+/* id وgetBuf للاختبار فقط؛ في التطبيق تُستعمل البصمة والملف المضمّنان */
+function vpInstallBundledVoice(id, getBuf) {
+  if (!vpBundledRun) {
+    vpBundledRun = vpInstallBundledVoiceNow(id === undefined ? BUNDLED_VOICE_ID : id, getBuf || vpBundledBuffer)
+      .finally(() => { vpBundledRun = null; });
+  }
+  return vpBundledRun;
+}
+async function vpInstallBundledVoiceNow(id, getBuf) {
+  if (!id) return { skipped: "none" };
+  const mark = await recGet("meta|bundled");
+  if (mark && mark.id === id) return { skipped: "done" };
+  const entries = await zipRead(await getBuf());
+  const mf = entries.get("manifest.json");
+  if (!mf) throw new Error("لا يوجد manifest.json");
+  const m = JSON.parse(new TextDecoder().decode(mf));
+  const check = vpValidateManifest(m);
+  if (!check.ok) throw new Error(check.error);
+  // ملف قديم بقي في ذاكرة المتصفح بعد التحديث: لا يُثبَّت، ويُعاد المحاولة في التشغيل التالي
+  if (m.bundle !== id) throw new Error("ملف الصوت المضمّن لا يطابق هذه النسخة");
+  const author = String(m.author || "").slice(0, 40);
+  let added = 0, kept = 0;
+  for (const it of m.items) {
+    if (it.kind === "line") continue;
+    const data = entries.get(it.file);
+    if (!vpFindVerse(it.id) || !data) continue;
+    const key = authorKey(it.kind, it.id);
+    const cur = await recGet(key);
+    if (cur && cur.blob && !vpIsBundled(cur)) { kept++; continue; }
+    await recPut({ key, verseId: it.id, kind: it.kind, uid: "author", mime: it.mime,
+      blob: new Blob([data], { type: it.mime }), fp: it.fp || null, at: 1,
+      source: "bundled", reviewed: true, author });
+    added++;
+  }
+  await recPut({ key: "meta|bundled", id, author, count: added + kept, at: Date.now() });
+  if (typeof voiceCacheReset === "function") voiceCacheReset();
+  return { added, kept, author };
+}
+
 /* ---------- حالة حزمة الصوت على الجهاز ---------- */
 async function renderVoiceStatus() {
   const el = document.getElementById("vpStatus");
@@ -497,8 +565,11 @@ async function renderVoiceStatus() {
     }).length;
     const reviewed = recs.filter(r => r.reviewed).length;
     const from = vpPref("importedAuthor");
+    // v105: ما جاء مضمّناً في التطبيق يُذكر وحده، حتى لا يُظن أن الوالد استورده
+    const bundled = recs.filter(vpIsBundled);
+    const bundledBy = bundled.length ? (bundled[0].author || "") : "";
     el.textContent = recs.length
-      ? `🎙️ على هذا الجهاز: ${verses} بيتاً و${stories} قصة و${lines} نصاً آخر · مراجَع ${reviewed}${from ? ` · من: ${from}` : ""}${stale ? ` · ${stale} تسجيل يحتاج إعادة (النص تغيّر)` : ""}`
+      ? `🎙️ على هذا الجهاز: ${verses} بيتاً و${stories} قصة و${lines} نصاً آخر · مراجَع ${reviewed}${from ? ` · من: ${from}` : ""}${bundled.length ? ` · منها ${bundled.length} مضمّنة في التطبيق${bundledBy ? ` بصوت ${bundledBy}` : ""}` : ""}${stale ? ` · ${stale} تسجيل يحتاج إعادة (النص تغيّر)` : ""}`
       : "🎙️ لا توجد حزمة صوت على هذا الجهاز بعد";
   } catch(e) { el.textContent = ""; }
 }
@@ -568,9 +639,8 @@ function maybeOnboard() {
 }
 function afterOnboarding() {
   vpPref("onboarded", true);
-  // v104: إن لم يكن على الجهاز صوت عربي يعرف الوالد ذلك من أول يوم
-  setTimeout(() => { const m = typeof voiceMissingNotice === "function" ? voiceMissingNotice() : ""; if (m) showToast(m, "error"); }, 3500);
-  // v104: الترحيب بعد إنشاء الطفل (كان يُنطق قبله خلف النافذة)
+  // v105: لا رسالة طويلة للوالد على شاشة الطفل، ولا نافذة استيراد قبل أن يبدأ الطفل:
+  // نقص الصوت العربي وحزمة الصوت يظهران تنبيهاً في منطقة الوالدين (renderParentAlerts).
+  // الترحيب بعد إنشاء الطفل (كان يُنطق قبله خلف النافذة)
   setTimeout(() => { if (!document.querySelector(".modal-overlay.active") && typeof guideShowActions === "function") guideShowActions(true); }, 600);
-  vpAllAuthorRecs().then(recs => { if (!recs.length) openVoiceImport(); }).catch(() => {});
 }

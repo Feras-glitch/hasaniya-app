@@ -25,7 +25,10 @@ function updateUserChip() {
 }
 /* v102: وضع الطفل الصغير (لمن لا يقرأ): أزرار أكبر وأقل، والألغاز بالاختيار. يفعّله الوالد لكل طفل بالرقم السري */
 function isSmallKid() { const u = getCurrentUser(); return !!(u && u.small); }
-function applyKidMode() { document.body.classList.toggle("small-kid", isSmallKid()); }
+function applyKidMode() {
+  document.body.classList.toggle("small-kid", isSmallKid());
+  if (typeof applyHomeMode === "function") applyHomeMode();
+}
 
 function showUsersModal() {
   const list = document.getElementById("usersList");
@@ -67,6 +70,8 @@ function openUserEditor(id, opts = {}) {
   editShowPhoto = u && !editOnboarding ? (u.showPhoto !== false) : true;
   editSmall = !!(u && !editOnboarding && u.small);
   renderEditorExtras();
+  const ios = document.getElementById("iosInstallNote");
+  if (ios) { ios.hidden = !(editOnboarding && iosNeedsInstall()); if (!ios.hidden) ios.innerHTML = iosInstallHTML(false); }
   const grid = document.getElementById("avatarGrid");
   // v104: الطفل الجديد يأخذ رمزاً لم يأخذه إخوته، حتى يعرف كل طفل ملفه
   const currentAvatar = u ? u.avatar : (AVATARS.find(a => !users.some(x => x.avatar === a)) || AVATARS[0]);
@@ -146,8 +151,8 @@ function renderEditorExtras() {
 }
 function renderSmallKidRow() {
   let row = document.getElementById("smallKidRow");
-  const after = document.getElementById("showPhotoRow");
-  if (!row && after) { row = document.createElement("div"); row.id = "smallKidRow"; row.className = "small-kid-row"; after.insertAdjacentElement("afterend", row); }
+  const host = document.getElementById("smallKidHost");
+  if (!row && host) { row = document.createElement("div"); row.id = "smallKidRow"; row.className = "small-kid-row"; host.appendChild(row); }
   if (!row) return;
   row.innerHTML = `<span>🧒 وضع الطفل الصغير (لا يقرأ بعد): ${editSmall ? "مفعّل" : "متوقف"}</span>
     <button class="tool-btn" type="button" id="smallKidBtn" onclick="toggleEditSmall()">${editSmall ? "إيقاف" : "تفعيل"} 🔐</button>`;

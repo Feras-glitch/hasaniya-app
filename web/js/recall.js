@@ -64,7 +64,8 @@ function revealRecall() {
 }
 function rateRecall(ok) {
   const it = recallQ.items[recallQ.i];
-  leitnerRecord(it.v.id, ok);
+  // v105: حكم الطفل على نفسه («تذكّرتُه») تدريب لا دليل، فلا يرفع الصندوق؛ أما «نسيته» فيُعيده إلى المراجعة القريبة
+  if (!ok) leitnerRecord(it.v.id, false);
   if (ok) { recallQ.score++; if (firstCreditToday("recall|" + it.v.id)) addPoints(3); }
   saveState();
   recallQ.i++;
