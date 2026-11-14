@@ -17,7 +17,21 @@ function quranHtml(v) {
   const L = (typeof QURAN_LINKS !== "undefined") ? QURAN_LINKS[v.id] : null;
   if (!L || !L.length) return "";
   return `<div class="quran-box"><div class="quran-title">📖 من القرآن الكريم</div>${L.map(q => `
-    <div class="quran-ayah">${escapeHtml(q.text)}<div class="quran-ref">﴿ ${escapeHtml(q.ref)} ﴾</div>${q.note ? `<div class="quran-note">${escapeHtml(q.note)}</div>` : ""}</div>`).join("")}<div class="quran-src">${escapeHtml(QURAN_SOURCE)}</div></div>`;
+    <div class="quran-ayah">${quranAyatHtml(q)}<div class="quran-ref">﴿ ${escapeHtml(q.ref)} ﴾</div>${q.note ? `<div class="quran-note">${escapeHtml(q.note)}</div>` : ""}</div>`).join("")}<div class="quran-src">${escapeHtml(QURAN_SOURCE)}</div></div>`;
+}
+/* v108: الآيات برسم مصحف المدينة (QPC V2): كل آية كاملة بعلامة رقمها، تليها الآية التالية.
+   إن نقص رمز آية رجع إلى نص تنزيل. النص المقروء للقارئ الصوتي وقارئ الشاشة يبقى نص تنزيل */
+function quranKeys(ref) {
+  const m = String(ref || "").match(/(\d+):(\d+)(?:[–-](\d+))?/);
+  if (!m) return [];
+  const out = []; for (let n = +m[2]; n <= +(m[3] || m[2]); n++) out.push(m[1] + ":" + n);
+  return out;
+}
+function quranAyatHtml(q) {
+  const G = typeof QURAN_GLYPHS !== "undefined" ? QURAN_GLYPHS : null, keys = quranKeys(q.ref);
+  if (!G || !keys.length || !keys.every(k => G[k])) return escapeHtml(q.text);
+  return `<div class="quran-qpc" role="img" aria-label="${escapeHtml(q.text.replace(/\n/g, " "))}">` +
+    keys.map(k => `<span class="qpc-p${G[k][0]}" aria-hidden="true">${escapeHtml(G[k][1])}</span>`).join(" ") + `</div>`;
 }
 function docCoverage() {
   const c = { ok: 0, book: 0, review: 0, none: 0 }, missing = [];

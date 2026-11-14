@@ -520,6 +520,7 @@ body.guide-open #gameScreen{padding-bottom:190px}
 @keyframes sceneDrift { from { transform: scale(1); } to { transform: scale(1.05); } }
 @media (prefers-reduced-motion: reduce) { #storyImg { animation: none; } }
 
+.quran-qpc { direction: rtl; text-align: justify; text-align-last: center; font-size: 1.7rem; line-height: 2.3; white-space: normal; color: #1b1b1b; }
 .quran-src { font-size: .72rem; color: #777; margin-top: 6px; }
 
 /* v66: زر ✕ للإغلاق في كل نافذة */
@@ -723,3 +724,19 @@ body.system-font .bayt,body.system-font .intro-verse,body.system-font .intro-pre
 .move-step{margin:6px 0}
 .move-step .tool-btn{margin-inline-start:6px}
 .move-note{font-size:.85rem;color:#666;margin-top:10px}
+/* QPC-BEGIN: مولَّد بـ tools/build_quran_glyphs.py */
+@font-face{font-family:"QPC22";src:url("../fonts/qpc-p22.woff") format("woff");font-display:block}.qpc-p22{font-family:"QPC22"}
+@font-face{font-family:"QPC28";src:url("../fonts/qpc-p28.woff") format("woff");font-display:block}.qpc-p28{font-family:"QPC28"}
+@font-face{font-family:"QPC65";src:url("../fonts/qpc-p65.woff") format("woff");font-display:block}.qpc-p65{font-family:"QPC65"}
+@font-face{font-family:"QPC66";src:url("../fonts/qpc-p66.woff") format("woff");font-display:block}.qpc-p66{font-family:"QPC66"}
+@font-face{font-family:"QPC193";src:url("../fonts/qpc-p193.woff") format("woff");font-display:block}.qpc-p193{font-family:"QPC193"}
+@font-face{font-family:"QPC204";src:url("../fonts/qpc-p204.woff") format("woff");font-display:block}.qpc-p204{font-family:"QPC204"}
+@font-face{font-family:"QPC267";src:url("../fonts/qpc-p267.woff") format("woff");font-display:block}.qpc-p267{font-family:"QPC267"}
+@font-face{font-family:"QPC282";src:url("../fonts/qpc-p282.woff") format("woff");font-display:block}.qpc-p282{font-family:"QPC282"}
+@font-face{font-family:"QPC376";src:url("../fonts/qpc-p376.woff") format("woff");font-display:block}.qpc-p376{font-family:"QPC376"}
+@font-face{font-family:"QPC526";src:url("../fonts/qpc-p526.woff") format("woff");font-display:block}.qpc-p526{font-family:"QPC526"}
+@font-face{font-family:"QPC528";src:url("../fonts/qpc-p528.woff") format("woff");font-display:block}.qpc-p528{font-family:"QPC528"}
+@font-face{font-family:"QPC596";src:url("../fonts/qpc-p596.woff") format("woff");font-display:block}.qpc-p596{font-family:"QPC596"}
+@font-face{font-family:"QPC597";src:url("../fonts/qpc-p597.woff") format("woff");font-display:block}.qpc-p597{font-family:"QPC597"}
+@font-face{font-family:"QPC601";src:url("../fonts/qpc-p601.woff") format("woff");font-display:block}.qpc-p601{font-family:"QPC601"}
+/* QPC-END */
