@@ -2,6 +2,8 @@
 let timePausedByHide = false;
 function init() {
   loadAll();
+  // v110: تعديلات «وضع المراجعة» تُطبَّق على المحتوى بعد تحميله
+  if (typeof reviewApplyAll === "function") { try { reviewApplyAll(); } catch (e) { console.warn("review apply", e); } }
   initSpeech();
   updateUserChip();
   updatePointsDisplay();

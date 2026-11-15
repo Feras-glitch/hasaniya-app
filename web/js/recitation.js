@@ -573,6 +573,7 @@ function openSharedFile(file) {
     try { data = JSON.parse(reader.result); } catch(e) { showToast("ملف غير صالح", "error"); return; }
     if (data && data.app === "hasaniya" && data.type === "recitation") openEvalFromDoc(data);
     else if (data && data.app === "hasaniya" && data.type === "evaluation") importEvaluation(data);
+    else if (data && data.app === "hasaniya" && data.type === "review") requirePin(() => reviewImportDoc(data), "استيراد مراجعة");
     else if (data && data.app === "hasaniya" && data.state) importProgressDoc(data);
     else showToast("ملف غير معروف", "error");
   };

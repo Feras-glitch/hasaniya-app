@@ -744,3 +744,32 @@ body.system-font .bayt,body.system-font .intro-verse,body.system-font .intro-pre
 @font-face{font-family:"QPC597";src:url("../fonts/qpc-p597.woff") format("woff");font-display:block}.qpc-p597{font-family:"QPC597"}
 @font-face{font-family:"QPC601";src:url("../fonts/qpc-p601.woff") format("woff");font-display:block}.qpc-p601{font-family:"QPC601"}
 /* QPC-END */
+
+/* v110: وضع المراجعة */
+.review-modal { max-width: 640px; text-align: right; }
+.review-who { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: bold; margin-bottom: 6px; }
+.review-progress { height: 8px; background: #eee; border-radius: 6px; overflow: hidden; margin: 6px 0; }
+.review-progress div { height: 100%; background: var(--success, #2e7d32); }
+.review-actions, .review-btns { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.review-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0; }
+.review-filters select, .review-filters input { width: 100%; padding: 8px; border-radius: 10px; font-family: inherit; min-width: 0; }
+.review-filters label { grid-column: 1 / -1; }
+.review-group { background: #fff7d6; padding: 8px; border-radius: 10px; margin: 6px 0; }
+.review-row { border: 1px solid #ddd; border-radius: 12px; padding: 10px; margin: 8px 0; background: var(--card, #fff); }
+.review-ctx { font-size: .8rem; color: #777; line-height: 1.7; }
+.review-verse { font-family: "HasaniyaNaskh", "Segoe UI", Tahoma, sans-serif; color: var(--primary); }
+.review-label { font-weight: bold; margin: 4px 0; }
+.review-text { line-height: 1.9; }
+.review-text.ml { white-space: pre-line; }
+.review-orig { font-size: .85rem; color: #666; margin: 4px 0; white-space: pre-line; }
+.review-note { font-size: .85rem; background: #f3f3f3; border-radius: 8px; padding: 4px 8px; margin: 4px 0; }
+.review-badge, .review-tag { display: inline-block; font-size: .75rem; font-weight: normal; border-radius: 8px; padding: 1px 6px; background: #eef; margin-inline-start: 4px; }
+.review-tag { background: #e8f4ea; }
+.rb-ok { background: #e3f4e5; } .rb-edited { background: #e3ecfb; } .rb-check { background: #fff1d6; } .rb-hard { background: #fde8ef; }
+.review-ta { width: 100%; box-sizing: border-box; padding: 8px; border-radius: 10px; font-family: inherit; font-size: 1rem; line-height: 1.8; }
+.review-old { text-decoration: line-through; color: #a33; font-size: .9rem; white-space: pre-line; }
+.review-new { color: #1b5e20; white-space: pre-line; }
+.review-import-head { font-size: 1.05rem; margin-bottom: 6px; }
+.review-import-list { max-height: 50vh; overflow: auto; }
+.review-inline-btn { margin: 6px 0; font-size: .8rem; }
+.rv-btn { font-size: .82rem; padding: 5px 9px; min-height: 0; }

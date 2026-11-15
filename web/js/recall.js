@@ -15,7 +15,11 @@ function showRecallMenu() {
 function startRiddles() { startRecall("riddle"); }
 /* v109: كل لغز له مفتاح ثابت (البيت والجواب)، ويُحفظ ما حُلّ في riddlesSolved.
    من حلّ لغز محطة قبل v109 (كان المفتاح المحطة) يُعدّ أول ألغازها محلولاً */
-function riddleKey(r) { return r.ref + "|" + normalizeArabic(r.answer); }
+function riddleKey(r) {
+  // v110: الجواب قد يُعدَّل في «وضع المراجعة»، فالمفتاح من النسخة الأصلية حتى لا يضيع ما حُلّ
+  const i = typeof REVIEW_RIDDLE_KEYS !== "undefined" ? RIDDLES.indexOf(r) : -1;
+  return i >= 0 && REVIEW_RIDDLE_KEYS[i] ? REVIEW_RIDDLE_KEYS[i] : r.ref + "|" + normalizeArabic(r.answer);
+}
 function riddleDone(r) {
   const S = state.riddlesSolved || {};
   if (S[riddleKey(r)]) return true;
@@ -139,6 +143,7 @@ function renderRiddle() {
     const opts = riddleChoices(r);
     openHub(`🧩 لغز ${q.i + 1} من ${q.items.length}`, `
       <p style="font-size:1.1rem;line-height:1.9">${sayBtnHTML([r.riddle, kidLine("riddlePick"), ...opts], "استمع للغز")} ${escapeHtml(r.riddle)}</p>
+      ${typeof reviewInlineBtn === "function" ? reviewInlineBtn("r:" + riddleKey(r)) : ""}
       <input id="riddleIn" type="hidden">
       <div class="word-bank">${optionsHTML(opts, o => `pickRiddle(this,'${escapeForAttr(o)}')`)}</div>
       <div id="riddleMsg" style="min-height:26px;font-weight:bold;margin:8px 0"></div>
@@ -148,6 +153,7 @@ function renderRiddle() {
   }
   openHub(`🧩 لغز ${q.i + 1} من ${q.items.length}`, `
     <p style="font-size:1.1rem;line-height:1.9">${sayBtnHTML(r.riddle, "استمع للغز")} ${escapeHtml(r.riddle)}</p>
+    ${typeof reviewInlineBtn === "function" ? reviewInlineBtn("r:" + riddleKey(r)) : ""}
     <input id="riddleIn" class="ask-input" placeholder="اكتب جوابك">
     <div id="riddleMsg" style="min-height:26px;font-weight:bold;margin:8px 0"></div>
     <div id="riddleBtns" class="hub-actions">

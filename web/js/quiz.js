@@ -15,6 +15,7 @@ function renderQuizQuestion() {
   document.getElementById("quizBody").innerHTML = `
     <div style="color:#666;font-size:.85rem">سؤال ${i + 1} من ${items.length}</div>
     <h3 style="margin:10px 0">${sayBtnHTML([it.q, ...order], "استمع للسؤال")} ${escapeHtml(it.q)}</h3>
+    ${typeof reviewInlineBtn === "function" ? reviewInlineBtn(`q:${quizState.station.id}:${i}`) : ""}
     <div class="word-bank">${optionsHTML(order, o => `answerQuiz(this,'${escapeForAttr(o)}')`)}</div>
     <p id="quizFeedback" style="min-height:24px;font-weight:bold"></p>`;
   /* v101: السؤال ثم كل خيار بتسجيله الخاص، بترتيب ظهوره على الشاشة */

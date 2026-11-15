@@ -133,7 +133,8 @@ function renderStoryContent(v) {
   } else setStoryText(el, v.story || "");
   const srcs = (v.sources && v.sources.length) ? v.sources : (v.source ? [v.source] : []);
   document.getElementById("storySource").innerHTML =
-    (srcs.length ? srcs.map(escapeHtml).join("<br>• ") : "غير موثق") + docGradeHtml(v) + noteHtml(v) + quranHtml(v);
+    (srcs.length ? srcs.map(escapeHtml).join("<br>• ") : "غير موثق") + docGradeHtml(v) + noteHtml(v) + quranHtml(v) +
+    (typeof reviewInlineBtn === "function" ? reviewInlineBtn("v:" + v.id) : "");
 }
 function renderKhilaf(v) {
   const box = document.getElementById("khilafBox");
