@@ -72,7 +72,8 @@ if (run("typeof RIDDLES") !== "undefined") {
     const ref = vm2[r.ref];
     if (!ref) return bad(tag + ": مرجع غير موجود " + r.ref);
     if (!r.riddle || !r.answer) return bad(tag + ": نص أو جواب فارغ");
-    if (!norm(ref.fullVerse).includes(norm(r.answer))) bad(tag + ": الجواب «" + r.answer + "» غير موجود في " + r.ref);
+    /* v109: «للطائف» في البيت تحوي «الطائف» بعد حذف «ال» */
+    if (!norm(ref.fullVerse).includes(norm(r.answer).replace(/^ال/, ""))) bad(tag + ": الجواب «" + r.answer + "» غير موجود في " + r.ref);
     if (!stations.has(r.station)) bad(tag + ": محطة غير معروفة " + r.station);
   });
   ok("الألغاز: " + R.length + " لغزاً مرتبطة ببيت موجود");

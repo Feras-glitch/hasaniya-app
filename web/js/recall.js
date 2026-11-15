@@ -13,6 +13,39 @@ function showRecallMenu() {
     </div>`);
 }
 function startRiddles() { startRecall("riddle"); }
+/* v109: كل لغز له مفتاح ثابت (البيت والجواب)، ويُحفظ ما حُلّ في riddlesSolved.
+   من حلّ لغز محطة قبل v109 (كان المفتاح المحطة) يُعدّ أول ألغازها محلولاً */
+function riddleKey(r) { return r.ref + "|" + normalizeArabic(r.answer); }
+function riddleDone(r) {
+  const S = state.riddlesSolved || {};
+  if (S[riddleKey(r)]) return true;
+  return !!S[r.station] && RIDDLES.find(x => x.station === r.station) === r;
+}
+function riddlesOpen() { return RIDDLES.filter(r => state.seenVerses && state.seenVerses[r.ref]); }
+function riddleVerse(r) { return content.journeyData.flatMap(s => s.verses).find(x => x.id === r.ref) || null; }
+/* شاشة حال الألغاز: كم حُلّ من المفتوح، وما في كل محطة (✅ كلها محلولة، 🧩 فيها ما لم يُحلّ، 🔒 لم يُفتح شيء) */
+function showRiddleStatus(last) {
+  const open = riddlesOpen(), solved = open.filter(riddleDone).length, left = open.length - solved;
+  const rows = content.journeyData.map((st, i) => {
+    const all = RIDDLES.filter(r => r.station === st.id);
+    if (!all.length) return "";
+    const op = all.filter(r => open.includes(r)), done = op.filter(riddleDone).length;
+    const icon = !op.length ? "🔒" : done === all.length ? "✅" : "🧩";
+    return `<div class="hub-row" style="cursor:default"><span>${icon} ${i + 1}. ${escapeHtml(st.title)}</span><b>${done} / ${all.length}</b></div>`;
+  }).join("");
+  const line = kidLine(left ? "riddlesLeft" : "riddlesAllDone");
+  openHub("🧩 الألغاز", `
+    ${last ? `<p style="font-size:1.2rem"><strong>${last.score} / ${last.total}</strong></p>` : ""}
+    <p style="font-size:1.1rem;line-height:1.8">${escapeHtml(line)}</p>
+    <p style="color:#666">${gForm("حللتَ", "حللتِ")} ${solved} من ${open.length} لغزاً مفتوحاً، ومجموع الألغاز ${RIDDLES.length}</p>
+    <div class="riddle-status">${rows}</div>
+    <div class="hub-actions">
+      ${left ? `<button class="action-btn btn-success" onclick="startRecall('riddle')">▶ حلّ الباقي</button>`
+             : `<button class="action-btn btn-gray" onclick="startRecall('riddle', true)">🔁 أعد حلّها</button>`}
+      <button class="action-btn btn-info" onclick="closePopup('hubPopup')">رجوع</button>
+    </div>`);
+  autoSayNow(line);
+}
 function keywordOf(v) {
   let best = v.words[0];
   v.words.forEach(w => { if (normalizeArabic(w).length > normalizeArabic(best).length) best = w; });
@@ -20,12 +53,16 @@ function keywordOf(v) {
 }
 function stripAl(s) { return normalizeArabic(s).replace(/^ال/, ""); }
 
-function startRecall(mode) {
+function startRecall(mode, again) {
   recallQ = {mode, i: 0, score: 0, items: []};
   if (mode === "riddle") {
-    // ألغاز الأبيات التي رآها الطفل فقط، فلا يُسأل عن شيء لم يصل إليه
-    recallQ.items = RIDDLES.filter(r => state.seenVerses && state.seenVerses[r.ref]).sort(() => Math.random() - .5);
-    if (!recallQ.items.length) { kidToast(kidLine("needOneFirst"), "error"); return; }
+    // ألغاز الأبيات التي رآها الطفل فقط، فلا يُسأل عن شيء لم يصل إليه.
+    // v109: ما حلّه لا يُعاد عليه؛ فإن حلّ كل المفتوح يرى شاشة «انتهت الألغاز» بدل اللغز نفسه مرة أخرى
+    const open = riddlesOpen();
+    if (!open.length) { recallQ = null; kidToast(kidLine("needOneFirst"), "error"); return; }
+    const todo = again ? open : open.filter(r => !riddleDone(r));
+    if (!todo.length) { recallQ = null; return showRiddleStatus(); }
+    recallQ.items = todo.sort(() => Math.random() - .5);
   } else {
     const pool = [];
     content.journeyData.forEach((st, si) => st.verses.forEach((v, vi) => {
@@ -125,10 +162,14 @@ function checkRiddle() {
   if (riddleAccepts(r, document.getElementById("riddleIn").value)) {
     recallQ.score++;
     if (!state.riddlesSolved) state.riddlesSolved = {};
-    if (!state.riddlesSolved[r.station]) { state.riddlesSolved[r.station] = true; addPoints(5); }
+    if (!riddleDone(r)) addPoints(5);
+    state.riddlesSolved[riddleKey(r)] = true;
     saveState();
-    document.getElementById("riddleMsg").innerHTML = `<span style="color:var(--success)">✅ ${escapeHtml(guideVocative())}، ${escapeHtml(kidLine("wellDone"))} ${escapeHtml(kidLine("answerIs"))} ${escapeHtml(r.answer)}</span>`;
-    autoSayNow([guideVocative(), kidLine("wellDone"), kidLine("answerIs"), r.answer]);
+    const v = riddleVerse(r);
+    // v109: يُسمَع البيت الذي فيه الجواب بعد الحل، فيرتبط اللغز بالحفظ
+    document.getElementById("riddleMsg").innerHTML = `<span style="color:var(--success)">✅ ${escapeHtml(guideVocative())}، ${escapeHtml(kidLine("wellDone"))} ${escapeHtml(kidLine("answerIs"))} ${escapeHtml(r.answer)}</span>` +
+      (v ? `<div class="riddle-verse">${escapeHtml(kidLine("riddleVerse"))}<br><span>${escapeHtml(v.fullVerse)}</span></div>` : "");
+    autoSayNow([guideVocative(), kidLine("wellDone"), kidLine("answerIs"), r.answer, ...(v ? [kidLine("riddleVerse"), v.fullVerse] : [])]);
     document.getElementById("riddleBtns").innerHTML = `<button class="action-btn btn-success" onclick="nextRiddle()">التالي ⬅️</button>`;
     playSuccess();
   } else {
@@ -139,8 +180,8 @@ function checkRiddle() {
 }
 function revealRiddle() {
   const r = recallQ.items[recallQ.i];
-  const v = content.journeyData.flatMap(s => s.verses).find(x => x.id === r.ref);
-  autoSayNow([kidLine("answerIs"), r.answer]);
+  const v = riddleVerse(r);
+  autoSayNow([kidLine("answerIs"), r.answer, ...(v ? [kidLine("riddleVerse"), v.fullVerse] : [])]);
   document.getElementById("riddleMsg").innerHTML = `${escapeHtml(kidLine("answerIs"))} <strong>${escapeHtml(r.answer)}</strong>
     <div style="color:var(--primary);font-weight:normal;margin-top:8px;line-height:1.8">${escapeHtml(v ? v.fullVerse : "")}</div>`;
   document.getElementById("riddleBtns").innerHTML = `<button class="action-btn btn-success" onclick="nextRiddle()">التالي ⬅️</button>`;
@@ -149,6 +190,7 @@ function nextRiddle() { recallQ.i++; renderRecall(); }
 function finishRecall() {
   const q = recallQ;
   recallQ = null;
+  if (q.mode === "riddle") return showRiddleStatus({ score: q.score, total: q.items.length });
   openHub("🎉 انتهى التذكّر", `
     <div style="font-size:3rem">🔑</div>
     <p style="font-size:1.2rem"><strong>${q.score} / ${q.items.length}</strong></p>

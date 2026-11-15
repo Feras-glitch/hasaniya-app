@@ -520,6 +520,9 @@ body.guide-open #gameScreen{padding-bottom:190px}
 @keyframes sceneDrift { from { transform: scale(1); } to { transform: scale(1.05); } }
 @media (prefers-reduced-motion: reduce) { #storyImg { animation: none; } }
 
+.riddle-status { margin: 10px 0; max-height: 45vh; overflow: auto; }
+.riddle-verse { margin-top: 10px; font-weight: normal; color: #444; line-height: 1.9; }
+.riddle-verse span { color: var(--primary); font-family: "HasaniyaNaskh", "Segoe UI", Tahoma, sans-serif; font-size: 1.15rem; }
 .quran-qpc { direction: rtl; text-align: justify; text-align-last: center; font-size: 1.7rem; line-height: 2.3; white-space: normal; color: #1b1b1b; }
 .quran-src { font-size: .72rem; color: #777; margin-top: 6px; }
 
@@ -590,6 +593,7 @@ body.reduce-motion .rec-bar .rec-btn.recording{animation:none}
 .seq-head{color:#666;font-size:.85rem;margin-bottom:8px}
 .seq-text{font-size:1.25rem;line-height:2;font-weight:bold;max-height:40vh;overflow-y:auto;white-space:pre-line;margin-bottom:8px}
 .seq-text.seq-verse{font-size:1.45rem;color:var(--primary)}
+.seq-text.seq-station{font-size:1.15rem;max-height:55vh}
 .seq-status{min-height:22px;margin-bottom:8px}
 .seq-main{display:flex;gap:10px;justify-content:center;margin-bottom:8px}
 .seq-main .action-btn{flex:1;max-width:220px;font-size:1.1rem}

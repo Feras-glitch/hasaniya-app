@@ -46,6 +46,12 @@ const KID_LINES = {
   reflectionSaved: ["حفظتَ تأمّلَكَ، شكراً لَكَ ✨", "حفظتِ تأمّلَكِ، شكراً لَكِ ✨"],
   recallGreat: ["ممتاز! ذاكرتُكَ قوية.", "ممتاز! ذاكرتُكِ قوية."],
   recallKeep: ["كل مرة تُعيد فيها البيت تقوى ذاكرتُكَ.", "كل مرة تُعيدين فيها البيت تقوى ذاكرتُكِ."],
+  // v109: نهاية الألغاز
+  riddlesAllDone: ["حللتَ كل الألغاز المفتوحة! يُفتح لغز جديد كلما حفظتَ أبياتاً جديدة 🧩", "حللتِ كل الألغاز المفتوحة! يُفتح لغز جديد كلما حفظتِ أبياتاً جديدة 🧩"],
+  riddlesLeft: ["بقيت ألغاز لم تحلّها، وستعود إليكَ في المرة القادمة 🧩", "بقيت ألغاز لم تحلّيها، وستعود إليكِ في المرة القادمة 🧩"],
+  riddleVerse: ["والجواب في هذا البيت:"],
+  nowPlaying: ["يُسمع الآن:"],
+  yourTurnRec: ["دورك الآن: سمّع ما سمعتَ، والتسجيل يبدأ 🎤", "دورك الآن: سمّعي ما سمعتِ، والتسجيل يبدأ 🎤"],
   exGreat: ["ممتاز!"],
   exKeep: ["كل تمرين يقوّي ما حفظته.", "كل تمرين يقوّي ما حفظتِه."],
   // تعليمات
@@ -110,6 +116,7 @@ function voiceBody(text, voc) {
 const VOICE_SECTIONS = [
   { id: "names", title: "👧 أسماء الأطفال" },
   { id: "verse", title: "📖 الأبيات" },
+  { id: "station", title: "🔁 المحطات متصلة" },
   { id: "guide", title: "🐪 التعليمات ورسائل ناجي" },
   { id: "titles", title: "🏷️ أسماء المحطات والأوسمة" },
   { id: "quiz", title: "❓ أسئلة الاختبار" },
@@ -156,6 +163,8 @@ function voiceRegistry() {
   voiceNameLines().forEach(t => line("names", t, -1));
   J.forEach((st, si) => st.verses.forEach((v, vi) =>
     add({ section: "verse", kind: "verse", id: v.id, key: authorKey("verse", v.id), text: v.fullVerse, station: si, n: v.n || vi + 1 })));
+  /* v109: كل محطة في تسجيل واحد متصل، يسمعه الطفل في «استمع للمحطة» و«القصيدة كاملة» */
+  J.forEach((st, si) => add({ section: "station", kind: "station", id: st.id, key: authorKey("station", st.id), text: vpStationText(st), station: si }));
   voiceFixedLines().forEach(t => line("guide", t, -1));
   J.forEach((st, si) => line("titles", st.title, si));
   [typeof CUSTOM_BADGES !== "undefined" ? Object.values(CUSTOM_BADGES) : [], typeof GUIDE_BADGES !== "undefined" ? Object.values(GUIDE_BADGES) : []]
@@ -184,7 +193,7 @@ function voiceRegistry() {
 function voiceRecValid(item, rec) {
   if (!rec || !rec.blob) return false;
   if (item.kind === "line") return true;
-  const v = vpFindVerse(item.id);
+  const v = vpFindTarget(item.kind, item.id);
   return !!v && !vpIsStale(rec, item.kind, v);
 }
 /* تقدّم كل قسم: كم نصاً سُجّل من مجموعه (تستعمله نافذة التصدير والاستوديو) */

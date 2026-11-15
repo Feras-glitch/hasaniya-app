@@ -222,9 +222,9 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
       r.dailyFirst = !!(daily.compareDocumentPosition(play) & Node.DOCUMENT_POSITION_FOLLOWING);
       openPlayHub();
       const tiles = [...document.querySelectorAll('#hubBody .hub-tile')].map(x => x.textContent);
-      r.playHubDefault3 = tiles.length === 3 && tiles.some(t => t.includes('الألغاز'));
+      r.playHubDefault3 = tiles.length === 4 && tiles.some(t => t.includes('الألغاز')) && tiles.some(t => t.includes('القصيدة كاملة'));
       closeAll();
-      u.small = true; r.playHubSmall2 = playSetOf().length === 2; u.small = false;
+      u.small = true; r.playHubSmall2 = playSetOf().length === 3 && playSetOf().includes('poemListen'); u.small = false;
       state.playSet = null; togglePlayAct('places');
       r.playSetAdd = playSetOf().includes('places');
       state.playSet = ['riddles']; togglePlayAct('riddles');

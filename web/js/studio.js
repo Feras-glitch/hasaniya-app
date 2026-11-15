@@ -29,8 +29,8 @@ function pvItem(kind, id) {
   const it = voiceRegistry().byKey.get(key);
   if (it) return it;
   if (kind !== "line") {
-    const v = vpFindVerse(id);
-    if (v) return { section: kind === "story" ? "story" : "verse", kind: vpKindOf(kind), id, key, text: vpTextOf(kind, v) };
+    const v = vpFindTarget(vpKindOf(kind), id);
+    if (v) return { section: kind === "story" ? "story" : kind === "station" ? "station" : "verse", kind: vpKindOf(kind), id, key, text: vpTextOf(kind, v) };
   }
   return null;
 }
@@ -44,7 +44,7 @@ function pvCurrentList() {
   if (sec === "basic") return PV_BASIC.flatMap(b => voiceRegistry().items.filter(it => it.section === b && (b !== "verse" || stv === "all" || it.station === +stv)));
   return voiceRegistry().items.filter(it => it.section === sec && (PV_NO_STATION.includes(sec) || stv === "all" || it.station === +stv));
 }
-function pvMaxMs(it) { return it.kind === "story" ? 180000 : (it.section === "expl" || it.section === "quizex" || it.section === "disc") ? 120000 : 60000; }
+function pvMaxMs(it) { return it.kind === "station" ? 600000 : it.kind === "story" ? 180000 : (it.section === "expl" || it.section === "quizex" || it.section === "disc") ? 120000 : 60000; }
 function pvFmtMin(sec) {
   const all = Math.round(sec / 60);
   const mins = m => m === 1 ? "دقيقة" : m === 2 ? "دقيقتان" : m <= 10 ? `${m} دقائق` : `${m} دقيقة`;
@@ -104,7 +104,7 @@ function pvRowHTML(it, rec) {
     : `<small class="rec-count">${rec.source === "upload" ? "ملف مرفوع" : rec.source === "bundled" ? "مضمّن في التطبيق" : "مسجّل"}${rec.author ? " · من: " + escapeHtml(rec.author) : ""} · ${fmtBytes(rec.blob.size)}</small>`;
   const warn = rec && rec.q && rec.q.warnings && rec.q.warnings.length ? `<small class="rec-count" style="color:#b26a00">⚠ ${escapeHtml(rec.q.warnings.join("، "))}</small>` : "";
   return `<div class="rec-row${rec && !stale ? " pv-done" : ""}">
-      <div class="rec-text">${it.n ? it.n + ". " : ""}${escapeHtml(it.text)}</div>
+      <div class="rec-text">${it.kind === "station" ? `<b>🔁 ${it.station + 1}. ${escapeHtml((content.journeyData[it.station] || {}).title || "")}</b><div style="white-space:pre-line;font-size:.9rem;margin-top:4px">${escapeHtml(it.text)}</div>` : `${it.n ? it.n + ". " : ""}${escapeHtml(it.text)}`}</div>
       <div class="rec-actions">
         <button class="tool-btn" onclick="pvRecord('${k}','${id}')">${recording ? "⏹ أوقف" : rec ? "🔁 أعد التسجيل" : "⏺ سجّل"}</button>
         <label class="tool-btn" style="cursor:pointer">📁 رفع ملف<input type="file" accept="audio/*" style="display:none" onchange="pvUpload('${k}','${id}',this.files[0]); this.value=''"></label>
@@ -220,7 +220,7 @@ async function pvSeqRender(have) {
   box.style.display = "block";
   box.innerHTML = `
     <div class="seq-head">${escapeHtml(sec ? sec.title : "")} · ${pvSeq.i + 1} من ${n} · مسجّل ${doneN}</div>
-    <div class="seq-text${it.kind === "verse" ? " seq-verse" : ""}">${escapeHtml(it.text)}</div>
+    <div class="seq-text${it.kind === "verse" ? " seq-verse" : it.kind === "station" ? " seq-verse seq-station" : ""}">${escapeHtml(it.text)}</div>
     <div class="seq-status">${recording ? "🔴 يسجّل الآن… اضغط «أوقف» عند الانتهاء" : ok ? "✅ مسجّل" + (rec.reviewed ? " · مراجَع" : "") : rec ? "⚠ النص تغيّر بعد التسجيل، أعد التسجيل" : "لم يُسجَّل بعد"}</div>
     ${recording ? "" : warn}
     <div class="seq-main">

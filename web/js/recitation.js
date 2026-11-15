@@ -367,6 +367,80 @@ async function playReview(rangeKey) {
   if (token === seqToken) guideDance(false);
 }
 
+/* ---------- v109: الاستماع المتصل: المحطة كاملة، والقصيدة كاملة ----------
+   لكل محطة: تسجيل المعلم المتصل («المحطات متصلة» في الاستوديو) إن وُجد،
+   وإلا تسجيلات أبياتها المفردة، وما لم يُسجَّل يُقرأ آلياً؛ فلا تنقطع القصيدة */
+async function stationModelParts(st, onlyVerses) {
+  const whole = !onlyVerses || onlyVerses.length === st.verses.length;
+  if (whole) {
+    const rec = await authorRecFor("station", vpStationTarget(st.id));
+    if (rec) return [{ rec, text: vpStationText(st) }];
+  }
+  const parts = [];
+  for (const v of (onlyVerses || st.verses)) parts.push({ rec: await authorRecFor("verse", v), text: v.fullVerse });
+  return parts;
+}
+/* يُشغّل المحطات من from إلى to، ويُحدّث سطر «يُسمع الآن» إن كان ظاهراً */
+async function playStations(from, to) {
+  if (!audioBegin()) return;
+  const token = seqToken, J = content.journeyData;
+  guideDance(true);
+  for (let i = from; i <= to && i < J.length; i++) {
+    const now = document.getElementById("poemNow");
+    if (now) now.textContent = `🎧 ${kidLine("nowPlaying")} ${i + 1}. ${J[i].title}`;
+    const parts = await stationModelParts(J[i]);
+    for (const p of parts) { if (token !== seqToken) break; await playPart(token, p.rec, p.text); }
+    if (token !== seqToken) break;
+  }
+  if (token === seqToken) {
+    guideDance(false);
+    const now = document.getElementById("poemNow"); if (now) now.textContent = "";
+  }
+}
+function playStationListen(i) { return playStations(i, i); }
+function playPoemFrom(i) { return playStations(i, content.journeyData.length - 1); }
+function stopPoem() {
+  stopSequence();
+  const now = document.getElementById("poemNow"); if (now) now.textContent = "";
+}
+/* «🎧 القصيدة كاملة»: من البداية، أو محطة واحدة، أو من محطة إلى الآخر */
+function showPoemListen() {
+  const rows = content.journeyData.map((st, i) => `
+    <div class="hub-row" style="cursor:default"><span>${i + 1}. ${escapeHtml(st.title)}</span>
+      <span style="display:flex;gap:6px">
+        <button class="tool-btn" onclick="playStationListen(${i})" title="المحطة وحدها">🎧 المحطة</button>
+        <button class="tool-btn" onclick="playPoemFrom(${i})" title="من هنا إلى آخر القصيدة">▶ من هنا</button>
+      </span></div>`).join("");
+  openHub("🎧 القصيدة كاملة", `
+    <div class="hub-actions">
+      <button class="action-btn btn-success" onclick="playPoemFrom(0)">▶ من البداية</button>
+      <button class="action-btn btn-gray" onclick="stopPoem()">⏹ أوقف</button>
+    </div>
+    <div id="poemNow" style="min-height:24px;font-weight:bold;color:var(--primary);margin:6px 0"></div>
+    <div class="riddle-status">${rows}</div>`);
+}
+/* «التسميع المتصل»: يسمع الطفل المعلم أولاً لما سيسمّعه، ثم يبدأ تسجيله هو */
+async function listenThenRecord() {
+  const range = currentRange();
+  const verses = learnedVerses(range);
+  if (!verses.length) { kidToast(kidLine("noLearned"), "error"); return; }
+  if (!audioBegin()) return;
+  const token = seqToken;
+  guideDance(true);
+  for (const st of content.journeyData) {
+    const mine = verses.filter(v => st.verses.includes(v));
+    if (!mine.length) continue;
+    const parts = await stationModelParts(st, mine);
+    for (const p of parts) { if (token !== seqToken) break; await playPart(token, p.rec, p.text); }
+    if (token !== seqToken) break;
+  }
+  if (token !== seqToken) return;
+  guideDance(false);
+  kidToast(kidLine("yourTurnRec"), "success");
+  for (const p of await voiceResolve(kidLine("yourTurnRec"))) { if (token !== seqToken) return; await playPart(token, p.rec, p.text); }
+  if (token !== seqToken || recIsRecording(range)) return;
+  recSection();
+}
 /* صوت الوالد للقصة: يُسمع بدل القراءة الآلية إن وُجد */
 async function playStoryAudio(v, opts) {
   opts = opts || {};

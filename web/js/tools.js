@@ -13,6 +13,7 @@ const TOOLS = [
   {icon: "🖨️", name: "بطاقات للطباعة", fn: "printAllCards"},
   {icon: "🕰️", name: "ترتيب الأحداث", fn: "showTimeline"},
   {icon: "📜", name: "الأبيات", fn: "showPoem"},
+  {icon: "🎧", name: "القصيدة كاملة", fn: "showPoemListen"},
   {icon: "🎤", name: "تسجيلاتي", fn: "openRecPopup"}
 ];
 /* v105: «🎮 العب» في شاشة الطفل: أنشطة يختارها الوالد لكل طفل (الافتراضي ثلاثة، واثنان للصغير).
@@ -28,6 +29,7 @@ const PLAY_ACTIVITIES = {
   recall: { icon: "🔑", name: "تذكّر", fn: "showRecallMenu" },
   glossary: { icon: "📜", name: "الغريب", fn: "showGlossary" },
   poem: { icon: "📖", name: "الأبيات", fn: "showPoem" },
+  poemListen: { icon: "🎧", name: "القصيدة كاملة", fn: "showPoemListen" },
   recordings: { icon: "🎤", name: "تسجيلاتي", fn: "openRecPopup" },
   achievements: { icon: "🏆", name: "إنجازاتي", fn: "showAchievementsHub" }
 };
@@ -36,7 +38,8 @@ function playSetOf(s) {
   const list = Array.isArray(s && s.playSet) ? s.playSet.filter(k => PLAY_ACTIVITIES[k]) : null;
   if (list && list.length) return list;
   // v106: «مراجعة الأخطاء» نصوص يقرؤها الطفل، فلا تكون في «العب» الافتراضي لمن لا يقرأ (من الدفعة «و»)
-  return typeof isSmallKid === "function" && isSmallKid() ? ["riddles", "recordings"] : ["riddles", "mistakes", "timeline"];
+  // v109: «القصيدة كاملة» في الافتراضي للجميع، فالطفل يسمع الأبيات متصلة
+  return typeof isSmallKid === "function" && isSmallKid() ? ["riddles", "poemListen", "recordings"] : ["riddles", "poemListen", "mistakes", "timeline"];
 }
 function openPlayHub() {
   if (typeof kidTimeUp === "function" && kidTimeUp()) return;

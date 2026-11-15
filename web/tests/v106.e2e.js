@@ -147,7 +147,7 @@ const fakeClock = () => {
         return r;
       });
       await T('small', () => {
-        u.small = true; const r = { smallPlayNoMistakes: JSON.stringify(playSetOf()) === '["riddles","recordings"]' }; u.small = false; return r;
+        u.small = true; const r = { smallPlayNoMistakes: JSON.stringify(playSetOf()) === '["riddles","poemListen","recordings"]' }; u.small = false; return r;
       });
       await T('section', async () => {
         resetAll(); closeAll();

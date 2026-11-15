@@ -4,6 +4,7 @@
    الاستعمال (من مجلد web):
      node tools/bundle-voice-pack.js hasaniya-voicepack-…-1of3.zip …-2of3.zip …-3of3.zip
      node tools/bundle-voice-pack.js --kinds verse,story pack.zip     (الأبيات والقصص؛ الافتراضي الأبيات وحدها)
+     node tools/bundle-voice-pack.js --kinds verse,station pack.zip   (v109: والمحطات متصلة)
      node tools/bundle-voice-pack.js --author "اسم القارئ" pack.zip    (الاسم الظاهر للوالد)
      node tools/bundle-voice-pack.js --remove                          (يحذف الصوت المضمّن)
 
@@ -36,7 +37,7 @@ for (let i = 0; i < args.length; i++) {
   else if (a.startsWith("--")) fail("خيار غير معروف: " + a);
   else opt.files.push(a);
 }
-if (opt.kinds.some(k => k !== "verse" && k !== "story")) fail("--kinds يقبل verse وstory فقط");
+if (opt.kinds.some(k => k !== "verse" && k !== "story" && k !== "station")) fail("--kinds يقبل verse وstory وstation فقط");
 
 /* ---------- كتابة البصمة في config.js ---------- */
 function writeConfigId(id) {
@@ -64,6 +65,8 @@ for (const f of ["js/data/manzumah.js", "js/data/stories.js", "js/data/explanati
 const JOURNEY = vm.runInContext("DEFAULT_JOURNEY", ctx);
 const VERSES = new Map();
 for (const st of JOURNEY) for (const v of st.verses) VERSES.set(v.id, v);
+/* v109: المحطة المتصلة: نصها أبياتها كلها (كما في voicepack.js: vpStationTarget) */
+const STATIONS = new Map(JOURNEY.map(st => [st.id, { id: st.id, fullVerse: st.verses.map(v => v.fullVerse).join("\n") }]));
 
 /* نفس بصمة التطبيق (voicepack.js: textFingerprint) */
 function textFingerprint(text) {
@@ -147,9 +150,9 @@ for (const f of opt.files) {
   if (m.author) authors.add(String(m.author).trim());
   for (const it of m.items) {
     if (!opt.kinds.includes(it.kind)) continue;
-    const v = VERSES.get(it.id);
+    const v = it.kind === "station" ? STATIONS.get(it.id) : VERSES.get(it.id);
     const data = entries.get(it.file);
-    if (!v) { problems.push(`${it.kind} ${it.id}: لا يوجد بيت بهذا الرقم في هذه النسخة`); continue; }
+    if (!v) { problems.push(`${it.kind} ${it.id}: لا يوجد ${it.kind === "station" ? "محطة" : "بيت"} بهذا الرقم في هذه النسخة`); continue; }
     if (!data || !data.length) { problems.push(`${it.kind} ${it.id}: ملف الصوت مفقود`); continue; }
     if (typeof it.mime !== "string" || !it.mime.startsWith("audio/")) { problems.push(`${it.kind} ${it.id}: ليس ملف صوت`); continue; }
     if (it.kind === "story" && !v.story) { skipped.push(`قصة ${it.id}: لا تُعرض في هذه النسخة`); continue; }
@@ -166,9 +169,10 @@ const author = opt.author || [...authors][0] || "";
 if (!opt.author && authors.size > 1) console.warn("⚠ أكثر من اسم قارئ في الأجزاء (" + [...authors].join("، ") + ")؛ اخترت الأول. غيّره بـ --author");
 
 /* ---------- البناء: ترتيب ثابت، فالبصمة لا تتغيّر لنفس التسجيلات ---------- */
-const order = [...VERSES.keys()];
-const list = [...chosen.values()].sort((a, b) =>
-  (a.it.kind === b.it.kind ? 0 : a.it.kind === "verse" ? -1 : 1) || order.indexOf(a.it.id) - order.indexOf(b.it.id));
+const order = [...VERSES.keys()], sorder = [...STATIONS.keys()];
+const KR = { verse: 0, station: 1, story: 2 };
+const idx = it => it.kind === "station" ? sorder.indexOf(it.id) : order.indexOf(it.id);
+const list = [...chosen.values()].sort((a, b) => (KR[a.it.kind] - KR[b.it.kind]) || idx(a.it) - idx(b.it));
 if (list.length > MAX_ITEMS) fail("عدد التسجيلات أكبر من المسموح");
 const items = [], files = [];
 const sig = crypto.createHash("sha256");
@@ -192,6 +196,7 @@ if (opt.config) writeConfigId(id);
 const verses = items.filter(x => x.kind === "verse").map(x => x.id);
 const missing = order.filter(v => !verses.includes(v));
 console.log(`✔ ${path.relative(process.cwd(), opt.out)}  البصمة ${id}`);
-console.log(`  القارئ: ${author || "(بلا اسم)"} · أبيات ${verses.length}/${order.length} · قصص ${items.length - verses.length} · ${(bytes / 1048576).toFixed(2)} ميجابايت`);
+const nst = items.filter(x => x.kind === "station").length;
+console.log(`  القارئ: ${author || "(بلا اسم)"} · أبيات ${verses.length}/${order.length} · محطات متصلة ${nst}/${sorder.length} · قصص ${items.length - verses.length - nst} · ${(bytes / 1048576).toFixed(2)} ميجابايت`);
 if (missing.length) console.log(`  ⚠ أبيات بلا تسجيل (${missing.length}) تبقى بالقارئ الآلي: ${missing.slice(0, 25).join(" ")}${missing.length > 25 ? " …" : ""}`);
 if (skipped.length) console.log("  تُرك: " + skipped.join("، "));

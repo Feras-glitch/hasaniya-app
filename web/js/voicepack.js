@@ -18,7 +18,7 @@ const VP_MAX_TOTAL_BYTES = 24 * 1024 * 1024; // أقصى حجم مفكوك لم�
 /* ---------- مفاتيح وبصمات ---------- */
 /* ثلاثة أنواع: verse و story (بمعرّف البيت)، و line لكل نص آخر يراه الطفل (بمعرّف = بصمة النص نفسه).
    مفتاح السطر مشتق من نصه، فإن تغيّر النص تغيّر المفتاح، فلا يُشغَّل تسجيل قديم لنص جديد أبداً. */
-function vpKindOf(kind) { return kind === "story" ? "story" : kind === "line" ? "line" : "verse"; }
+function vpKindOf(kind) { return kind === "story" ? "story" : kind === "line" ? "line" : kind === "station" ? "station" : "verse"; }
 function authorKey(kind, id) { return "author|" + vpKindOf(kind) + "|" + id; }
 function vpIsAuthorKey(k) { return typeof k === "string" && k.split("|").length === 3 && k.startsWith("author|"); }
 function vpTextOf(kind, v) { return kind === "story" ? ((v && v.story) || "") : kind === "line" ? ((v && v.text) || "") : ((v && v.fullVerse) || ""); }
@@ -32,6 +32,14 @@ function voiceNorm(t) {
 }
 function lineId(text) { return textFingerprint(voiceNorm(text)); }
 function lineKey(text) { return authorKey("line", lineId(text)); }
+/* v109: «المحطات متصلة»: تسجيل واحد لأبيات المحطة كلها، بمفتاح "author|station|<معرّف المحطة>".
+   نصه (وبصمته) أبيات المحطة متتابعة، فإن تغيّر تشكيل بيت فيها صار التسجيل يحتاج إعادة */
+function vpStationText(st) { return st.verses.map(v => v.fullVerse).join("\n"); }
+function vpStationTarget(id) {
+  const st = content.journeyData.find(s => s.id === id);
+  return st ? { id: st.id, fullVerse: vpStationText(st), station: st } : null;
+}
+function vpFindTarget(kind, id) { return kind === "station" ? vpStationTarget(id) : vpFindVerse(id); }
 function vpFindVerse(id) {
   for (const st of content.journeyData) for (const v of st.verses) if (v.id === id) return v;
   /* رقم قديم من قبل تقسيم المحطتين 11 و12 */
@@ -56,7 +64,7 @@ async function authorRecFor(kind, v, notify) {
   if (!rec || !rec.blob) return null;
   if (rec.fp && rec.fp !== textFingerprint(vpTextOf(kind, v))) {
     // الصوت المضمّن ليس تسجيل الوالد، فلا يُطلب منه إعادته (وأداة البناء ترفض صوتاً لا يطابق النص)
-    if (notify && rec.source !== "bundled") showToast("تسجيل الوالد لهذا " + (kind === "story" ? "القصة" : "البيت") + " لم يعد مطابقاً للنص، فيُقرأ آلياً. أعد تسجيله من خانة الوالدين", "error");
+    if (notify && rec.source !== "bundled") showToast("تسجيل الوالد لهذا " + (kind === "story" ? "القصة" : kind === "station" ? "المحطة" : "البيت") + " لم يعد مطابقاً للنص، فيُقرأ آلياً. أعد تسجيله من خانة الوالدين", "error");
     return null;
   }
   return rec;
@@ -193,7 +201,7 @@ function vpValidateManifest(m) {
   if (m.version !== 1 && m.version !== VP_VERSION) return bad("إصدار الحزمة غير مدعوم");
   if (!Array.isArray(m.items) || m.items.length > VP_MAX_ITEMS) return bad("محتوى الحزمة غير صالح");
   for (const it of m.items) {
-    const okKind = it && (it.kind === "verse" || it.kind === "story" || (it.kind === "line" && m.version >= 2));
+    const okKind = it && (it.kind === "verse" || it.kind === "story" || ((it.kind === "line" || it.kind === "station") && m.version >= 2));
     if (!okKind) return bad("عنصر غير معروف في الحزمة");
     if (typeof it.id !== "string" || !it.id || it.id.length > 20) return bad("رقم بيت غير صالح");
     if (it.kind === "line") {
@@ -305,8 +313,8 @@ async function vpPlanExport(opts) {
     (!opts.deltaOnly || exported[r.key] !== (r.at || 0)));
   const stale = recs.filter(r => {
     if (r.kind === "line") return false;
-    const ver = vpFindVerse(r.verseId);
-    return ver && vpIsStale(r, r.kind === "story" ? "story" : "verse", ver);
+    const ver = vpFindTarget(r.kind, r.verseId);
+    return ver && vpIsStale(r, vpKindOf(r.kind), ver);
   }).length;
   /* أقسام الاستوديو: كم سُجّل من كل قسم */
   const sections = typeof voiceProgress === "function" ? voiceProgress(recs) : [];
@@ -314,7 +322,7 @@ async function vpPlanExport(opts) {
   const seconds = selected.reduce((s, r) => s + vpEstSeconds(r), 0);
   const stations = content.journeyData.map((st, i) => {
     const vTotal = st.verses.length, sTotal = st.verses.filter(v => v.story).length;
-    const has = (kind, v) => recs.some(r => r.verseId === v.id && (kind === "story" ? r.kind === "story" : (r.kind !== "story" && r.kind !== "line")));
+    const has = (kind, v) => recs.some(r => r.verseId === v.id && (kind === "story" ? r.kind === "story" : (r.kind !== "story" && r.kind !== "line" && r.kind !== "station")));
     const vDone = st.verses.filter(v => has("verse", v)).length;
     const sDone = st.verses.filter(v => v.story && has("story", v)).length;
     return { n: i + 1, title: st.title, vDone, vTotal, sDone, sTotal };
@@ -431,8 +439,8 @@ async function importVoicePacks(fileList) {
       const author = String(m.author || "").slice(0, 40);
       if (author) staged.authors.add(author);
       for (const it of m.items) {
-        if (it.kind !== "line" && typeof legacyVerseId === "function" && legacyMigrationApplies()) it.id = legacyVerseId(it.id);
-        const ver = it.kind === "line" ? { text: it.text } : vpFindVerse(it.id);
+        if (it.kind !== "line" && it.kind !== "station" && typeof legacyVerseId === "function" && legacyMigrationApplies()) it.id = legacyVerseId(it.id);
+        const ver = it.kind === "line" ? { text: it.text } : vpFindTarget(it.kind, it.id);
         const data = entries.get(it.file);
         if (!ver || !data) { staged.errors.push(`${f.name}: عنصر لا يطابق المحتوى (${it.id})`); continue; }
         const key = authorKey(it.kind, it.id);
@@ -535,7 +543,7 @@ async function vpInstallBundledVoiceNow(id, getBuf) {
   for (const it of m.items) {
     if (it.kind === "line") continue;
     const data = entries.get(it.file);
-    if (!vpFindVerse(it.id) || !data) continue;
+    if (!vpFindTarget(it.kind, it.id) || !data) continue;
     const key = authorKey(it.kind, it.id);
     const cur = await recGet(key);
     if (cur && cur.blob && !vpIsBundled(cur)) { kept++; continue; }
@@ -555,13 +563,14 @@ async function renderVoiceStatus() {
   if (!el) return;
   try {
     const recs = await vpAllAuthorRecs();
-    const verses = recs.filter(r => r.kind !== "story" && r.kind !== "line").length;
+    const verses = recs.filter(r => r.kind !== "story" && r.kind !== "line" && r.kind !== "station").length;
+    const stations = recs.filter(r => r.kind === "station").length;
     const stories = recs.filter(r => r.kind === "story").length;
     const lines = recs.filter(r => r.kind === "line").length;
     const stale = recs.filter(r => {
       if (r.kind === "line") return false;
-      const ver = vpFindVerse(r.verseId);
-      return ver && vpIsStale(r, r.kind === "story" ? "story" : "verse", ver);
+      const ver = vpFindTarget(r.kind, r.verseId);
+      return ver && vpIsStale(r, vpKindOf(r.kind), ver);
     }).length;
     const reviewed = recs.filter(r => r.reviewed).length;
     const from = vpPref("importedAuthor");
@@ -569,7 +578,7 @@ async function renderVoiceStatus() {
     const bundled = recs.filter(vpIsBundled);
     const bundledBy = bundled.length ? (bundled[0].author || "") : "";
     el.textContent = recs.length
-      ? `🎙️ على هذا الجهاز: ${verses} بيتاً و${stories} قصة و${lines} نصاً آخر · مراجَع ${reviewed}${from ? ` · من: ${from}` : ""}${bundled.length ? ` · منها ${bundled.length} مضمّنة في التطبيق${bundledBy ? ` بصوت ${bundledBy}` : ""}` : ""}${stale ? ` · ${stale} تسجيل يحتاج إعادة (النص تغيّر)` : ""}`
+      ? `🎙️ على هذا الجهاز: ${verses} بيتاً${stations ? ` و${stations} محطة متصلة` : ""} و${stories} قصة و${lines} نصاً آخر · مراجَع ${reviewed}${from ? ` · من: ${from}` : ""}${bundled.length ? ` · منها ${bundled.length} مضمّنة في التطبيق${bundledBy ? ` بصوت ${bundledBy}` : ""}` : ""}${stale ? ` · ${stale} تسجيل يحتاج إعادة (النص تغيّر)` : ""}`
       : "🎙️ لا توجد حزمة صوت على هذا الجهاز بعد";
   } catch(e) { el.textContent = ""; }
 }
