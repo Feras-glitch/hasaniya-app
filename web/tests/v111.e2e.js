@@ -153,6 +153,13 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
       r.genderOn = !!document.querySelector('#genderRow .gender-pick.on') && document.querySelector('#genderRow .gender-pick.on').textContent.includes('✓');
       // البراق والغار
       r.icons = J.find(s => s.id === 's9').reward.icon === '✨' && J.find(s => s.id === 's11a').reward.icon === '🌙';
+      // أسئلة أصعب للكبير من نص المنظومة، والصغير على أسئلته الثلاثة
+      let okHard = true;
+      for (let t = 0; t < 30; t++) J.forEach(st => { hardQuizItems(st).forEach(x => { if (x.wrong.length !== 2 || x.wrong.includes(x.correct) || new Set(x.wrong).size !== 2) okHard = false; }); });
+      r.hardQuizValid = okHard && hardQuizItems(J[1]).length === 2;
+      u.small = false; startStationQuiz(J[1], () => {}); r.bigGets5 = quizState.items.length === 5; skipQuiz();
+      u.small = true; startStationQuiz(J[1], () => {}); r.smallGets3 = quizState.items.length === 3; skipQuiz(); u.small = false;
+      closeAll();
       return r;
     });
     return o;

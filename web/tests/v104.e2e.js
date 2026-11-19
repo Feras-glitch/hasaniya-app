@@ -174,20 +174,21 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
     const qst = content.journeyData.find(s => (QUIZZES[s.id] || []).length);
     let qDone = false;
     startStationQuiz(qst, () => { qDone = true; }); await w(50);
-    const it0 = QUIZZES[qst.id][0];
+    const qTotal = quizState.items.length;   // v111: للكبير سؤالان إضافيان من نص المنظومة
+    const it0 = quizState.items[0];
     const wrongBtn = [...document.querySelectorAll('#quizBody .word-btn')].find(x => x.textContent !== it0.correct);
     wrongBtn.click(); await w(30);
     o.quizHighlight = [...document.querySelectorAll('#quizBody .word-btn')].some(x => x.textContent === it0.correct && x.classList.contains('success'));
     for (let k = 0; k < 20 && !qDone; k++) {
       const nb = document.querySelector('#quizBody .quiz-next'); if (nb && !nb.disabled) nb.click();
       await w(60);
-      const c = QUIZZES[qst.id][quizState ? quizState.i : 0];
-      const good = quizState && [...document.querySelectorAll('#quizBody .word-btn')].find(x => !x.disabled && x.textContent === c.correct);
+      const c = quizState ? quizState.items[quizState.i] : null;
+      const good = quizState && c && [...document.querySelectorAll('#quizBody .word-btn')].find(x => !x.disabled && x.textContent === c.correct);
       if (good) good.click();
       await w(30);
     }
     const qr = (state.quizResults || {})[qst.id];
-    o.quizSaved = qDone && !!qr && qr.total === QUIZZES[qst.id].length && qr.score === qr.total - 1;
+    o.quizSaved = qDone && !!qr && qr.total === qTotal && qr.score === qr.total - 1;
     state.stampDates = state.stampDates || {}; state.stampDates[qst.id] = Date.now();
     const rep = buildTeacherReportHtml();
     o.reportQuiz = rep.includes('اختبار الفهم') && rep.includes(`${qr ? qr.score : '?'} / ${qr ? qr.total : '?'}`);

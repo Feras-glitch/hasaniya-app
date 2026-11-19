@@ -28,9 +28,10 @@ const closeAch = p => p.evaluate(() => document.getElementById("newAchievementPo
   }
   // الاختبار القصير بعد المحطة: أجب كل سؤال بالخيار الصحيح
   await p.waitForSelector("#quizPopup.active");
-  for (let q = 0; q < 3; q++) {
+  const nq = await p.evaluate(() => quizState.items.length);   // v111: للكبير سؤالان إضافيان
+  for (let q = 0; q < nq; q++) {
     const txt = await p.evaluate(() => quizState.items[quizState.i].correct);
-    await p.locator("#quizBody .word-btn", {hasText: txt}).first().click();
+    await p.locator("#quizBody .word-btn").filter({ hasText: txt }).first().click();
     await p.waitForSelector("#quizPopup .quiz-next", { state: "visible" });
     await p.click("#quizPopup .quiz-next"); await p.waitForTimeout(150);
   }

@@ -1,9 +1,33 @@
 /* اختبار فهم قصير بعد كل محطة + التوقيت الزمني + المراجعة اليومية */
 let quizState = null;
 
+/* v111: أسئلة أصعب للكبير، تُولَّد من نص المنظومة نفسه فلا تحتاج مراجعة علمية جديدة:
+   1) «ما البيت الذي يأتي بعد…؟»: الجواب صدر البيت التالي، والمشتّتات صدور أبيات من المحطة نفسها (قريبة جداً، فتختبر الحفظ والربط)
+   2) «أيّ هذه الأحداث ذكره الناظم أولاً؟»: ثلاثة أحداث من المحطة، والجواب أسبقها في ترتيب الناظم */
+function hardQuizItems(station) {
+  const vs = station.verses || [];
+  if (vs.length < 4) return [];
+  const out = [];
+  const head = v => { const w = v.words || []; const h = v.half > 0 && v.half < w.length ? v.half : Math.ceil(w.length / 2); return w.slice(0, h).join(" "); };
+  const k = Math.floor(Math.random() * (vs.length - 1));
+  const correct = head(vs[k + 1]);
+  const pool = [...new Set(vs.filter((v, j) => j !== k + 1 && j !== k).map(head))].filter(x => x !== correct);
+  if (pool.length >= 2) out.push({
+    q: `ما الذي يأتي بعد: «${vs[k].fullVerse}»؟`, correct, wrong: pool.sort(() => Math.random() - .5).slice(0, 2),
+    explain: `البيت التالي: ${vs[k + 1].fullVerse}`, hard: true });
+  const seen = new Set(), evs = [];
+  vs.forEach(v => { if (v.event && !seen.has(v.event)) { seen.add(v.event); evs.push(v.event); } });
+  if (evs.length >= 3) {
+    const pick = evs.map((e, i) => [e, i]).sort(() => Math.random() - .5).slice(0, 3).sort((a, b) => a[1] - b[1]);
+    out.push({ q: "أيّ هذه الأحداث ذكره الناظم أولاً في هذه المحطة؟", correct: pick[0][0], wrong: [pick[1][0], pick[2][0]],
+      explain: `الترتيب في المنظومة: ${pick.map(x => x[0]).join(" ← ")}`, hard: true });
+  }
+  return out;
+}
 function startStationQuiz(station, onDone) {
-  const items = (typeof QUIZZES !== "undefined" && QUIZZES[station.id]) || [];
+  let items = (typeof QUIZZES !== "undefined" && QUIZZES[station.id]) || [];
   if (!items.length) { onDone(); return; }
+  if (!(typeof isSmallKid === "function" && isSmallKid())) items = items.concat(hardQuizItems(station));
   quizState = {station, items, i: 0, score: 0, answered: 0, onDone};
   const sk = document.getElementById("quizSkipBtn"); if (sk) sk.style.display = "none";
   renderQuizQuestion();
@@ -15,7 +39,7 @@ function renderQuizQuestion() {
   document.getElementById("quizBody").innerHTML = `
     <div style="color:#666;font-size:.85rem">سؤال ${i + 1} من ${items.length}</div>
     <h3 style="margin:10px 0">${sayBtnHTML([it.q, ...order], "استمع للسؤال")} ${escapeHtml(it.q)}</h3>
-    ${typeof reviewInlineBtn === "function" ? reviewInlineBtn(`q:${quizState.station.id}:${i}`) : ""}
+    ${it.hard ? `<div class="rec-count">⭐ سؤال للحفظ والترتيب</div>` : (typeof reviewInlineBtn === "function" ? reviewInlineBtn(`q:${quizState.station.id}:${i}`) : "")}
     <div class="word-bank">${optionsHTML(order, o => `answerQuiz(this,'${escapeForAttr(o)}')`)}</div>
     <p id="quizFeedback" style="min-height:24px;font-weight:bold"></p>`;
   /* v101: السؤال ثم كل خيار بتسجيله الخاص، بترتيب ظهوره على الشاشة */
