@@ -773,3 +773,19 @@ body.system-font .bayt,body.system-font .intro-verse,body.system-font .intro-pre
 .review-import-list { max-height: 50vh; overflow: auto; }
 .review-inline-btn { margin: 6px 0; font-size: .8rem; }
 .rv-btn { font-size: .82rem; padding: 5px 9px; min-height: 0; }
+/* v111: المختار في اختيار الجنس ممتلئ بعلامة ✓ (كان يبدو باهتاً كأنه معطّل) */
+.word-btn.gender-pick{background:#fff;color:var(--primary);border:2px solid var(--primary)}
+.word-btn.gender-pick.on{background:var(--primary);color:#fff;opacity:1}
+.poem-now-verse{white-space:pre-line;font-family:"HasaniyaNaskh","Segoe UI",Tahoma,sans-serif;font-size:1.2rem;line-height:2;color:#333;text-align:center;max-height:30vh;overflow:auto}
+.voice-setup>div{background:#f6f7fb;border-radius:12px;padding:10px;margin:8px 0;line-height:1.9;font-size:.95rem}
+.ph-today{text-align:center;font-size:.95rem;margin:4px 0 6px;color:#444}
+.parent-sub{margin:10px 0}
+.parent-sub>summary{cursor:pointer;color:var(--parent-border);font-weight:bold;padding:6px 0}
+.link-box{margin-top:10px;padding:10px;border-radius:12px;background:#eef6ff;border:1px dashed var(--primary);text-align:center}
+.link-box .lb-say{font-weight:bold;line-height:1.8}
+.link-box .lb-prev{color:#666;font-size:.9rem;margin:4px 0}
+.intro-rep{margin:6px 0;text-align:center}
+#repeatBody.rb-hidden>div{filter:blur(7px);user-select:none}
+
+.big-check{display:inline-flex;align-items:center;gap:6px;padding:6px 4px}
+.big-check input{width:22px;height:22px}

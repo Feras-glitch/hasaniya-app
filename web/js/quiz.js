@@ -117,14 +117,25 @@ function startDaily() {
 function showRepeatBatch(station, from, to, onContinue) {
   const verses = station.verses.slice(from, to + 1);
   const all = verses.map(v => v.fullVerse);
-  document.getElementById("repeatBody").innerHTML = verses.map(v =>
-    `<div style="font-size:1.1rem;font-weight:bold">${escapeHtml(v.fullVerse)}</div>`).join("");
-  document.getElementById("repeatSpeakBtn").onclick = () => speakQueue(all);
+  // v111: كانت النافذة تُسمِع الأبيات فقط؛ الآن يسمعها الطفل متصلة ثم يُخفيها ويسمّعها من حفظه
+  const body = document.getElementById("repeatBody");
+  body.classList.remove("rb-hidden");
+  body.innerHTML = verses.map(v => `<div style="font-size:1.1rem;font-weight:bold">${escapeHtml(v.fullVerse)}</div>`).join("");
+  const hint = document.getElementById("repeatHint"); if (hint) hint.textContent = kidLine("batchRecite");
+  const playModel = async () => {
+    if (typeof stationModelParts !== "function" || typeof audioBegin !== "function") { speakQueue(all); return; }
+    if (!audioBegin()) return;
+    const token = seqToken;
+    for (const p of await stationModelParts(station, verses)) { if (token !== seqToken) return; await playPart(token, p.rec, p.text); }
+  };
+  document.getElementById("repeatSpeakBtn").onclick = playModel;
+  const hb = document.getElementById("repeatHideBtn");
+  if (hb) { hb.textContent = "🙈 أخفِها وسمّع"; hb.onclick = () => { const hid = body.classList.toggle("rb-hidden"); hb.textContent = hid ? "👁️ أظهرها" : "🙈 أخفِها وسمّع"; if (hid && typeof stopSpeech === "function") stopSpeech(); }; }
   document.getElementById("repeatNextBtn").onclick = () => {
     stopSpeech();
     document.getElementById("repeatPopup").classList.remove("active");
     onContinue();
   };
   document.getElementById("repeatPopup").classList.add("active");
-  speakQueue(all);
+  playModel();
 }

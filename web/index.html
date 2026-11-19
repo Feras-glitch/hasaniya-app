@@ -60,7 +60,7 @@
       <div class="top-buttons">
         <button class="action-btn btn-info full-only" onclick="openReviewHub()" id="reviewHubBtn">🔁 مراجعة</button>
         <button class="action-btn btn-warn full-only" onclick="showTools()" id="toolsBtn">🧰 أدوات</button>
-        <button class="action-btn btn-gray" id="browseEntryBtn" onclick="openBrowseCode()" title="تصفّح" aria-label="تصفّح">🔐</button>
+        <button class="action-btn btn-gray" id="browseEntryBtn" onclick="openBrowseCode()" title="انتقل إلى بيت (للوالدين)" aria-label="انتقل إلى بيت (للوالدين)">🔐 انتقل إلى بيت (للوالدين)</button>
       </div>
     </details>
     <div class="browse-panel" id="browsePanel" style="display:none">
@@ -82,6 +82,7 @@
         <div class="controls">
           <button class="tool-btn" id="speakFullBtn">🔊 استمع مرة أخرى</button>
         </div>
+        <div class="link-box" id="linkBox" style="display:none"></div>
       </div>
       <div class="meaning-box" id="meaningBox"></div>
       <div class="story-box" id="storyBox">
@@ -103,7 +104,7 @@
       <div class="buttons-area">
         <button class="action-btn btn-success" id="nextBtn" onclick="nextVerse()" style="display:none">التالي ⬅️</button>
         <button class="action-btn btn-warn" id="browseNextBtn" onclick="browseNext()" style="display:none">⏭ التالي (تصفّح)</button>
-        <button class="action-btn btn-gray" onclick="showMap()">🗺️ الخريطة</button>
+        <button class="action-btn btn-gray" onclick="showMap()">🏠 الرئيسية</button>
       </div>
     </div>
   </div>
@@ -134,10 +135,10 @@
       <div class="stat-box"><div class="stat-number" id="statMistakes" style="color:var(--danger)">0</div><div class="stat-label">كلمات للمراجعة</div></div>
       <div class="stat-box"><div class="stat-number" id="statPoints">0</div><div class="stat-label">مجموع النقاط</div></div>
       <div class="stat-box"><div class="stat-number" id="statTime">0د</div><div class="stat-label">وقت التدريب</div></div>
-      <div class="stat-box"><div class="stat-number" id="statAccuracy">—</div><div class="stat-label">نسبة الإنجاز</div></div>
+      <div class="stat-box"><div class="stat-number" id="statAccuracy">—</div><div class="stat-label">ينتظر المراجعة</div></div>
       <div class="stat-box"><div class="stat-number" id="statAchievements">0/11</div><div class="stat-label">الإنجازات</div></div>
     </div>
-    <div class="parent-list-title" style="margin-top:20px">🎯 مستوى الإتقان</div>
+    <details class="parent-sub"><summary>🎯 تفاصيل التدريب (الترتيب والنقاط، لا الحفظ غيباً)</summary>
     <div id="masteryCard" style="background:#fff;padding:18px;border-radius:14px;border:2px solid var(--parent-border);text-align:center;margin-bottom:20px">
       <div style="font-size:2.4rem" id="masteryStars">⭐</div>
       <div style="font-size:1.6rem;font-weight:bold;color:var(--parent-border);margin:8px 0" id="masteryLevel">—</div>
@@ -147,6 +148,7 @@
       </div>
       <div id="masteryBreakdown" style="font-size:.82rem;color:#666;text-align:right;line-height:1.8;margin-top:12px"></div>
     </div>
+    </details>
 
     <div class="parent-list-title">🏅 تحدّي الأسرة هذا الأسبوع</div>
     <div id="familyBoard"></div>
@@ -155,10 +157,8 @@
       <div class="parent-actions">
         <button class="action-btn btn-info" onclick="exportReport()">📤 تقرير</button>
         <button class="action-btn btn-info" onclick="showWeeklyReport()">📝 تقرير الأسبوع</button>
-        <button class="action-btn btn-info" onclick="printTeacherReport()">🖨️ تقرير للمعلم</button>
         <button class="action-btn btn-info" onclick="shareResult()">📸 مشاركة</button>
         <button class="action-btn btn-info" onclick="openParentFollow()">✅ متابعة الأبيات</button>
-        <button class="action-btn btn-info" onclick="openClassDashboard()">🏫 لوحة الصف</button>
         <button class="action-btn btn-info" onclick="showCertLog()">🎖️ سجل الشهادات</button>
       </div>
     </details>
@@ -184,10 +184,19 @@
       <div class="parent-actions">
         <button class="action-btn btn-info" onclick="requirePin(openParentVoice,'استوديو التسجيل')">🎙️ استوديو التسجيل</button>
         <button class="action-btn btn-info" onclick="showDiscussion()">💬 أسئلة النقاش</button>
+      </div>
+    </details>
+
+    <!-- v111: أدوات المعلم ومراجعة المحتوى في قسم منفصل مطويّ، لا بين أدوات الأسرة -->
+    <details class="parent-group">
+      <summary>🧑‍🏫 للمعلّم ومراجعة المحتوى</summary>
+      <div class="parent-actions">
+        <button class="action-btn btn-success" onclick="requirePin(()=>openReviewMode('home'),'وضع المراجعة')">📝 وضع المراجعة</button>
+        <button class="action-btn btn-info" onclick="openClassDashboard()">🏫 لوحة الصف</button>
+        <button class="action-btn btn-info" onclick="printTeacherReport()">🖨️ تقرير للمعلم</button>
         <button class="action-btn btn-info" onclick="showDocCoverage()">📋 التوثيق</button>
         <button class="action-btn btn-info" onclick="showReviewSample(false)">🔍 عينة للمراجعة</button>
-        <button class="action-btn btn-success" onclick="requirePin(()=>openReviewMode('home'),'وضع المراجعة')">📝 وضع المراجعة</button>
-        <button class="action-btn btn-warn" onclick="requirePin(openEditor,'فتح محرر المحتوى')">✏️ تحرير</button>
+        <button class="action-btn btn-warn" onclick="requirePin(openEditor,'فتح محرر المحتوى')">✏️ المحرر القديم</button>
       </div>
     </details>
 
@@ -213,7 +222,8 @@
       </span>
     </div>
       <div class="parent-actions">
-        <button class="action-btn btn-parent" onclick="openSettings()">⚙️ الإعدادات</button>
+        <button class="action-btn btn-parent" onclick="openSettings()">⚙️ إعدادات أخرى</button>
+        <button class="action-btn btn-info" onclick="voiceSetupCheck(true)">🔊 فحص الصوت</button>
       </div>
     </details>
 
@@ -242,7 +252,7 @@
       </div>
       <div class="controls" style="flex-wrap:wrap;align-items:center">
         <button class="action-btn btn-success" id="pvSeqBtn" onclick="pvSeqStart()">▶ التسجيل المتتابع</button>
-        <label class="rec-count" style="cursor:pointer"><input type="checkbox" id="pvOnlyLeft" onchange="renderParentVoice()"> غير المسجّل فقط</label>
+        <label class="rec-count big-check" style="cursor:pointer"><input type="checkbox" id="pvOnlyLeft" onchange="renderParentVoice()"> غير المسجّل فقط</label>
         <button class="tool-btn" id="pvOrphanBtn" onclick="pvCleanOrphans()" style="display:none" aria-label="حذف تسجيلات نصوص تغيّرت">🧹</button>
       </div>
       <div id="pvCount" class="rec-count"></div>
@@ -336,10 +346,11 @@
 
   <div class="modal-overlay" id="repeatPopup">
     <div class="modal-content" style="max-width:560px;text-align:right">
-      <h2 style="color:var(--primary);margin-top:0;text-align:center">🔁 لنُكرّر هذه الأبيات</h2>
+      <h2 style="color:var(--primary);margin-top:0;text-align:center">🔗 سمّع هذه الأبيات متصلة</h2>
+      <div class="rec-count" id="repeatHint" style="text-align:center"></div>
       <div id="repeatBody" style="max-height:52vh;overflow-y:auto;line-height:2"></div>
-      <div class="controls" style="margin-top:12px"><button class="tool-btn" id="repeatSpeakBtn">🔊 اسمعها</button></div>
-      <button class="action-btn btn-success" id="repeatNextBtn" style="width:100%;margin-top:12px">متابعة ⬅️</button>
+      <div class="controls" style="margin-top:12px"><button class="tool-btn" id="repeatSpeakBtn">🎧 اسمعها متصلة</button><button class="tool-btn" id="repeatHideBtn">🙈 أخفِها وسمّع</button></div>
+      <button class="action-btn btn-success" id="repeatNextBtn" style="width:100%;margin-top:12px">✅ سمّعتُها، متابعة ⬅️</button>
     </div>
   </div>
 

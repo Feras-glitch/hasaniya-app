@@ -233,13 +233,18 @@ const fakeClock = () => {
       if (act('quizPopup')) { skipQuiz(); return true; }
       if (act('rewardPopup')) { closePopup('rewardPopup'); return true; }
       if (act('summaryPopup')) { closeSummary(); return true; }
+      // v111: تسميع المحطة كاملة قبل التالية: هنا كأن الوالد سمعها
+      if (act('hubPopup') && /تسميع المحطة كاملة/.test(document.getElementById('hubTitle').textContent)) {
+        const k = segmentBlocking(); if (k >= 0) { state.segmentChecks = state.segmentChecks || {}; state.segmentChecks[content.journeyData[k].id] = { r: 'ok', at: Date.now() }; saveState(); }
+        closePopup('hubPopup'); return true;
+      }
       if (act('hubPopup')) { closePopup('hubPopup'); return true; }
       const other = [...document.querySelectorAll('.modal-overlay.active')];
       if (other.length) { other.forEach(m => m.classList.remove('active')); return true; }
       return false;
     }
     async function solve() {
-      const go = document.getElementById('introGo'); if (go) go.click();
+      for (let k = 0; k < 6 && document.getElementById('introGo'); k++) document.getElementById('introGo').click();
       if (activeVariant && document.getElementById('optionsBank')) {
         for (let k = 0; k < 4; k++) {
           const want = activeVariant && activeVariant.correctWord;

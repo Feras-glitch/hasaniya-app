@@ -36,7 +36,7 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
     const count = s => reg.items.filter(i => i.section === s).length;
     o.counts = { verse: count('verse'), quiz: count('quiz'), opt: count('opt'), quizex: count('quizex'), expl: count('expl'), story: count('story'), disc: count('disc'), riddle: count('riddle'), event: count('event'), guide: count('guide') };
     const g = reg.items.filter(i => i.section === 'guide').map(i => i.text);
-    o.bothForms = g.includes('حاول مرة أخرى') && g.includes('حاولي مرة أخرى') && g.some(t => /^ممتاز! أتقنتَ البيت/.test(t)) && g.some(t => /^ممتاز! أتقنتِ البيت/.test(t));
+    o.bothForms = g.includes('حاول مرة أخرى') && g.includes('حاولي مرة أخرى') && g.some(t => /^ممتاز! رتّبتَ البيت/.test(t)) && g.some(t => /^ممتاز! رتّبتِ البيت/.test(t));
     o.noVocInGuide = !g.some(t => t.includes('٭') || t.includes('{N}'));
     o.unique = new Set(reg.items.map(i => i.key)).size;
     // 2) الأولوية: رسالة مسجّلة ← النداء آلياً ثم التسجيل

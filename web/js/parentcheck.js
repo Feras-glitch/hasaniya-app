@@ -57,6 +57,8 @@ function renderParentCheckCard() {
     ${pcReadyList().length ? `<div class="rec-count">🌟 ${arCount(pcReadyList().length, "بيت واحد جاهز", "بيتان جاهزان", "أبيات جاهزة", "بيتاً جاهزاً")} لتسميعك: «بلا فتح» ينقله إلى المراجعة البعيدة.</div>` : ""}
     <div class="rec-count">${escapeHtml(pcLastText())}. التسميع منك هو الدليل الأصدق على الحفظ.</div>
     <button class="action-btn btn-success" style="width:100%;margin-top:6px" onclick="pcStart()" ${started ? "" : "disabled"}>🎙️ سمّعه الآن</button>
+    ${segmentPendingList().map(x => `<button class="action-btn btn-warn" style="width:100%;margin-top:6px" onclick="segmentListenThenJudge(${x.si})">🎧 تسميع «${escapeHtml(x.st.title)}» المسجّل ينتظر حكمك</button>`).join("")}
+    ${segmentBlocking() >= 0 ? `<button class="action-btn btn-info" style="width:100%;margin-top:6px" onclick="pcStartSegment(${segmentBlocking()})">🏁 سمّع له «${escapeHtml(content.journeyData[segmentBlocking()].title)}» كاملة (تُفتح بعدها المحطة التالية)</button>` : ""}
   </div>`;
 }
 function pcStart() {
@@ -71,7 +73,8 @@ function pcRender() {
   const { v } = list[i];
   const first = (v.words && v.words[0]) || "";
   openHub("🎙️ سمّعه الآن", `
-    <p class="rec-count">البيت ${i + 1} من ${list.length}. اطلب من ${escapeHtml(getUserName())} أن ${gForm("يقول البيت من حفظه دون أن ينظر", "تقول البيت من حفظها دون أن تنظر")} إلى الشاشة.</p>
+    ${pcState.segment ? `<p class="rec-count">🏁 تسميع «${escapeHtml(pcState.title)}» متصلاً: البيت ${i + 1} من ${list.length}. ${gForm("يقرأ الأبيات واحداً بعد واحد دون أن ينظر", "تقرأ الأبيات واحداً بعد واحد دون أن تنظر")}، واحكم على كل بيت.</p>`
+      : `<p class="rec-count">البيت ${i + 1} من ${list.length}. اطلب من ${escapeHtml(getUserName())} أن ${gForm("يقول البيت من حفظه دون أن ينظر", "تقول البيت من حفظها دون أن تنظر")} إلى الشاشة.</p>`}
     <div class="pc-cue">للتذكير إن احتجت: الحدث «${escapeHtml(v.event || "")}»، وأوله «${escapeHtml(first)}»</div>
     <div class="pc-verse" id="pcVerse" hidden>${escapeHtml(v.fullVerse)}${v.n ? ` <small style="color:#888">(البيت ${v.n} في الكتاب)</small>` : ""}</div>
     <button class="tool-btn" style="width:100%;margin:6px 0" onclick="document.getElementById('pcVerse').hidden=false;this.remove()">👁️ أظهر البيت لي</button>
@@ -108,10 +111,88 @@ function pcRate(r) {
 }
 function pcDone() {
   const { ok, fath, fail } = pcState.res;
+  if (pcState.segment) {
+    state.segmentChecks = state.segmentChecks || {};
+    state.segmentChecks[pcState.segment] = { r: fail ? "fail" : fath ? "fath" : "ok", at: Date.now() };
+    saveState();
+  }
   openHub("🎙️ انتهى التسميع", `
     <div class="pc-sum">✅ ${ok} · ⚠️ ${fath} · ❌ ${fail}</div>
     <p class="rec-count">${fail ? "ما احتاج فتحين فأكثر عاد إلى المراجعة اليومية؛ راجِعاه معاً غداً." : fath ? "ما احتاج فتحاً واحداً يبقى على موعده؛ كرّراه معاً مرة اليوم." : "ممتاز، ما سمّعه ثابت."}</p>
+    ${pcState.segment ? `<p class="rec-count">${fail ? "🏁 المحطة تحتاج تسميعاً آخر قبل المحطة التالية." : "🏁 سُمّعت المحطة كاملة؛ تُفتح المحطة التالية."}</p>` : ""}
     <button class="action-btn btn-success" style="width:100%" onclick="closePopup('hubPopup')">تم</button>`);
   pcState = null;
   renderParentCheckCard();
 }
+
+/* ============================================================
+   v111: تسميع المقطع — المقطع هو المحطة كاملة (مسجّلة متصلة في «المحطات متصلة»)
+   - لا تبدأ المحطة التالية حتى تُسمَّع التي قبلها كاملة غيباً:
+     يسمعها الوالد ويحكم بيتاً بيتاً بطريقة الفتح، أو يسجّل الطفل تسميعه فيُفتح ما بعدها حتى يحكم الوالد.
+   - النتيجة في state.segmentChecks[المحطة] = { r: ok | fath | fail | pending, at }
+   ============================================================ */
+function segmentPassed(stId) {
+  const c = (state.segmentChecks || {})[stId];
+  return !!c && (c.r === "ok" || c.r === "fath" || c.r === "pending");
+}
+/* رقم المحطة المكتملة التي تمنع الجديد حتى تُسمَّع، أو ‎-1 */
+function segmentBlocking() {
+  const J = content.journeyData;
+  const idx = J.findIndex(s => getStationStatus(s) !== "completed");
+  const prev = idx > 0 ? idx - 1 : -1;
+  if (prev < 0) return -1;
+  // يُطلب للمحطة التي أتمّها الطفل في دروسه (segmentDue)، لا لما فُتح من نسخة احتياطية أو بوضع التصفح
+  if (!(state.segmentDue || {})[J[prev].id]) return -1;
+  return segmentPassed(J[prev].id) ? -1 : prev;
+}
+function showSegmentMilestone(si) {
+  const st = content.journeyData[si]; if (!st) return;
+  const c = (state.segmentChecks || {})[st.id];
+  openHub("🏁 تسميع المحطة كاملة", `
+    <p style="font-size:1.1rem;line-height:1.9"><strong>«${escapeHtml(st.title)}»</strong>: ${st.verses.length} ${st.verses.length > 10 ? "بيتاً" : "أبيات"}.</p>
+    <p style="line-height:1.9">${escapeHtml(kidLine("segmentFirst"))}<br>${escapeHtml(kidLine("segmentHow"))}</p>
+    ${c && c.r === "fail" ? `<p class="rec-count">آخر تسميع احتاج مراجعة؛ راجِعها ثم سمّعها مرة أخرى.</p>` : ""}
+    <div class="hub-actions" style="flex-direction:column">
+      <button class="action-btn btn-info" onclick="playStationListen(${si})">🎧 اسمعها كاملة</button>
+      <button class="action-btn btn-success" onclick="requirePin(() => pcStartSegment(${si}), 'تسميع المحطة على الوالد')">👨‍👩‍👧 ${gForm("يسمعني والدي الآن", "يسمعني والدي الآن")}</button>
+      <button class="action-btn btn-warn" onclick="closePopup('hubPopup'); segmentRecord(${si})">🎤 ${gForm("سجّل تسميعك", "سجّلي تسميعك")}</button>
+    </div>`);
+  if (typeof autoSayNow === "function") autoSayNow([kidLine("segmentFirst"), kidLine("segmentHow")]);
+}
+function segmentRecord(si) {
+  if (typeof openRecPopup !== "function") return;
+  openRecPopup({ mode: "child", range: "station-" + si });
+}
+/* بعد أن يحفظ الطفل تسميع المحطة كاملة: يُفتح ما بعدها، ويبقى «ينتظر حكم الوالد» */
+function segmentRecorded(si) {
+  const st = content.journeyData[si]; if (!st) return;
+  if (!st.verses.every(v => state.seenVerses && state.seenVerses[v.id])) return;
+  state.segmentChecks = state.segmentChecks || {};
+  const c = state.segmentChecks[st.id];
+  if (c && (c.r === "ok" || c.r === "fath")) return;
+  state.segmentChecks[st.id] = { r: "pending", at: Date.now() };
+  saveState();
+  kidToast(kidLine("segmentSaved"), "success");
+}
+/* الوالد يسمع المحطة متصلة ويحكم على كل بيت (يُحدّث صندوقه أيضاً كـ«سمّعه الآن») */
+function pcStartSegment(si) {
+  const st = content.journeyData[si]; if (!st) return;
+  const list = st.verses.map((v, vi) => ({ si, vi, v }));
+  pcState = { list, i: 0, res: { ok: 0, fath: 0, fail: 0 }, segment: st.id, title: st.title };
+  pcRender();
+}
+function segmentPendingList() {
+  return content.journeyData.map((st, si) => ({ st, si, c: (state.segmentChecks || {})[st.id] })).filter(x => x.c && x.c.r === "pending");
+}
+async function segmentListenThenJudge(si) {
+  try {
+    const rec = await recGet(sectionKey("station-" + si));
+    if (rec && rec.blob && typeof audioBegin === "function" && audioBegin()) {
+      const token = seqToken;
+      showToast("🎧 يُشغَّل تسميع الطفل… احكم بعده", "success");
+      await playPart(token, rec, "");
+    }
+  } catch (e) {}
+  pcStartSegment(si);
+}
+

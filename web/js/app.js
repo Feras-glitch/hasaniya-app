@@ -13,6 +13,8 @@ function init() {
   // فحص مبكر: إن كان مخزن التسجيلات غير متاح نُخبر الوالد من البداية، لا عند أول تسجيل فاشل
   if (typeof recDb === "function") recDb().catch(() => { if (typeof recStorageFailed === "function") recStorageFailed(); });
   maybeOnboard();
+  // v111: على جهاز بلا صوت عربي ولا تسجيلات، يُخبَر الوالد عند الفتح (مرة كل 7 أيام حتى يُحلّ)
+  setTimeout(() => { if (typeof voiceSetupCheck === "function" && vpPref("onboarded")) voiceSetupCheck(); }, 4000);
   // نطلب من المتصفح ألا يمسح بيانات الطفل وتسجيلاته عند امتلاء الذاكرة (في نسخة الويب)
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) {}
 
@@ -37,6 +39,7 @@ function init() {
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       stopMediaStream();
+      if (typeof pinGraceReset === "function") pinGraceReset();   // v111: من ترك الجهاز يُسأل الرقم من جديد
       // v104: يتوقف كل صوت (قراءة متصلة، رسائل ناجي) حين يخرج الطفل من التطبيق
       if (typeof audioStopAll === "function") audioStopAll();
       // الوقت لا يُحسب والتطبيق في الخلفية، ويُحفظ الآن لأن أندرويد قد يغلقه دون إنذار

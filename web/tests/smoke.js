@@ -16,7 +16,7 @@ const closeAch = p => p.evaluate(() => document.getElementById("newAchievementPo
   for (let v = 0; v < 7; v++) {
     const full = await p.evaluate(() => getCurrentVerse().verse.fullVerse);
     // v95: البيت الجديد يُعرض كاملاً أولاً، ثم «أرتّبه الآن»
-    await p.waitForSelector("#introGo", { state: "visible" }); await p.click("#introGo");
+    await p.waitForSelector("#introGo", { state: "visible" }); while (await p.locator("#introGo").isVisible()) await p.click("#introGo");   // v111: يردّد ثلاثاً ثم يرتّب
     for (const w of full.split(/\s+/)) {
       await p.locator("#wordsBank .word-btn:not(.selected)").filter({hasText: new RegExp("^"+w+"$")}).first().click();
     }
@@ -37,8 +37,11 @@ const closeAch = p => p.evaluate(() => document.getElementById("newAchievementPo
   await p.waitForSelector("#rewardPopup.active");
   console.log("ظهرت المكافأة؛ نقاط:", await p.innerText("#pointsBadge"));
   // اختبار تلميح وتراجع
-  await closeAch(p); await p.click("#rewardPopup button:has-text('استمر')"); await p.locator(".station").nth(1).click(); 
-  if (await p.locator("#introGo").isVisible()) await p.click("#introGo");
+  await closeAch(p); await p.click("#rewardPopup button:has-text('استمر')");
+  // v111: المحطة المكتملة تُسمَّع كاملة قبل التالية؛ هنا كأن الوالد سمعها
+  await p.evaluate(() => { state.segmentChecks = { [content.journeyData[0].id]: { r: "ok", at: Date.now() } }; saveState(); document.querySelectorAll(".modal-overlay.active").forEach(m => m.classList.remove("active")); });
+  await p.locator(".station").nth(1).click(); 
+  while (await p.locator("#introGo").isVisible()) await p.click("#introGo");
   await p.click("text=💡 تلميح"); console.log("تلميح:", await p.locator(".word-btn.hint").count());
   // ---- الأدوات الجديدة ----
   await p.setViewportSize({width:390,height:844});

@@ -50,10 +50,14 @@ function sanitizeImportedState(raw) {
   const objOr = k => { if (!_isObj(s[k])) s[k] = {}; };
   ["stationStatus", "rewardUnlocked", "versePositions", "mistakes", "seenVerses", "verseStats", "leitner",
    "storyUnlocked", "riddlesSolved", "achievements", "stampDates", "guideBadges", "meaningSeen", "stats",
-   "dailyCredits", "follow", "eventMisses", "recEval", "masteredNotified", "quizResults", "parentChecks"].forEach(objOr);
+   "dailyCredits", "follow", "eventMisses", "recEval", "masteredNotified", "quizResults", "parentChecks", "linked", "segmentChecks", "segmentDue"].forEach(objOr);
 
   const ST = { completed: 1, current: 1, locked: 1 };
   const pick = (obj, ok, map) => { const o = {}; for (const k of Object.keys(obj)) if (ok(k)) { const v = map(obj[k], k); if (v !== undefined) o[k] = v; } return o; };
+  s.segmentDue = pick(s.segmentDue, k => stationIds.has(k), v => _num(v, 0, 9e15, undefined));
+  s.linked = pick(s.linked, k => verseIds.has(k), v => _num(v, 0, 9e15, undefined));
+  // v111: تسميع المقطع (المحطة كاملة) على الوالد: النتيجة ووقتها، أو تسجيل الطفل ينتظر حكم الوالد
+  s.segmentChecks = pick(s.segmentChecks, k => stationIds.has(k), v => _isObj(v) && ["ok", "fath", "fail", "pending"].includes(v.r) ? ({ at: _num(v.at, 0, 9e15, 0), r: v.r }) : undefined);
   s.parentChecks = pick(s.parentChecks, k => verseIds.has(k), v => _isObj(v) && ["ok", "fath", "fail"].includes(v.r) ? ({ at: _num(v.at, 0, 9e15, 0), r: v.r }) : undefined);
   s.quizResults = pick(s.quizResults, k => stationIds.has(k), v => { if (!_isObj(v)) return undefined; const total = _int(v.total, 0, 50, 0);
     return { score: _int(v.score, 0, total, 0), total, at: _num(v.at, 0, 9e15, 0) }; });

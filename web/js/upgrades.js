@@ -4,6 +4,7 @@
 function docGradeHtml(v) {
   if (!v.story) return "";
   if (v.storyStatus === "ok") return `<div class="grade-line grade-ok">✅ موثّق: ظهر نص الشاهد في المصدر</div>`;
+  if (v.storyStatus === "disputed") return `<div class="grade-line grade-book">⚖️ في إسناده خلاف بين المحدّثين (انظر الحاشية)</div>`;
   return `<div class="grade-line grade-book">⚠️ من هامش الكتاب، ولم يُتحقق منه مستقلاً</div>`;
 }
 /* فائدة علمية للوالد: ملاحظة محررة تحت المصادر (حقل note في stories.js) */
@@ -242,10 +243,10 @@ function buildWeeklyText() {
     `التاريخ: ${new Date().toLocaleDateString("ar-EG")}`,
     `المحطات المكتملة: ${completed} من ${content.journeyData.length}`,
     `أبيات أُتقنت (صحيحة في يومين مختلفين على الأقل، بلا خطأ بعدها): ${mastered} من ${content.journeyData.reduce((n, x) => n + x.verses.length, 0)}`,
-    `تحدّي الأسبوع: ${Object.keys(w.done).filter(k => ids.includes(k)).length} من ${ids.length}`,
+    ...(ids.length ? [`تحدّي الأسبوع: ${Object.keys(w.done).filter(k => ids.includes(k)).length} من ${ids.length}`] : []),
     `أبيات مستحقة للمراجعة الآن: ${leitnerDueVerses().length}`,
     `تأمّلات مكتوبة: ${reflections}`,
-    `أكثر الكلمات تعثّراً: ${weak.length ? weak.join("، ") : "لا يوجد"}`,
+    `أكثر ما تعثّر فيه: ${weak.length ? weak.join("، ") : "لا يوجد"}`,
     "",
     "هذا التقرير يبقى على الجهاز، ولا يُرسل إلا إذا أرسلتَه أنت بنفسك."
   ].join("\n");

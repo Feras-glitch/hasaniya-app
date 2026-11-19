@@ -129,6 +129,8 @@ function saveUserEditor() {
   showToast("تم الحفظ", "success");
   if (wasOnboarding) { afterOnboarding(); return; }
   showUsersModal();
+  // v111: طفل صغير على جهاز بلا صوت عربي: يُخبَر الوالد الآن
+  if (editSmall && typeof voiceSetupCheck === "function") setTimeout(() => { if (voiceEngineMuted()) { closePopup("usersPopup"); voiceSetupCheck(true); } }, 300);
 }
 
 function deleteUser(id) {
@@ -159,8 +161,8 @@ function deleteUser(id) {
 let editGender = null, editPhoto = null, editShowPhoto = true, editSmall = false;
 function renderEditorExtras() {
   document.getElementById("genderRow").innerHTML = `
-    <button class="word-btn ${editGender === "boy" ? "selected" : ""}" onclick="setEditGender('boy')">👦 ولد</button>
-    <button class="word-btn ${editGender === "girl" ? "selected" : ""}" onclick="setEditGender('girl')">👧 بنت</button>`;
+    <button class="word-btn gender-pick ${editGender === "boy" ? "on" : ""}" aria-pressed="${editGender === "boy"}" onclick="setEditGender('boy')">${editGender === "boy" ? "✓ " : ""}👦 ولد</button>
+    <button class="word-btn gender-pick ${editGender === "girl" ? "on" : ""}" aria-pressed="${editGender === "girl"}" onclick="setEditGender('girl')">${editGender === "girl" ? "✓ " : ""}👧 بنت</button>`;
   document.getElementById("photoRow").innerHTML = editPhoto
     ? `<img class="editor-photo" src="${editPhoto}" alt=""><button class="tool-btn" onclick="removeEditorPhoto()">🗑 إزالة الصورة</button>`
     : `<span style="color:#888">لا توجد صورة</span>`;

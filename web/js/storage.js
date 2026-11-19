@@ -365,11 +365,11 @@ function cleanupOrphanedState() {
   });
   users.forEach(u => {
     const st = u.state;
-    ["stationStatus", "rewardUnlocked", "versePositions", "stampDates", "charms"].forEach(f => {
+    ["stationStatus", "rewardUnlocked", "versePositions", "stampDates", "charms", "segmentChecks", "segmentDue"].forEach(f => {
       if (!st[f] || typeof st[f] !== "object") return;
       Object.keys(st[f]).forEach(id => { if (!validStationIds.has(id)) delete st[f][id]; });
     });
-    ["leitner", "storyUnlocked", "meaningSeen", "recEval", "follow", "eventMisses", "masteredNotified", "parentChecks"].forEach(f => {
+    ["leitner", "storyUnlocked", "meaningSeen", "recEval", "follow", "eventMisses", "masteredNotified", "parentChecks", "linked"].forEach(f => {
       if (!st[f] || typeof st[f] !== "object") return;
       // v104: تقييم التسميع المتصل مفتاحه sec:all أو sec:station-N، لا رقم بيت
       Object.keys(st[f]).forEach(id => { if (!validVerseIds.has(id) && !(f === "recEval" && SEC_EVAL_KEY.test(id))) delete st[f][id]; });

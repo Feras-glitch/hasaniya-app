@@ -71,7 +71,15 @@ function parentEntry() {
     "اختر رقماً سرياً من 4 إلى 6 أرقام. سيُطلب منك عند كل دخول، ولا يعرفه الطفل. احفظه في مكان آمن.");
 }
 
+/* v111: بعد إدخال الرقم مرة لا يُطلب مرة أخرى 5 دقائق ما دام الوالد في منطقته (كان يُطلب 4 مرات في جلسة واحدة).
+   يسقط عند الخروج إلى شاشة الطفل (showMap) */
+let pinOkAt = 0;
+const PIN_GRACE_MS = 5 * 60 * 1000;
+function pinGraceReset() { pinOkAt = 0; }
 function requirePin(cb, message) {
+  const ps = document.getElementById("parentScreen");
+  const inParent = ps && ps.style.display === "block";
+  if (hasPin() && inParent && pinOkAt && Date.now() - pinOkAt < PIN_GRACE_MS) { try { cb && cb(); } catch (e) { console.warn(e); } return; }
   if (!hasPin()) {
     pinMode = "set";
     pinCallback = cb;
@@ -133,6 +141,7 @@ async function submitPinNow() {
     closePopup("pinPopup");
     showToast("تم ضبط الرقم السري", "success");
     updatePinStatus();
+    pinOkAt = 0;   // رقم جديد: لا مهلة من الرقم القديم
     const cb = pinCallback; pinCallback = null;
     // بعد ضبط الرقم: شفرة الاسترجاع إن لم تكن موجودة، ثم ما طُلب
     if (typeof pinRecMaybeOffer === "function" && pinRecMaybeOffer(cb)) return;
@@ -162,6 +171,7 @@ async function submitPinNow() {
     return;
   }
   closePopup("pinPopup");
+  pinOkAt = Date.now();
   const cb = pinCallback; pinCallback = null;
   if (cb) setTimeout(cb, 100);
   // من عنده رقم قديم بلا شفرة استرجاع: تُعرض عليه عند دخول منطقة الوالدين

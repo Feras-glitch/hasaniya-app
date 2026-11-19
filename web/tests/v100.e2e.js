@@ -21,7 +21,7 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
     try { vpPref('onboarded', true); } catch (e) {}
     // الشريط
     startStation(0); await w(400);
-    const go = document.getElementById('introGo'); if (go) go.click(); await w(100);
+    for (let k = 0; k < 6 && document.getElementById('introGo'); k++) document.getElementById('introGo').click(); await w(100);
     o.bar = ['listenBtn', 'recordBtn', 'mineBtn'].map(id => !!document.getElementById(id)).join(',');
     o.noMore = !document.querySelector('.tool-more');
     o.mineHidden = getComputedStyle(document.getElementById('mineBtn')).display === 'none';

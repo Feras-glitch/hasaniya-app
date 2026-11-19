@@ -2,7 +2,7 @@
    المحلل — يحوّل RAW_MANZUMAH + STORIES + EXPLANATIONS إلى journeyData
    ============================================================ */
 const PARSE_WARNINGS = [];
-const SHOWN_STORY_STATUSES = ["ok", "book"];
+const SHOWN_STORY_STATUSES = ["ok", "book", "disputed"];   // v111: disputed = في إسناده خلاف بين المحدّثين
 
 /** تطبيع عربي للمقارنة: يحذف التشكيل والتطويل ويوحّد الألفات والياء والتاء المربوطة */
 function normalizeArabic(s) {

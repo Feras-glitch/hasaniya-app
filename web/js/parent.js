@@ -24,7 +24,8 @@ function updateStats() {
   document.getElementById("statMistakes").innerText = mistakes.length;
   document.getElementById("statPoints").innerText = state.points || 0;
   document.getElementById("statTime").innerText = Math.floor((state.totalTimeSeconds||0)/60) + "د";
-  document.getElementById("statAccuracy").innerText = Math.round(completed/Math.max(1,content.journeyData.length)*100) + "%";
+  // v111: كان «نسبة الإنجاز» يتعارض مع «يحفظ غيباً» و«مستوى الإتقان»؛ صار عدد ما ينتظر المراجعة
+  document.getElementById("statAccuracy").innerText = typeof leitnerDueVerses === "function" ? leitnerDueVerses().length : 0;
   document.getElementById("statAchievements").innerText = Object.keys(state.achievements).length + "/" + achievementsShown(state).length;
 
   const mastery = calculateMastery(state);

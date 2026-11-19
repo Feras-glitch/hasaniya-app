@@ -21,7 +21,7 @@ const TOOLS = [
 const PLAY_ACTIVITIES = {
   riddles: { icon: "🧩", name: "الألغاز", fn: "startRiddles" },
   mistakes: { icon: "🎯", name: "مراجعة الأخطاء", fn: "startReview" },
-  timeline: { icon: "🕰️", name: "ترتيب الأحداث", fn: "showTimeline" },
+  timeline: { icon: "🕰️", name: "الأحداث بالترتيب", fn: "showTimeline" },
   boxes: { icon: "🗃️", name: "صناديق الحفظ", fn: "showLeitnerBoxes" },
   stationOrder: { icon: "🔀", name: "رتّب المحطات", fn: "startStationOrder" },
   places: { icon: "🌍", name: "أماكن القصص", fn: "showPlacesMap" },
@@ -39,7 +39,8 @@ function playSetOf(s) {
   if (list && list.length) return list;
   // v106: «مراجعة الأخطاء» نصوص يقرؤها الطفل، فلا تكون في «العب» الافتراضي لمن لا يقرأ (من الدفعة «و»)
   // v109: «القصيدة كاملة» في الافتراضي للجميع، فالطفل يسمع الأبيات متصلة
-  return typeof isSmallKid === "function" && isSmallKid() ? ["riddles", "poemListen", "recordings"] : ["riddles", "poemListen", "mistakes", "timeline"];
+  // v111: للكبير ألعاب حقيقية: «إخفاء تدريجي» (تسميع غيبي) و«رتّب المحطات» بدل قائمة «الأحداث بالترتيب» للقراءة
+  return typeof isSmallKid === "function" && isSmallKid() ? ["riddles", "poemListen", "recordings"] : ["riddles", "hide", "poemListen", "stationOrder"];
 }
 function openPlayHub() {
   if (typeof kidTimeUp === "function" && kidTimeUp()) return;

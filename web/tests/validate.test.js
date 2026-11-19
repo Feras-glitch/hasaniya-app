@@ -19,7 +19,7 @@ const ids = new Set(verses.map(v => v.id));
 ids.size === verses.length ? ok("معرّفات الأبيات فريدة") : bad("معرّفات مكررة");
 
 const STORIES = run("STORIES"), norm = run("normalizeArabic");
-let st = {ok:0, book:0, review:0}; let sharedCount = 0;
+let st = {ok:0, book:0, review:0, disputed:0}; let sharedCount = 0;
 Object.entries(STORIES).forEach(([id, s]) => {
   const v = verses.find(x => x.id === id);
   if (!v) return bad("قصة بلا بيت: " + id);

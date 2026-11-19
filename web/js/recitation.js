@@ -166,8 +166,10 @@ async function renderRecList() {
   if (!st) return;
   const verses = st.verses;
   const rows = [];
-  let done = 0;
+  let done = 0, hidden = 0;
   for (const [j, v] of verses.entries()) {
+    // v111: لا تظهر للطفل أبيات لم يتعلّمها بعد (كانت قائمة «تسجيلاتي» تعرض المحطة كلها)
+    if (!(state.seenVerses && state.seenVerses[v.id])) { hidden++; continue; }
     const key = recKey(v.id);
     const rec = await recGet(key);
     if (rec) done++;
@@ -183,7 +185,7 @@ async function renderRecList() {
       ${evalHtml ? `<div class="rec-eval">${evalHtml}</div>` : ""}
     </div>`);
   }
-  body.innerHTML = rows.join("");
+  body.innerHTML = rows.join("") + (hidden ? `<p class="rec-count">${rows.length ? "" : "لم تتعلّم من هذه المحطة شيئاً بعد. "}تظهر بقية الأبيات هنا بعد أن تتعلّمها.</p>` : "");
   document.getElementById("recCount").textContent = `سُجّل ${done} من ${arCount(verses.length, "بيت واحد", "بيتين", "أبيات", "بيتاً")}`;
 }
 async function recPlayKey(key) {
@@ -293,7 +295,12 @@ function recSection() {
   const range = currentRange();
   if (!learnedVerses(range).length) { kidToast(kidLine("noLearned"), "error"); return; }
   if (!recIsRecording(range)) { secShow = false; secOpened = 0; }   // يبدأ التسجيل والنص مخفي
-  recToggle(range, () => renderSectionStatus(), { storeKey: sectionKey(range), kind: "section", maxMs: 15 * 60 * 1000 });
+  recToggle(range, () => {
+    renderSectionStatus();
+    // v111: تسميع المحطة كاملة مسجّلاً يفتح ما بعدها، وينتظر حكم الوالد
+    const m = /^station-(\d+)$/.exec(range);
+    if (m && typeof segmentRecorded === "function") recGet(sectionKey(range)).then(r => { if (r && r.blob) segmentRecorded(+m[1]); }).catch(() => {});
+  }, { storeKey: sectionKey(range), kind: "section", maxMs: 15 * 60 * 1000 });
   renderSectionStatus();
 }
 async function deleteSection() {
@@ -389,12 +396,19 @@ async function playStations(from, to) {
     const now = document.getElementById("poemNow");
     if (now) now.textContent = `🎧 ${kidLine("nowPlaying")} ${i + 1}. ${J[i].title}`;
     const parts = await stationModelParts(J[i]);
-    for (const p of parts) { if (token !== seqToken) break; await playPart(token, p.rec, p.text); }
+    const verseEl = document.getElementById("poemVerse");
+    for (const p of parts) {
+      if (token !== seqToken) break;
+      // v111: البيت الذي يُقرأ ظاهر (أو أبيات المحطة كلها إن كان التسجيل متصلاً)
+      if (verseEl) verseEl.textContent = p.text;
+      await playPart(token, p.rec, p.text);
+    }
     if (token !== seqToken) break;
   }
   if (token === seqToken) {
     guideDance(false);
     const now = document.getElementById("poemNow"); if (now) now.textContent = "";
+    const ve = document.getElementById("poemVerse"); if (ve) ve.textContent = "";
   }
 }
 function playStationListen(i) { return playStations(i, i); }
@@ -402,14 +416,15 @@ function playPoemFrom(i) { return playStations(i, content.journeyData.length - 1
 function stopPoem() {
   stopSequence();
   const now = document.getElementById("poemNow"); if (now) now.textContent = "";
+  const ve = document.getElementById("poemVerse"); if (ve) ve.textContent = "";
 }
 /* «🎧 القصيدة كاملة»: من البداية، أو محطة واحدة، أو من محطة إلى الآخر */
 function showPoemListen() {
   const rows = content.journeyData.map((st, i) => `
     <div class="hub-row" style="cursor:default"><span>${i + 1}. ${escapeHtml(st.title)}</span>
       <span style="display:flex;gap:6px">
-        <button class="tool-btn" onclick="playStationListen(${i})" title="المحطة وحدها">🎧 المحطة</button>
-        <button class="tool-btn" onclick="playPoemFrom(${i})" title="من هنا إلى آخر القصيدة">▶ من هنا</button>
+        <button class="tool-btn" onclick="playStationListen(${i})" title="هذه المحطة وحدها">🎧 هذه المحطة</button>
+        <button class="tool-btn" onclick="playPoemFrom(${i})" title="من هذه المحطة إلى آخر القصيدة">▶ من هنا إلى الآخر</button>
       </span></div>`).join("");
   openHub("🎧 القصيدة كاملة", `
     <div class="hub-actions">
@@ -417,6 +432,7 @@ function showPoemListen() {
       <button class="action-btn btn-gray" onclick="stopPoem()">⏹ أوقف</button>
     </div>
     <div id="poemNow" style="min-height:24px;font-weight:bold;color:var(--primary);margin:6px 0"></div>
+    <div id="poemVerse" class="poem-now-verse"></div>
     <div class="riddle-status">${rows}</div>`);
 }
 /* «التسميع المتصل»: يسمع الطفل المعلم أولاً لما سيسمّعه، ثم يبدأ تسجيله هو */

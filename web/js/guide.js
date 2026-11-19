@@ -8,11 +8,11 @@ const GUIDE_LINES = {
     gForm("أهلاً {N}! سنسافر معاً عبر السيرة 🐪", "أهلاً {N}! سنسافر معاً عبر السيرة 🐪")
   ],
   mastery: () => [
-    gForm("ممتاز {N}! أتقنتَ البيت 🌟", "ممتاز {N}! أتقنتِ البيت 🌟"),
+    gForm("ممتاز {N}! رتّبتَ البيت في يومين، فسمّعه لوالديك غيباً 🌟", "ممتاز {N}! رتّبتِ البيت في يومين، فسمّعيه لوالديك غيباً 🌟"),
     "هكذا تُحفظ القصيدة بيتاً بيتاً، ثم نُسمّعها كلها معاً 🔁"
   ],
   station: () => [
-    gForm("أحسنتَ {N}! فُتحت محطة جديدة 🎉", "أحسنتِ {N}! فُتحت محطة جديدة 🎉"),
+    gForm("أحسنتَ {N}! أتممتَ المحطة، فسمّعها كاملة لنبدأ التالية 🎉", "أحسنتِ {N}! أتممتِ المحطة، فسمّعيها كاملة لنبدأ التالية 🎉"),
     "الرحلة تزداد جمالاً، هيا نكمل 🐪"
   ],
   wrong: () => [
@@ -234,7 +234,9 @@ function guideShowActions(greet) {
   }
   if (state.recentDone) {
     const si = content.journeyData.findIndex(s => s.id === state.recentDone);
-    if (si >= 0) acts.push({ label: "🎧 استمع للقصص", run: () => guidePlayStationStories(si) });
+    // v111: لا يُعرض الزر لمحطة بلا قصص (المقدمة)، فلا يعد بشيء غير موجود
+    if (si >= 0 && typeof segmentPassed === "function" && !segmentPassed(content.journeyData[si].id)) acts.push({ label: "🏁 سمّع المحطة كاملة", run: () => showSegmentMilestone(si) });
+    if (si >= 0 && content.journeyData[si].verses.some(v => v.story)) acts.push({ label: "🎧 استمع للقصص", run: () => guidePlayStationStories(si) });
     state.recentDone = null; saveState();
   }
   guideWalkerPlace(target);
@@ -339,8 +341,8 @@ function renderGuideCharms() {
   const got = content.journeyData.filter(s => state.charms && state.charms[s.id]);
   renderGuideOutfit();
   el.innerHTML = got.length
-    ? `🎒 ${got.map(s => `<span class="charm" title="${escapeForAttr(s.title)}">${escapeHtml(s.icon)}</span>`).join("")}`
-    : `🎒 حقيبة ناجي فارغة، أكمل محطة لتملأها`;
+    ? `🧳 حقيبة ناجي: ${got.map(s => `<span class="charm" title="${escapeForAttr(s.title)}">${escapeHtml(s.icon)}</span>`).join("")}`
+    : `🧳 حقيبة ناجي فارغة، أكمل محطة لتملأها`;
 }
 
 /* أُلغي سؤال «أول كلمة» قبل المحطة: الطفل يرى البيت أولاً ثم يُسأل عنه داخل الدرس */

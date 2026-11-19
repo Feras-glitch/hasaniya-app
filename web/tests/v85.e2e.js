@@ -12,6 +12,8 @@ const { chromium } = require('playwright');
     const vis = c => getComputedStyle(document.getElementById(c) || document.body).display !== 'none';
     // 1) الإغلاق بـ ✕ و appDismiss
     for (const how of ['close', 'dismiss']) {
+      // v111: الدرس يعدّ الأبيات الجديدة عند ظهورها، فيُعاد الدرس على أبيات لم تُرَ
+      content.journeyData[4].verses.forEach(v => { delete state.seenVerses[v.id]; });
       state.versePositions[content.journeyData[4].id] = 0; state.dayPlan = null; saveState(); showMap(); startDailyLesson();
       for (let k = 0; k < 3; k++) { await w(40); nextVerse(); }
       await w(100);

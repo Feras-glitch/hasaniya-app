@@ -222,7 +222,7 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
       r.dailyFirst = !!(daily.compareDocumentPosition(play) & Node.DOCUMENT_POSITION_FOLLOWING);
       openPlayHub();
       const tiles = [...document.querySelectorAll('#hubBody .hub-tile')].map(x => x.textContent);
-      r.playHubDefault3 = tiles.length === 4 && tiles.some(t => t.includes('الألغاز')) && tiles.some(t => t.includes('القصيدة كاملة'));
+      r.playHubDefault3 = tiles.length === 4 && tiles.some(t => t.includes('الألغاز')) && tiles.some(t => t.includes('إخفاء')) && tiles.some(t => t.includes('القصيدة كاملة'));
       closeAll();
       u.small = true; r.playHubSmall2 = playSetOf().length === 3 && playSetOf().includes('poemListen'); u.small = false;
       state.playSet = null; togglePlayAct('places');
@@ -252,7 +252,7 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
       localStorage.setItem(STORAGE_RECS_SINCE, '0');
       renderParentHeadline();
       r.headline = /يحفظ غيباً/.test(document.getElementById('parentHeadline').textContent) && /آخر نسخة احتياطية/.test(document.getElementById('backupInfo').textContent);
-      r.parentGroups = document.querySelectorAll('#parentScreen details.parent-group').length === 5 && !!document.querySelector('#parentScreen details.danger-zone');
+      r.parentGroups = document.querySelectorAll('#parentScreen details.parent-group').length === 6 && !!document.querySelector('#parentScreen details.danger-zone');
       r.noEnglish = !/English|EN\b/.test(document.getElementById('parentScreen').textContent) && typeof tParent === 'undefined';
       // الآيفون: لا يظهر خارج Safari (هنا ملف محلي)، ونصّه يذكر النسخة الاحتياطية حين يوجد تقدّم
       r.iosHiddenHere = iosNeedsInstall() === false && document.getElementById('iosInstallNote').hidden === true;

@@ -652,4 +652,44 @@ function afterOnboarding() {
   // نقص الصوت العربي وحزمة الصوت يظهران تنبيهاً في منطقة الوالدين (renderParentAlerts).
   // الترحيب بعد إنشاء الطفل (كان يُنطق قبله خلف النافذة)
   setTimeout(() => { if (!document.querySelector(".modal-overlay.active") && typeof guideShowActions === "function") guideShowActions(true); }, 600);
+  // v111: بعد إنشاء أول طفل يُفحص الصوت مباشرة، فيعرف الوالد من البداية لا من منطقة الوالدين
+  setTimeout(() => voiceSetupCheck(), 1500);
+}
+
+/* ---------- v111: شاشة إعداد الصوت ----------
+   ابن السادسة يتعلم بالسمع. إن لم يكن على الجهاز صوت عربي ولا تسجيلات للأبيات، فلن يُسمع شيء،
+   فيُعرض على الوالد مرة (ثم كل 7 أيام إن لم يُحلّ) ما يفعله: صوت عربي للجهاز، أو التسجيل بصوته، أو حزمة صوت */
+const VOICE_SETUP_SNOOZE = "hasaniya_voice_setup_snooze";
+async function voiceSetupCheck(force) {
+  if (typeof voiceEngineState !== "function") return;
+  if (voiceEngineState() === "loading") { setTimeout(() => voiceSetupCheck(force), 2500); return; }
+  if (!force) {
+    try { if (Date.now() - (+localStorage.getItem(VOICE_SETUP_SNOOZE) || 0) < 7 * 86400000) return; } catch (e) {}
+    if (document.querySelector(".modal-overlay.active")) return;
+  }
+  if (!voiceEngineMuted()) { if (force) showToast("✅ الصوت العربي يعمل على هذا الجهاز", "success"); return; }
+  let verses = 0;
+  try { verses = (await recAllForUser("author")).filter(r => r.kind === "verse" || r.kind === "station").length; } catch (e) {}
+  const total = content.journeyData.reduce((n, s) => n + s.verses.length, 0);
+  if (verses >= total / 2 && !force) return;
+  openHub("🔇 لا يوجد صوت عربي على هذا الجهاز", `
+    <p style="line-height:1.9">الطفل الصغير يحفظ بالسمع، وعلى هذا الجهاز لا يوجد صوت يقرأ العربية، ولم تُسجَّل الأبيات بعد${verses ? ` (سُجّل ${verses} فقط)` : ""}. فلن يسمع الطفل الأبيات ولا الكلمات.</p>
+    <p><strong>اختر واحداً:</strong></p>
+    <div class="voice-setup">
+      <div><b>١. صوت عربي للجهاز</b> (مجاني، دقيقتان):<br>
+        في أندرويد: الإعدادات ← إمكانية الوصول (أو الإدارة العامة) ← «تحويل النص إلى كلام» ← المحرك «Google» ← ⚙️ ← «تثبيت بيانات الصوت» ← العربية. ثم ارجع واضغط «تحقّق الآن».</div>
+      <div><b>٢. سجّل الأبيات بصوتك</b> في «استوديو التسجيل»، وهو أفضل للطفل لأنه يسمع صوتاً يعرفه.</div>
+      <div><b>٣. استورد حزمة صوت</b> سجّلها معلم أو والد آخر.</div>
+    </div>
+    <div class="hub-actions">
+      <button class="action-btn btn-success" onclick="closePopup('hubPopup'); voiceSetupRecheck()">🔄 تحقّق الآن</button>
+      <button class="action-btn btn-info" onclick="closePopup('hubPopup'); requirePin(openParentVoice, 'استوديو التسجيل')">🎙️ سجّل بصوتك</button>
+      <button class="action-btn btn-info" onclick="closePopup('hubPopup'); requirePin(() => { showParentScreen(); setTimeout(() => { const e = document.getElementById('vpStatus'); if (e) e.scrollIntoView({ block: 'center' }); }, 300); }, 'حزمة الصوت')">📦 حزمة صوت</button>
+      <button class="action-btn btn-gray" onclick="voiceSetupSnooze()">لاحقاً</button>
+    </div>`);
+}
+function voiceSetupSnooze() { try { localStorage.setItem(VOICE_SETUP_SNOOZE, String(Date.now())); } catch (e) {} closePopup("hubPopup"); }
+function voiceSetupRecheck() {
+  try { voiceSynthFailed = false; window.speechSynthesis.getVoices(); } catch (e) {}
+  setTimeout(() => voiceSetupCheck(true), 800);
 }

@@ -41,7 +41,7 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
     o.intro = !!intro && getComputedStyle(intro).display !== 'none';
     o.introShatr = intro ? intro.querySelectorAll('.shatr').length : 0;
     o.orderHidden = getComputedStyle(document.getElementById('orderPart')).display === 'none';
-    document.getElementById('introGo').click(); await w(100);
+    for (let k = 0; k < 6 && document.getElementById('introGo'); k++) document.getElementById('introGo').click(); await w(100);
     o.orderShown = getComputedStyle(document.getElementById('orderPart')).display !== 'none' && !document.getElementById('verseIntro');
     o.toolsTucked = !!document.querySelector('#recBar #listenBtn') && !!document.querySelector('#recBar #recordBtn') && !document.querySelector('.tool-more'); /* v100: شريط ظاهر بلا «⋯» */
     // 2) خطأ ثم خطأ ثم إكمال
@@ -68,7 +68,7 @@ const URL = (process.env.HASANIYA_URL || 'file:///home/claude/hasaniya-desktop/s
     o.noIntroAgain = !document.getElementById('verseIntro');
     // البيت التالي دون خطأ: إتقان ونقاط كاملة
     nextVerse(); await w(300);
-    document.getElementById('introGo').click();
+    for (let k = 0; k < 6 && document.getElementById('introGo'); k++) document.getElementById('introGo').click();
     const v2 = getCurrentVerse().verse; const p1 = state.points;
     for (const word of v2.correctOrder) { const bt = bank().find(x => x.textContent === word && !x.classList.contains('selected')); bt.click(); }
     await w(200);
