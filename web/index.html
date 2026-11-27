@@ -39,7 +39,7 @@
     <!-- v105: شاشة الطفل المبسّطة: «درس اليوم» أولاً (مراجعة ثم جديد)، ثم ناجي، ثم ألبومي والعب وللوالدين -->
     <div class="daily-card" id="dailyCard">
       <div class="daily-info" id="dailyInfo"></div>
-      <button class="action-btn btn-success daily-main" id="dailyMainBtn" onclick="startDailyLesson()">📖 درس اليوم</button>
+      <button class="action-btn btn-success daily-main" id="dailyMainBtn" onclick="dailyMainTap()">📖 درس اليوم</button>
     </div>
     <div class="guide-row">
       <div class="guide" id="guide" onclick="guideTap()" title="اضغط على ناجي">
@@ -70,6 +70,7 @@
         <select id="jumpVerse"></select>
         <button class="action-btn btn-info" onclick="goBrowseJump()">اذهب</button>
       </div>
+      <button class="tool-btn" style="margin-top:6px" onclick="openBrowseCode()">✕ أغلق وضع التصفّح</button>
     </div>
     <div class="station-container" id="stationsArea"></div>
   </div>
@@ -104,7 +105,7 @@
       <div class="buttons-area">
         <button class="action-btn btn-success" id="nextBtn" onclick="nextVerse()" style="display:none">التالي ⬅️</button>
         <button class="action-btn btn-warn" id="browseNextBtn" onclick="browseNext()" style="display:none">⏭ التالي (تصفّح)</button>
-        <button class="action-btn btn-gray" onclick="showMap()">🏠 الرئيسية</button>
+        <button class="tool-btn home-small" onclick="showMap()">🏠 الرئيسية</button>
       </div>
     </div>
   </div>
@@ -193,10 +194,11 @@
       <div class="parent-actions">
         <button class="action-btn btn-success" onclick="requirePin(()=>openReviewMode('home'),'وضع المراجعة')">📝 وضع المراجعة</button>
         <button class="action-btn btn-info" onclick="openClassDashboard()">🏫 لوحة الصف</button>
+        <button class="action-btn btn-success" onclick="document.getElementById('teacherFileInput').click()">📂 افتح ملف تسجيلات طالب أو تقييم</button>
+        <input type="file" id="teacherFileInput" accept=".json,application/json" class="file-hidden" onchange="openSharedFile(this.files[0]); this.value=''">
         <button class="action-btn btn-info" onclick="printTeacherReport()">🖨️ تقرير للمعلم</button>
         <button class="action-btn btn-info" onclick="showDocCoverage()">📋 التوثيق</button>
         <button class="action-btn btn-info" onclick="showReviewSample(false)">🔍 عينة للمراجعة</button>
-        <button class="action-btn btn-warn" onclick="requirePin(openEditor,'فتح محرر المحتوى')">✏️ المحرر القديم</button>
       </div>
     </details>
 
@@ -209,6 +211,7 @@
         <button class="action-btn btn-parent" onclick="requirePin(showUsersModal,'إدارة المستخدمين')">👥 المستخدمون</button>
         <button class="action-btn btn-info" onclick="requirePin(openSignature,'توقيع الوالد')">✍️ توقيع الوالد</button>
         <button class="action-btn btn-parent" onclick="openDeviceMove()">📦 نقل إلى جهاز آخر</button>
+        <button class="action-btn btn-info" onclick="openBrowseCode(); showMap()">🔐 وضع التصفّح (انتقل إلى بيت)</button>
       </div>
     </details>
 
@@ -239,6 +242,7 @@
     <div class="parent-actions">
         <button class="action-btn btn-gray" onclick="showMap()">العودة</button>
     </div>
+    <div class="app-info" id="appInfo"></div>
   </div>
 
   <div class="modal-overlay" id="pvPopup">
@@ -247,7 +251,7 @@
       <p class="rec-privacy">سجّل بصوتك ما يسمعه الطفل: الأبيات، والتعليمات ورسائل ناجي، والأسئلة وخياراتها، والشرح والقصص. يُسمع صوتك أولاً، وما لم تسجّله يقرؤه القارئ الآلي. تبقى التسجيلات على هذا الجهاز، ولا تُرسل إلا حين تصدّرها بنفسك.</p>
       <div id="pvSummary" class="pv-summary"></div>
       <div class="controls" style="flex-wrap:wrap">
-        <select id="pvKind" onchange="pvSeq=null;renderParentVoice()" style="flex:1;min-width:180px;padding:8px;border-radius:10px;font-family:inherit"></select>
+        <select id="pvKind" onchange="pvSeq=null;renderParentVoice()" style="flex:1 1 100%;min-width:0;max-width:100%;padding:8px;border-radius:10px;font-family:inherit"></select>
         <select id="pvStation" onchange="pvSeq=null;renderParentVoice()" style="flex:1;min-width:150px;padding:8px;border-radius:10px;font-family:inherit"></select>
       </div>
       <div class="controls" style="flex-wrap:wrap;align-items:center">
@@ -275,7 +279,7 @@
     <div class="modal-content" style="max-width:560px;text-align:right">
       <h2 style="color:var(--parent-border);margin-top:0;text-align:center">📦 تصدير حزمة الصوت</h2>
       <p class="rec-privacy">راجع التقرير قبل التصدير. الحزمة لا تُرسل تلقائياً، بل تُحفظ ملفاتها لترسلها أنت.</p>
-      <label style="display:block;margin:6px 0;cursor:pointer"><input type="checkbox" id="vpOnlyReviewed" checked onchange="vpRefreshExportReport()"> المراجَع فقط (غير المراجَع يُستثنى)</label>
+      <label style="display:block;margin:6px 0;cursor:pointer"><input type="checkbox" id="vpOnlyReviewed" onchange="vpRefreshExportReport()"> المراجَع فقط (غير المراجَع يُستثنى)</label>
       <label style="display:block;margin:6px 0;cursor:pointer"><input type="checkbox" id="vpDeltaOnly" onchange="vpRefreshExportReport()"> الجديد أو المعدّل منذ آخر تصدير فقط</label>
       <div id="vpReportBody" style="max-height:48vh;overflow-y:auto;font-size:.92rem;line-height:1.8;margin-top:8px"></div>
       <button class="action-btn btn-success" id="vpDoExportBtn" onclick="vpDoExport()" style="width:100%;margin-top:10px">📦 تصدير الآن</button>
@@ -299,7 +303,7 @@
   <div class="modal-overlay" id="followPopup">
     <div class="modal-content" style="max-width:600px;text-align:right">
       <h2 style="color:var(--parent-border);margin-top:0;text-align:center">✅ متابعة الأبيات</h2>
-      <p class="rec-privacy">لكل بيت ثلاث علامات: سمعه الطفل، قرأه، فهمه. تُحفظ على هذا الجهاز مع بيانات الطفل.</p>
+      <p class="rec-privacy">تحت كل بيت حاله في التطبيق (رآه، يرتّبه، يحفظه غيباً بتسميعك)، ثم ثلاث علامات تضعها أنت: سمعه، قرأه، فهمه.</p>
       <select id="fwStation" onchange="renderFollow()" style="width:100%;padding:8px;border-radius:10px;font-family:inherit"></select>
       <div id="fwBody" style="max-height:50vh;overflow:auto;margin-top:8px"></div>
       <button class="action-btn btn-gray" onclick="closePopup('followPopup')" style="width:100%;margin-top:10px">إغلاق</button>
@@ -443,7 +447,7 @@
     <div class="modal-content" style="max-width:520px;text-align:right">
       <h2 id="hubTitle" style="color:var(--primary);margin-top:0;text-align:center"></h2>
       <div id="hubBody"></div>
-      <button class="action-btn btn-gray" onclick="closePopup('hubPopup')" style="width:100%;margin-top:14px">إغلاق</button>
+      <button class="action-btn btn-gray" id="hubCloseBtn" onclick="closePopup('hubPopup')" style="width:100%;margin-top:14px">إغلاق</button>
     </div>
   </div>
 
@@ -451,12 +455,14 @@
     <div class="modal-content">
       <h2 style="color:var(--primary);margin-top:0">🎉 إنجاز رائع!</h2>
       <div id="popupPhotoWrap"></div>
-      <p><span id="rewardVerb">أتممتَ</span> محطة <strong id="popupStationName"></strong> وحصلت على:</p>
+      <p><span id="rewardVerb">أتممتَ</span> محطة <strong id="popupStationName"></strong> <span id="rewardGot"></span>:</p>
       <div class="reward-big-icon" id="popupRewardIcon"></div>
       <h3 id="popupRewardName" style="color:var(--primary)"></h3>
-      <button class="action-btn btn-info" onclick="certSave(window.lastCompletedStation)" style="width:100%;margin-top:8px">🖼️ حفظ شهادة الإتمام</button>
-      <button class="action-btn btn-info" onclick="certPrint(window.lastCompletedStation)" style="width:100%;margin-top:8px">🖨️ طباعة الشهادة</button>
-      <button class="action-btn" onclick="closePopup('rewardPopup')" style="width:100%;margin-top:15px">استمر ➡️</button>
+      <button class="action-btn btn-success" onclick="closePopup('rewardPopup')" style="width:100%;margin-top:12px;min-height:56px;font-size:1.15rem">استمر ➡️</button>
+      <div class="reward-cert-row">
+        <button class="tool-btn" onclick="certSave(window.lastCompletedStation)">🖼️ حفظ الشهادة (للوالدين)</button>
+        <button class="tool-btn" onclick="certPrint(window.lastCompletedStation)">🖨️ طباعة</button>
+      </div>
     </div>
   </div>
 
@@ -482,85 +488,6 @@
       <h2 style="color:var(--gold);margin-top:0">🏆 الإنجازات</h2>
       <div class="achievements-grid" id="achievementsGrid"></div>
       <button class="action-btn btn-gray" onclick="closePopup('achievementsPopup')" style="width:100%;margin-top:20px">إغلاق</button>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="editorPopup">
-    <div class="modal-content" style="max-width:640px;text-align:right">
-      <h2 style="color:var(--primary);margin-top:0;text-align:center">✏️ محرّر المحتوى</h2>
-      <div class="editor-tabs">
-        <button class="editor-tab active" data-tab="stations" onclick="switchEditorTab('stations')">📚 المحطات</button>
-        <button class="editor-tab" data-tab="addStation" onclick="switchEditorTab('addStation')">➕ محطة</button>
-        <button class="editor-tab" data-tab="addVerse" onclick="switchEditorTab('addVerse')">➕ بيت</button>
-        <button class="editor-tab" data-tab="data" onclick="switchEditorTab('data')">📦 JSON</button>
-      </div>
-      <div class="editor-panel active" id="panel-stations"><div id="editorStationsList"></div></div>
-      <div class="editor-panel" id="panel-addStation">
-        <input type="hidden" id="stEditId">
-        <div class="form-grid">
-          <div class="form-row"><label>المعرّف</label><input id="stId" placeholder="s14"></div>
-          <div class="form-row"><label>الأيقونة</label><input id="stIcon" placeholder="🏛️"></div>
-        </div>
-        <div class="form-row"><label>العنوان</label><input id="stTitle" placeholder="اسم المحطة"></div>
-        <div class="form-grid">
-          <div class="form-row"><label>اسم المكافأة</label><input id="stRewardName" placeholder="سيف الإسلام"></div>
-          <div class="form-row"><label>أيقونة المكافأة</label><input id="stRewardIcon" placeholder="⚔️"></div>
-        </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
-          <button class="action-btn btn-success" onclick="saveStation()">💾 حفظ</button>
-          <button class="action-btn btn-gray" onclick="clearStationForm()" aria-label="مسح النموذج">مسح</button>
-        </div>
-      </div>
-      <div class="editor-panel" id="panel-addVerse">
-        <input type="hidden" id="vEditStationId"><input type="hidden" id="vEditVerseId">
-        <div class="form-row"><label>المحطة</label><select id="vStationSelect"></select></div>
-        <div class="form-grid">
-          <div class="form-row"><label>معرّف البيت</label><input id="vId" placeholder="s14v1"></div>
-          <div class="form-row"><label>النوع</label>
-            <select id="vType" onchange="onVerseTypeChange()">
-              <option value="word_order">ترتيب كلمات</option>
-              <option value="missing_choice">اختيار كلمة ناقصة</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-row"><label>البيت كاملاً</label><textarea id="vFull"></textarea></div>
-        <div id="mcFields" style="display:none">
-          <div class="form-grid">
-            <div class="form-row"><label>الجزء قبل الكلمة</label><input id="vPart1"></div>
-            <div class="form-row"><label>الجزء بعد الكلمة</label><input id="vPart2"></div>
-          </div>
-          <div class="form-row"><label>الكلمة الصحيحة</label><input id="vCorrect"></div>
-          <div class="form-row"><label>الخيارات (افصل بفاصلة)</label><input id="vOptions"></div>
-        </div>
-        <div id="woFields">
-          <div class="form-row"><label>الكلمات مبعثرة (افصل بفاصلة)</label><input id="vWords"></div>
-          <div class="form-row"><label>الترتيب الصحيح (افصل بفاصلة)</label><input id="vOrder"></div>
-        </div>
-        <div class="form-row"><label>الحدث</label><input id="vEvent"></div>
-        <div class="form-row"><label>الشرح المبسّط</label><textarea id="vMeaning"></textarea></div>
-        <div class="form-row"><label>القصة الموثقة (اختياري)</label><textarea id="vStory" style="min-height:90px"></textarea></div>
-        <div class="form-row"><label>المصدر (اختياري)</label><input id="vSource" placeholder="صحيح البخاري (1234)"></div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
-          <button class="action-btn btn-success" onclick="saveVerse()">💾 حفظ البيت</button>
-          <button class="action-btn btn-gray" onclick="clearVerseForm()">مسح</button>
-        </div>
-      </div>
-      <div class="editor-panel" id="panel-data">
-        <p style="font-size:.9rem;color:#666;margin-top:0">صدّر/استورد بيانات المنظومة كاملة.</p>
-        <div class="form-row">
-          <label>نص JSON</label>
-          <textarea id="jsonText" style="min-height:200px;font-family:monospace;font-size:.85rem;direction:ltr;text-align:left"></textarea>
-        </div>
-        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px">
-          <button class="action-btn btn-info" onclick="loadJsonIntoTextarea()">📥 تحميل الحالي</button>
-          <button class="action-btn btn-warn" onclick="importJson()">📤 استيراد</button>
-          <button class="action-btn btn-success" onclick="downloadJourneyData()">⬇️ تنزيل</button>
-          <button class="action-btn btn-gray" onclick="restoreContentPrev()">↩️ المحتوى السابق</button>
-        </div>
-      </div>
-      <div style="text-align:center;margin-top:20px">
-        <button class="action-btn btn-gray" onclick="closePopup('editorPopup')">إغلاق</button>
-      </div>
     </div>
   </div>
 
@@ -638,7 +565,7 @@
       <div class="form-row" id="smallKidHost"></div>
       <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
         <button class="action-btn btn-success" onclick="saveUserEditor()">💾 حفظ</button>
-        <button class="action-btn btn-gray" onclick="closePopup('userEditorPopup')">إلغاء</button>
+        <button class="action-btn btn-gray" onclick="cancelUserEditor()">إلغاء</button>
       </div>
     </div>
   </div>
@@ -700,11 +627,13 @@
 <script src="js/utils.js"></script>
 <script src="js/parser.js"></script>
 <script src="js/achievements.js"></script>
+<script src="js/schema.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/safety.js"></script>
 <script src="js/pin.js"></script>
 <script src="js/pinrecovery.js"></script>
 <script src="js/parentcheck.js"></script>
+<script src="js/tasmee.js"></script>
 <script src="js/users.js"></script>
 <script src="js/progress.js"></script>
 <script src="js/audio.js"></script>
@@ -726,7 +655,6 @@
 <script src="js/guide.js"></script>
 <script src="js/companion.js"></script>
 <script src="js/parent.js"></script>
-<script src="js/editor.js"></script>
 <script src="js/upgrades.js"></script>
 <script src="js/places.js"></script>
 <script src="js/data/discussion.js"></script>

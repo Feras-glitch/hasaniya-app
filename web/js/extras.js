@@ -24,13 +24,20 @@ function buildTeacherReportHtml() {
     const quiz = q && Number.isFinite(+q.score) && Number.isFinite(+q.total) ? `${+q.score} / ${+q.total}` : "—";
     return `<tr><td>${i + 1}</td><td>${escapeHtml(st.icon)} ${escapeHtml(st.title)}</td><td>${label}</td><td>${escapeHtml(date)}</td><td>${quiz}</td></tr>`;
   }).join("");
-  const mistakes = getMistakesSorted().slice(0, 10).map(m => `<li>${escapeHtml(m.word)}</li>`).join("") || "<li>لا يوجد</li>";
+  const pcFail = Object.entries(state.parentChecks || {}).filter(([, x]) => x && x.r === "fail").map(([vid]) => { const v = vpFindVerse(vid); return v ? `<li>🎙️ في التسميع: ${escapeHtml(v.fullVerse)}</li>` : ""; }).join("");
+  const mistakes = (getMistakesSorted().slice(0, 10).map(m => `<li>${escapeHtml(m.word)}</li>`).join("") + pcFail) || "<li>لا يوجد</li>";
   const reflections = Object.entries(state.reflections || {}).filter(([, t]) => t).map(([sid, t]) => {
     const st = content.journeyData.find(s => s.id === sid);
     return `<li><strong>${escapeHtml(st ? st.title : sid)}:</strong> ${escapeHtml(t)}</li>`;
   }).join("") || "<li>لا توجد تأمّلات مكتوبة</li>";
   const mastered = masteredCount(state);
-  const badges = Object.keys(state.customBadges || {}).map(id => (CUSTOM_BADGES[id] || {}).name).filter(Boolean).join("، ") || "لا يوجد بعد";
+  // v114: الأوسمة كلها (أوسمة الإنجازات ودفتر الرحلة ونحوها)، لا نوعاً واحداً منها
+  const badgeNames = [].concat(
+    Object.keys(state.customBadges || {}).map(id => (CUSTOM_BADGES[id] || {}).name),
+    Object.keys(state.guideBadges || {}).map(id => (typeof GUIDE_BADGES !== "undefined" && GUIDE_BADGES[id] || {}).name),
+    Object.keys(state.achievements || {}).map(id => ((typeof ACHIEVEMENTS !== "undefined" ? ACHIEVEMENTS : []).find(a => a.id === id) || {}).name)
+  ).filter(Boolean);
+  const badges = [...new Set(badgeNames)].join("، ") || "لا يوجد بعد";
   return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
 <title>تقرير المنظومة الحسنية</title>
 <style>
@@ -46,7 +53,7 @@ th{background:#fce4ec} ul{margin:4px 0;padding-right:18px} .meta{color:#666;font
 <h2>ملخص</h2>
 <div>المحطات المكتملة: ${content.journeyData.filter(s => getStationStatus(s) === "completed").length} من ${content.journeyData.length}</div>
 <div>يرتّب الكلمات (صحيحة في يومين مختلفين، بلا خطأ بعدها): ${mastered} من ${content.journeyData.reduce((n, x) => n + x.verses.length, 0)}</div>
-<div>يحفظه غيباً (سمّعه الوالد بلا فتح): ${confirmedCount(state)} من ${content.journeyData.reduce((n, x) => n + x.verses.length, 0)}</div>
+<div>يحفظه غيباً (تسميعتان بلا فتح بينهما أسبوع، وآخرهما خلال ${CONFIRM_FRESH_DAYS} يوماً): ${confirmedCount(state)} من ${content.journeyData.reduce((n, x) => n + x.verses.length, 0)}</div>
 ${weeklyVerseIds(w.week).length ? `<div>تحدّي الأسبوع: ${weeklyVerseIds(w.week).filter(id => w.done[id]).length} من ${weeklyVerseIds(w.week).length} (هذا الأسبوع)</div>` : ""}
 <div>الأوسمة: ${escapeHtml(badges)}</div>
 <h2>المحطات</h2>

@@ -13,7 +13,7 @@ function exportBackup() {
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
     try { localStorage.setItem(STORAGE_LAST_BACKUP, String(Date.now())); } catch (e) {}
-    if (typeof renderParentAlerts === "function") renderParentAlerts();
+    if (typeof refreshScreens === "function") refreshScreens();   // v114: سطر «آخر نسخة احتياطية» يتحدّث فوراً
     showToast("تم تجهيز النسخة الاحتياطية", "success");
   } catch(e) { showToast("تعذّر تجهيز النسخة", "error"); }
 }

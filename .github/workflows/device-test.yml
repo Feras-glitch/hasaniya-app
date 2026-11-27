@@ -23,7 +23,7 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Copy web app into Android assets
         run: |
@@ -41,7 +41,7 @@ jobs:
           yes | "$SDKM" --licenses > /dev/null || true
           "$SDKM" --install "platforms;android-34" "build-tools;34.0.0" > /dev/null
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a   # v4.4.3 (مثبّت بالبصمة)
         with:
           gradle-version: 8.9
 
@@ -87,7 +87,7 @@ jobs:
         id: run1
         continue-on-error: true
         timeout-minutes: 28
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d   # v2 (مثبّت بالبصمة)
         env:
           APK_V1: ${{ runner.temp }}/v1.apk
           APK_V2: ${{ runner.temp }}/v2.apk
@@ -98,7 +98,7 @@ jobs:
           arch: x86_64
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-boot-anim -camera-back none -camera-front none
-          script: timeout 1200 node web/tests/device/emulator-test.js
+          script: timeout 1200 node tests/device/emulator-test.js
 
       # المحاكي يتعثّر أحياناً (عند «التثبيت والفتح» مثلاً): محاولة ثانية واحدة على محاكٍ جديد
       - name: Stop the first emulator before retrying
@@ -114,7 +114,7 @@ jobs:
         id: run2
         if: steps.run1.outcome == 'failure'
         timeout-minutes: 28
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d   # v2 (مثبّت بالبصمة)
         env:
           APK_V1: ${{ runner.temp }}/v1.apk
           APK_V2: ${{ runner.temp }}/v2.apk
@@ -125,7 +125,7 @@ jobs:
           arch: x86_64
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-boot-anim -camera-back none -camera-front none
-          script: timeout 1200 node web/tests/device/emulator-test.js
+          script: timeout 1200 node tests/device/emulator-test.js
 
       # النجاح بعد إعادة يُظهر تحذيراً، حتى لا يختفي التذبذب
       - name: Report a flaky first attempt

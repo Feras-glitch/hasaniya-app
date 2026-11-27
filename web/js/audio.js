@@ -85,8 +85,6 @@ function initSpeech() {
 function speak(text) { return voicePlay([text]); }
 
 let mediaRecorder = null, recordedChunks = [], mediaStream = null;
-/* v100: التسجيل من شريط البيت (recordVerse) يحفظ تسجيل الطفل لكل بيت. يبقى هذا الاسم لمن يستدعيه */
-async function toggleRecording() { return recordVerse(); }
 function stopMediaStream() {
   if (typeof recCancel === "function") recCancel();
   if (mediaStream) {

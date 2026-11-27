@@ -95,6 +95,7 @@ async function recStart(verseId, onDone, opts) {
   recState.storeKey = opts.storeKey || recKey(verseId); recState.kind = opts.kind || "verse";
   recState.fp = opts.fp || null; recState.source = opts.source || "rec"; recState.author = !!opts.author;
   recState.check = !!opts.check; recState.maxMs = opts.maxMs || REC_MAX_MS;
+  recState.minMs = opts.minMs || 0; recState.t0 = Date.now();
   /* recId: المعرّف الذي يُحفظ مع التسجيل (البيت أو بصمة النص)، لا مفتاح الزر */
   recState.recId = opts.recId || verseId; recState.text = opts.text || null;
   rec.ondataavailable = e => { if (e.data && e.data.size) recState.chunks.push(e.data); };
@@ -107,7 +108,12 @@ async function recStart(verseId, onDone, opts) {
     recState.stream.getTracks().forEach(t => t.stop());
     clearTimeout(recState.timer);
     recState.recorder = null; recState.stream = null; recState.chunks = [];
-    const discard = recState.discard; recState.discard = false;
+    let discard = recState.discard; recState.discard = false;
+    // v114: تسميع متصل أقصر من حدّه الأدنى لا يُحفظ (كان تسجيل ثانيتين يفتح المحطة التالية)
+    const tooShort = !discard && recState.minMs && Date.now() - (recState.t0 || 0) < recState.minMs;
+    recState.minMs = 0;
+    if (tooShort) { discard = true; kidToast(kidLine("recTooShort"), "error"); }
+    let saved = false;
     if (blob.size > 0 && !discard) {
       try {
         const row = { key: sk, verseId: rid || vid, kind, uid: isAuthor ? "author" : activeUserId, mime: type, blob, fp, source: src, at: Date.now() };
@@ -117,9 +123,11 @@ async function recStart(verseId, onDone, opts) {
         if (isAuthor) { try { localStorage.setItem(STORAGE_RECS_SINCE, String((+localStorage.getItem(STORAGE_RECS_SINCE) || 0) + 1)); } catch (e) {} }
         if (!isAuthor && typeof guideOnRecorded === "function") guideOnRecorded(kind);
         if (chk && typeof vpQualityCheck === "function") vpQualityCheck(sk, blob, mx);
+        saved = true;
       } catch(e) { showToast("تعذّر حفظ التسجيل على هذا المتصفح، لم يُحفظ", "error"); }
     }
-    if (cb) cb(vid);
+    if (typeof renderStorageInfo === "function") renderStorageInfo();   // v114: سطر المساحة يتحدّث بعد التسجيل
+    if (cb) cb(vid, saved);
   };
   rec.start();
   audioStopAll();
@@ -147,11 +155,13 @@ function recIsRecording(verseId) { return recState.recorder && recState.verseId 
 async function openRecPopup(opts = {}) {
   if (opts.mode === "child" && typeof kidTimeUp === "function" && kidTimeUp()) return;
   const sel = document.getElementById("recStation");
-  sel.innerHTML = content.journeyData.map((st, i) => `<option value="${i}">${escapeHtml(st.title)}</option>`).join("");
-  sel.value = String(state.selectedStation || 0);
+  // v114: لا تُعرض إلا المحطات التي وصلها الطفل (كانت القائمتان تعرضان المحطات الست عشرة)
+  const reached = content.journeyData.map((st, i) => ({ st, i })).filter(x => getStationStatus(x.st) !== "locked");
+  sel.innerHTML = reached.map(({ st, i }) => `<option value="${i}">${escapeHtml(st.title)}</option>`).join("");
+  sel.value = String(reached.some(x => x.i === (state.selectedStation || 0)) ? (state.selectedStation || 0) : (reached[0] ? reached[0].i : 0));
   const rsel = document.getElementById("secRange");
   rsel.innerHTML = `<option value="all">كل ما حُفظ حتى الآن</option>` +
-    content.journeyData.map((st, i) => `<option value="station-${i}">${escapeHtml(st.title)}</option>`).join("");
+    reached.map(({ st, i }) => `<option value="station-${i}">${escapeHtml(st.title)}</option>`).join("");
   rsel.value = opts.range || "all";
   document.getElementById("recPrivacy").textContent = "🔒 التسجيلات تبقى على هذا الجهاز، ولا تُرسل إلا عندما تضغط زر الإرسال بنفسك.";
   renderRecList();
@@ -174,7 +184,7 @@ async function renderRecList() {
     const rec = await recGet(key);
     if (rec) done++;
     const ev = (state.recEval || {})[v.id];
-    const evalHtml = ev ? `⭐ ${escapeHtml(String(ev.memory))}/5 · نطق ${escapeHtml(String(ev.pronunciation))}/5 · ترتيب ${escapeHtml(String(ev.order))}/5${ev.note ? `<div class="rec-note">📝 ${escapeHtml(ev.note)}</div>` : ""}` : "";
+    const evalHtml = ev ? evalLine(ev) : "";
     rows.push(`<div class="rec-row">
       <div class="rec-text">${j + 1}. ${escapeHtml(v.fullVerse)}</div>
       <div class="rec-actions">
@@ -187,6 +197,13 @@ async function renderRecList() {
   }
   body.innerHTML = rows.join("") + (hidden ? `<p class="rec-count">${rows.length ? "" : "لم تتعلّم من هذه المحطة شيئاً بعد. "}تظهر بقية الأبيات هنا بعد أن تتعلّمها.</p>` : "");
   document.getElementById("recCount").textContent = `سُجّل ${done} من ${arCount(verses.length, "بيت واحد", "بيتين", "أبيات", "بيتاً")}`;
+}
+/* v114: سطر التقييم مع اسم المقيّم وتاريخه (كان الاسم لا يظهر أبداً) */
+function evalLine(ev) {
+  let when = ""; try { when = ev.date ? new Date(ev.date).toLocaleDateString("ar-EG") : ""; } catch (e) {}
+  return `⭐ حفظ ${escapeHtml(String(ev.memory))}/5 · نطق ${escapeHtml(String(ev.pronunciation))}/5 · ترتيب ${escapeHtml(String(ev.order))}/5`
+    + `<div class="rec-note">👤 ${escapeHtml(ev.evaluator || "المقيّم")}${when ? " · " + escapeHtml(when) : ""}</div>`
+    + (ev.note ? `<div class="rec-note">📝 ${escapeHtml(ev.note)}</div>` : "");
 }
 async function recPlayKey(key) {
   if (!audioBegin()) return;
@@ -287,7 +304,10 @@ async function renderSectionStatus() {
   const sb = document.getElementById("secShowBtn");
   if (sb) { sb.style.display = verses.length ? "" : "none"; sb.textContent = secShow ? gForm("🙈 أخفِ النص وسمّع من حفظك", "🙈 أخفي النص وسمّعي من حفظكِ") : gForm("👁️ أظهر النص كله", "👁️ أظهري النص كله"); }
   const sec = await recGet(sectionKey(range));
-  document.getElementById("secStatus").textContent = sec ? "✅ يوجد تسميع متصل مسجّل لهذا النطاق" : "لا يوجد تسميع متصل بعد";
+  const sev = (state.recEval || {})["sec:" + range];
+  const ss = document.getElementById("secStatus");
+  ss.innerHTML = (sec ? "✅ يوجد تسميع متصل مسجّل لهذا النطاق" : "لا يوجد تسميع متصل بعد")
+    + (sev ? `<div class="rec-eval">🔁 تقييم التسميع المتصل: ${evalLine(sev)}</div>` : "");
   document.getElementById("secRecBtn").textContent = recIsRecording(range) ? "⏹ أوقف التسجيل" : "⏺ سجّل التسميع المتصل";
   document.getElementById("secDelBtn").style.display = sec ? "inline-block" : "none";
 }
@@ -295,12 +315,14 @@ function recSection() {
   const range = currentRange();
   if (!learnedVerses(range).length) { kidToast(kidLine("noLearned"), "error"); return; }
   if (!recIsRecording(range)) { secShow = false; secOpened = 0; }   // يبدأ التسجيل والنص مخفي
-  recToggle(range, () => {
+  const n = learnedVerses(range).length;
+  recToggle(range, (vid, saved) => {
     renderSectionStatus();
     // v111: تسميع المحطة كاملة مسجّلاً يفتح ما بعدها، وينتظر حكم الوالد
+    // v114: بحدّ أدنى للمدة، ولا يفتح إن أُظهر النص كله أو كُشف أكثر من نصفه
     const m = /^station-(\d+)$/.exec(range);
-    if (m && typeof segmentRecorded === "function") recGet(sectionKey(range)).then(r => { if (r && r.blob) segmentRecorded(+m[1]); }).catch(() => {});
-  }, { storeKey: sectionKey(range), kind: "section", maxMs: 15 * 60 * 1000 });
+    if (saved && m && typeof segmentRecorded === "function") segmentRecorded(+m[1], { opened: secShow ? n * 2 : secOpened });
+  }, { storeKey: sectionKey(range), kind: "section", maxMs: 15 * 60 * 1000, minMs: typeof tsMinMs === "function" ? tsMinMs(n) : 0 });
   renderSectionStatus();
 }
 async function deleteSection() {
@@ -501,11 +523,6 @@ async function recPlay(verseId) {
   const a = blobAudio(rec.blob);
   audioPlayEl(a).catch(() => showToast("تعذّر التشغيل", "error"));
 }
-async function recRemove(verseId) {
-  if (!confirm("حذف هذا التسجيل؟")) return;
-  await recDelete(recKey(verseId));
-  renderRecList();
-}
 
 /* ---------- تصدير التسجيلات للوالد أو المعلم ---------- */
 function blobToBase64(blob) {
@@ -535,11 +552,12 @@ function packItems(items) {
 async function exportRecitation() {
   const u = getCurrentUser();
   const includePhoto = document.getElementById("recIncludePhoto").checked;
-  const all = (await recAllForUser(activeUserId)).sort((a, b) => a.at - b.at);
+  // v114: تسجيلات «تسميع الدرس» اليومية يحكم عليها السامع في البيت، ولا تُرسل
+  const all = (await recAllForUser(activeUserId)).filter(r => r.kind !== "sabq" && !/\|sabq\|/.test(r.key)).sort((a, b) => a.at - b.at);
   if (!all.length) { kidToast(kidLine("noRecs"), "error"); return; }
   const packs = packItems(all);
   const stamp = Date.now();
-  const child = { name: u.name, gender: u.gender || null, photo: includePhoto ? (safeImg(u.photo) || null) : null };
+  const child = { id: u.id, name: u.name, gender: u.gender || null, photo: includePhoto ? (safeImg(u.photo) || null) : null };
   for (const [i, pack] of packs.entries()) {
     const items = [];
     for (const r of pack) {
@@ -559,9 +577,8 @@ async function exportRecitation() {
       part: i + 1, parts: packs.length,
       child, items
     };
-    const name = packs.length > 1
-      ? `recitation-${stamp}-${i + 1}of${packs.length}.json`
-      : `recitation-${stamp}.json`;
+    const base = "تسجيلات-" + safeFileName(u.name) + "-" + new Date(stamp).toISOString().slice(0, 10);
+    const name = packs.length > 1 ? `${base}-${i + 1}من${packs.length}.json` : `${base}.json`;
     downloadJson(doc, name);
     if (packs.length > 1) showToast(`الجزء ${i + 1} من ${packs.length} جاهز`, "success");
     if (i < packs.length - 1) await new Promise(res => setTimeout(res, 800));
@@ -629,6 +646,8 @@ function openEvalFromDoc(rawDoc) {
     row.appendChild(mk("textarea", { className: "eval-note", placeholder: "ملاحظة (اختيارية)", rows: 2 }));
     list.appendChild(row);
   });
+  // v114: كانت النافذة تُفتح خلف «الإعدادات» فلا يرى المعلم شيئاً
+  document.querySelectorAll(".modal-overlay.active").forEach(m => m.classList.remove("active"));
   document.getElementById("evalPopup").classList.add("active");
 }
 function collectEvaluation() {
@@ -651,22 +670,68 @@ function saveEvaluation() {
   const n = Object.keys(ratings).length, skipped = collectEvaluation.skipped || 0;
   if (!n) { showToast("لم يُقيَّم أي بيت: اختر درجات الحفظ والنطق والترتيب", "error"); return; }
   const doc = { app: "hasaniya", type: "evaluation", evaluatedAt: new Date().toISOString(),
-    evaluator: evaluatorName, child: evalDoc.doc.child?.name || "", ratings };
-  downloadJson(doc, "evaluation-" + Date.now() + ".json");
+    evaluator: evaluatorName, child: evalDoc.doc.child?.name || "", childId: evalDoc.doc.child?.id || "", ratings };
+  downloadJson(doc, "تقييم-" + safeFileName(doc.child) + "-" + new Date().toISOString().slice(0, 10) + ".json");
   document.getElementById("evalPopup").classList.remove("active");
   showToast(`تم حفظ تقييم ${arCount(n, "بيت واحد", "بيتين", "أبيات", "بيتاً")}` + (skipped ? `، وتُرك ${arCount(skipped, "بيت واحد", "بيتان", "أبيات", "بيتاً")} بلا تقييم` : ""), "success");
 }
 
 /* ---------- الطفل يستلم التقييم ---------- */
+/* v114: التقييم يذهب إلى الطفل الذي سُجّل له (كان يُلصق بالطفل النشط أياً كان)،
+   ودرجة الحفظ تدخل جدول المراجعة: 5 = بلا فتح، 4 = فتح واحد، 3 فما دون = فتحان فأكثر */
 function importEvaluation(rawDoc) {
   const v = validateEvaluationDoc(rawDoc);
   if (!v.ok) { showToast(v.error, "error"); return; }
-  state.recEval = state.recEval || {};
-  let n = 0;
-  for (const [vid, r] of Object.entries(v.ratings)) { state.recEval[vid] = r; n++; }
-  saveState();
-  showToast(`تم استلام تقييم ${arCount(n, "بيت واحد", "بيتين", "أبيات", "بيتاً")} من ${v.evaluator}`, "success");
-  if (document.getElementById("recPopup").classList.contains("active")) renderRecList();
+  const byId = v.childId && users.find(u => u.id === v.childId);
+  const byName = !byId && v.child ? users.filter(u => u.name === v.child) : [];
+  const target = byId || (byName.length === 1 ? byName[0] : null);
+  const cur = getCurrentUser();
+  if (target && cur && target.id !== cur.id) {
+    if (!confirm(`هذا التقييم لـ«${target.name}»، والطفل الظاهر الآن «${cur.name}». أضعه عند «${target.name}»؟`)) return;
+    return evalApplyTo(target, v);
+  }
+  if (!target && v.child && cur && v.child !== cur.name) {
+    if (!confirm(`هذا التقييم مكتوب لـ«${v.child}»، ولا يوجد طفل بهذا الاسم هنا. أضعه عند «${cur.name}»؟`)) return;
+  }
+  evalApplyTo(cur, v);
+}
+function evalApplyTo(u, v) {
+  const prev = { activeUserId, state };
+  if (u && u.id !== activeUserId) { activeUserId = u.id; state = u.state; }
+  try {
+    state.recEval = state.recEval || {};
+    let n = 0, secs = 0;
+    for (const [vid, r] of Object.entries(v.ratings)) {
+      state.recEval[vid] = r;
+      const m = /^sec:station-(\d+)$/.exec(vid);
+      const verdict = r.memory >= 5 ? "ok" : r.memory === 4 ? "fath" : "fail";
+      if (m) {
+        secs++;
+        const st = content.journeyData[+m[1]];
+        if (st) {
+          state.segmentChecks = state.segmentChecks || {};
+          const c = state.segmentChecks[st.id];
+          if (c && c.r === "pending" || verdict === "fail") state.segmentChecks[st.id] = { r: verdict, at: Date.now() };
+          if (verdict !== "fail" && typeof wirdDone === "function" && state.wirdLog && state.wirdLog[st.id]) {
+            if (typeof wirdJudged === "function") wirdJudged(st.verses.map(x => x.id), { ok: 1, fath: 0, fail: 0 });
+          }
+          state.tasmeePending = (state.tasmeePending || []).filter(p => !(p.kind === "wird" && p.ids[0] === (st.verses[0] || {}).id));
+        }
+      } else if (vid !== "sec:all" && state.seenVerses && state.seenVerses[vid] && typeof pcApply === "function") {
+        pcApply(vid, verdict);
+        n++;
+      } else n++;
+    }
+    saveState();
+    const parts = [];
+    if (n) parts.push(arCount(n, "بيت واحد", "بيتين", "أبيات", "بيتاً"));
+    if (secs) parts.push(arCount(secs, "تسميع محطة", "تسميعَي محطتين", "تسميعات محطات", "تسميعاً لمحطات"));
+    showToast(`تم استلام تقييم ${parts.join(" و")} من ${v.evaluator}${u && prev.activeUserId !== u.id ? " لـ«" + u.name + "»" : ""}`, "success");
+  } finally {
+    if (u && prev.activeUserId !== u.id) { activeUserId = prev.activeUserId; state = prev.state; }
+  }
+  if (document.getElementById("recPopup").classList.contains("active")) { renderRecList(); renderSectionStatus(); }
+  if (typeof refreshScreens === "function") refreshScreens();
 }
 
 /* تشغيل البيت ثم القصة (بصوت الوالد إن وُجد) */

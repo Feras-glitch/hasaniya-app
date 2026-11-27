@@ -190,7 +190,7 @@ const PIN_LOG_KEY = "hasaniya_pin_log";
 const PIN_LOG_LABELS = {
   set: "ضُبط رقم سري", change: "تغيّر الرقم السري", remove: "أُزيل الرقم السري",
   recover: "استُعملت شفرة الاسترجاع", codeNew: "حُفظت شفرة استرجاع جديدة",
-  waitStart: "بدأ انتظار إلغاء الرقم (نسيت الرقم)", waitCancel: "سقط طلب إلغاء الرقم",
+  waitStart: "بدأ انتظار إلغاء الرقم (نسيت الرقم)", waitCancel: "أُلغي طلب إلغاء الرقم",
   waitExpire: "أُلغي الرقم بعد انتهاء الانتظار"
 };
 function pinLogGet() { try { const a = JSON.parse(localStorage.getItem(PIN_LOG_KEY) || "[]"); return Array.isArray(a) ? a.filter(x => x && PIN_LOG_LABELS[x.ev]) : []; } catch (e) { return []; } }

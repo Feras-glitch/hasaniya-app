@@ -8,6 +8,12 @@ const DASH_LOW_PERCENT = 40;
 const DASH_MAX_FILE = 30 * 1024 * 1024;
 let dashRows = [];
 let dashSorted = [];
+/* v114: اللوحة تبقى بين الجلسات على جهاز المعلم (كانت تُمسح عند إغلاق التطبيق) */
+const DASH_KEY = "hasaniya_dash_rows";
+function dashSave() { try { localStorage.setItem(DASH_KEY, JSON.stringify(dashRows.slice(0, 200))); } catch (e) {} }
+function dashLoad() {
+  try { const a = JSON.parse(localStorage.getItem(DASH_KEY) || "[]"); if (Array.isArray(a)) dashRows = a.filter(r => r && typeof r.name === "string" && typeof r.percent === "number").slice(0, 200); } catch (e) { dashRows = []; }
+}
 
 /* ---------- التحقق من الملفات ---------- */
 function dashValid(d) {
@@ -34,7 +40,7 @@ function dashRow(d, now = Date.now()) {
     confirmed: Math.max(0, Math.floor(+d.mastery.confirmed || 0)),
     completed: d.completedStations, total: d.totalStations,
     points: +d.points || 0, streak: +d.streak || 0, minutes: +d.totalTimeMinutes || 0,
-    mistakes: Array.isArray(d.mistakes) ? d.mistakes.length : 0,
+    mistakes: (Array.isArray(d.mistakes) ? d.mistakes.length : 0) + Math.max(0, Math.floor(+d.parentFails || 0)),
     achievements: Array.isArray(d.achievements) ? d.achievements.length : 0,
     exportedAt: d.exportedAt || "", days: exported ? Math.floor((now - exported) / 86400000) : null,
     weak: [], source: "تقرير", calcFailed: false
@@ -54,6 +60,7 @@ function dashWeakVerses(state, lookup, limit = 3) {
     words[m.verseId] = (words[m.verseId] || 0) + 1;
   }
   for (const [id, n] of Object.entries(words)) counts[id] = Math.max(counts[id] || 0, n);
+  for (const [id, pc] of Object.entries((state && state.parentChecks) || {})) if (pc && pc.r === "fail") counts[id] = Math.max(counts[id] || 0, 1);
   return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, limit).map(([id, n]) => {
     const v = lookup ? lookup(id) : null;
     return { id, n, text: v && v.fullVerse ? v.fullVerse : id };
@@ -82,7 +89,8 @@ function dashRowFromUser(u, when, now, lookup, mastery, totalStations) {
     total: totalStations,
     points: +s.points || 0, streak: +s.streak || 0,
     minutes: Math.floor((+s.totalTimeSeconds || 0) / 60),
-    mistakes: Object.keys(s.mistakes || {}).length,
+    // v114: ما حكم عليه السامع «فتحان فأكثر» خطأ أيضاً (كان التقرير يقول «لا أخطاء»)
+    mistakes: Object.keys(s.mistakes || {}).length + Object.values(s.parentChecks || {}).filter(x => x && x.r === "fail").length,
     achievements: Object.keys(s.achievements || {}).length,
     exportedAt: when || "", days: exported ? Math.floor((now - exported) / 86400000) : null,
     weak: dashWeakVerses(s, lookup), source: "نسخة", calcFailed
@@ -104,6 +112,8 @@ function dashMerge(rows) {
 function dashTotalVerses() { return (typeof content !== "undefined" && content.journeyData) ? content.journeyData.reduce((n, x) => n + x.verses.length, 0) : 161; }
 /* ---------- الواجهة ---------- */
 function openClassDashboard() {
+  if (!dashRows.length) dashLoad();
+  document.querySelectorAll(".modal-overlay.active").forEach(m => m.classList.remove("active"));
   document.getElementById("dashPopup").classList.add("active");
   renderDashboard();
 }
@@ -126,6 +136,7 @@ async function importDashFiles(fileList) {
     else skipped++;
   }
   dashRows = dashMerge(dashRows.concat(fresh));
+  dashSave();
   renderDashboard();
   if (skipped) showToast(`تم تجاهل ${skipped} ملف لأنه ليس تقريراً ولا نسخة من هذا التطبيق`, "error");
 }
@@ -133,6 +144,7 @@ function clearDashboard() {
   if (!dashRows.length) return;
   if (!confirm("مسح القائمة من هذه الشاشة؟ الملفات الأصلية لا تتأثر.")) return;
   dashRows = [];
+  dashSave();
   renderDashboard();
 }
 function dashShow(i) {
@@ -144,7 +156,7 @@ function dashShow(i) {
     : `<p class="rec-count">${r.source === "تقرير" ? "هذا تقرير مختصر. للاطلاع على الأبيات المتعثرة استخدم النسخة الاحتياطية." : "لا توجد أبيات متعثرة."}</p>`;
   box.innerHTML = `<div style="border:1px solid #eee;border-radius:12px;padding:10px;margin-top:10px">
     <strong>${escapeHtml(r.avatar)} ${escapeHtml(r.name)}</strong>
-    <div style="font-size:.9rem;margin-top:4px">المحطات المكتملة: ${r.completed} من ${r.total} · أبيات متقنة ${r.mastered || 0} من ${dashTotalVerses()} · دقة ما رآه ${r.percent}%${r.calcFailed ? " (تعذّر الحساب)" : ""}</div>
+    <div style="font-size:.9rem;margin-top:4px">المحطات المكتملة: ${r.completed} من ${r.total} · يحفظه غيباً ${r.confirmed || 0} · يرتّب كلماته ${r.mastered || 0} من ${dashTotalVerses()} · دقة الترتيب فيما رآه ${r.percent}%${r.calcFailed ? " (تعذّر الحساب)" : ""}</div>
     <div style="font-size:.85rem;color:#666;margin-top:6px">أكثر الأبيات تعثراً:</div>${weak}
   </div>`;
 }
@@ -166,32 +178,36 @@ function renderDashboard() {
     : sort === "completed" ? b.completed - a.completed
     : sort === "percent" ? b.percent - a.percent
     : (b.mastered || 0) - (a.mastered || 0) || b.percent - a.percent);
-  const avg = Math.round(dashRows.reduce((s, r) => s + r.percent, 0) / dashRows.length);
-  const low = dashRows.filter(r => r.percent < DASH_LOW_PERCENT).length;
-  sum.textContent = `${dashRows.length} طفلاً · متوسط الإتقان ${avg}%${low ? ` · ${low} يحتاج متابعة` : ""}`;
+  const started = r => (r.seen || 0) > 0 || r.completed > 0 || r.source === "تقرير" && r.percent > 0;
+  const act = dashRows.filter(started);
+  const avg = act.length ? Math.round(act.reduce((s, r) => s + r.percent, 0) / act.length) : 0;
+  const low = act.filter(r => r.percent < DASH_LOW_PERCENT).length;
+  sum.textContent = `${arCount(dashRows.length, "طفل واحد", "طفلان", "أطفال", "طفلاً")} · متوسط دقة الترتيب ${avg}%${low ? ` · ${low} يحتاج متابعة` : ""}`;
   /* ملخص أسبوعي مختصر: سطر لكل طفل بالجمل التي يحتاج المعلم أن يقرأها */
   const weeklyLine = r => {
     const weak = r.weak && r.weak.length ? "، أكثر الأبيات تعثراً: " + r.weak.map(w => w.text).join(" / ") : "";
+    if (!started(r)) return `${r.avatar} ${r.name}: لم يبدأ بعد`;
     const need = r.percent < DASH_LOW_PERCENT ? " — يحتاج متابعة" : "";
-    return `${r.avatar} ${r.name}: ${r.completed} من ${r.total} محطة، ${r.mastered ? arCount(r.mastered, "بيت واحد متقن", "بيتان متقنان", "أبيات متقنة", "بيتاً متقناً") : "لا أبيات متقنة بعد"} من ${dashTotalVerses()}، دقة ${r.percent}%${need}${weak}`;
+    return `${r.avatar} ${r.name}: ${r.completed} من ${r.total} محطة، يحفظ غيباً ${r.confirmed || 0}، يرتّب كلماته ${r.mastered || 0} من ${dashTotalVerses()}، دقة الترتيب ${r.percent}%${need}${weak}`;
   };
   const weekly = `<div style="background:#fbf8f2;border:1px solid #eee;border-radius:12px;padding:8px 10px;margin-bottom:10px;line-height:1.9;font-size:.9rem">
     <strong>ملخص مختصر</strong>${dashSorted.map(r => `<div>• ${escapeHtml(weeklyLine(r))}</div>`).join("")}</div>`;
   const flags = r => {
     const f = [];
+    if (!started(r)) return "لم يبدأ بعد";
     if (r.percent < DASH_LOW_PERCENT) f.push("يحتاج متابعة");
     if (r.days !== null && r.days > DASH_STALE_DAYS) f.push(`آخر بيانات قبل ${r.days} يوماً`);
     if (r.calcFailed) f.push("تعذّر حساب الإتقان");
     return f.join("، ");
   };
-  body.innerHTML = weekly + `<table class="dash-table" style="width:100%;border-collapse:collapse;font-size:.88rem">
+  body.innerHTML = weekly + `<div class="dash-scroll"><table class="dash-table" style="width:100%;border-collapse:collapse;font-size:.88rem">
     <thead><tr style="background:#f5f5f5">
-      <th style="padding:6px;text-align:right">الطفل</th><th>متقن</th><th>الدقة</th><th>المحطات</th>
+      <th style="padding:6px;text-align:right">الطفل</th><th title="يحفظه غيباً / يرتّب كلماته">غيباً / يرتّب</th><th>دقة الترتيب</th><th>المحطات</th>
       <th>النقاط</th><th>الأخطاء</th><th>الوقت</th><th style="text-align:right">ملاحظة</th>
     </tr></thead>
     <tbody>${dashSorted.map((r, i) => `<tr onclick="dashShow(${i})" style="border-bottom:1px solid #eee;cursor:pointer">
       <td style="padding:6px">${escapeHtml(r.avatar)} ${escapeHtml(r.name)}</td>
-      <td style="text-align:center"><strong>${r.mastered || 0}</strong><small style="color:#888">/${dashTotalVerses()}</small><br><small style="color:var(--success)" title="يحفظه غيباً بتسميع الوالد">✔ ${r.confirmed || 0}</small></td>
+      <td style="text-align:center"><strong style="color:var(--success)" title="يحفظه غيباً بتسميع السامع">✔ ${r.confirmed || 0}</strong><br><small style="color:#888" title="يرتّب كلماته">🧩 ${r.mastered || 0}/${dashTotalVerses()}</small></td>
       <td style="text-align:center"><strong>${r.percent}%</strong>
         <div style="height:6px;background:#eee;border-radius:4px;margin-top:3px"><div style="height:6px;width:${r.percent}%;background:${r.percent < DASH_LOW_PERCENT ? "var(--danger)" : "var(--success)"};border-radius:4px"></div></div></td>
       <td style="text-align:center">${r.completed}/${r.total}</td>
@@ -199,7 +215,7 @@ function renderDashboard() {
       <td style="text-align:center">${r.mistakes}</td>
       <td style="text-align:center">${r.minutes} د</td>
       <td style="color:#b26a00">${escapeHtml(flags(r))}</td>
-    </tr>`).join("")}</tbody></table>
+    </tr>`).join("")}</tbody></table></div>
     <p class="rec-count">اضغط على الطفل لرؤية أبياته المتعثرة. الأرقام من آخر ملف أُخذ لكل طفل.</p>`;
   document.getElementById("dashDetail").innerHTML = "";
 }

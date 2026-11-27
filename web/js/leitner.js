@@ -28,6 +28,8 @@ function leitnerRecord(vid, ok, opts) {
   if ((cur.lastWrong || 0) >= leitnerDayStart()) return;           // أخطأ فيه اليوم
   if (!opts.parent && (cur.due || 0) > now) return;                // لم يحن موعده
   const b = Math.min(LEITNER_MAX, Math.max(1, cur.box || 1));
+  // v114 (قرار صاحب المشروع): الطفل الصغير يصعد بحكم السامع فقط؛ مراجعة البطاقات الصحيحة تُبقيه في موعده
+  if (!opts.parent && typeof isSmallKid === "function" && isSmallKid()) { cur.due = leitnerDueAfter(LEITNER_DAYS[b]); return; }
   // ما بعد الصندوق 5 لا يصعده إلا تسميع الوالد؛ والمراجعة الصحيحة دونه تُبقيه في موعده المعتاد.
   // (قبل حساب «مرة في اليوم»: مراجعة الطفل الصباحية لا تستهلك فرصة تسميع الوالد مساءً)
   if (b >= LEITNER_SOLO_MAX && !opts.parent) { cur.box = b; cur.due = leitnerDueAfter(LEITNER_DAYS[b]); return; }

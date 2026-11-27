@@ -2,9 +2,11 @@
 const ACHIEVEMENTS = [
   {id:"first_step", icon:"👣", name:"أول خطوة", desc:"أكمل أول محطة", check:s=>Object.values(s.stationStatus||{}).filter(v=>v==="completed").length>=1},
   {id:"scholar", icon:"📚", name:"طالب علم", desc:"أكمل 5 محطات", check:s=>Object.values(s.stationStatus||{}).filter(v=>v==="completed").length>=5},
-  {id:"graduate", icon:"🎓", name:"حافظ القسم", desc:"أكمل كل المحطات", check:s=>content.journeyData.length>0 && content.journeyData.every(st=>s.stationStatus[st.id]==="completed")},
-  {id:"streak3", icon:"🔥", name:"مثابر", desc:"3 أيام متتالية", check:s=>(s.streak||0)>=3},
-  {id:"streak7", icon:"⚡", name:"نجم الأسبوع", desc:"7 أيام متتالية", check:s=>(s.streak||0)>=7},
+  // v114: «حافظ القسم» بعد الختمة المسمَّعة، لا بإتمام الدروس
+  {id:"graduate", icon:"🎓", name:"حافظ القسم", desc:"سمّع القصيدة كلها (الختمة)", check:s=>typeof khatmaComplete==="function" && khatmaComplete(s)},
+  {id:"lessonsDone", icon:"🏁", name:"أتمّ الدروس", desc:"أكمل دروس المحطات كلها", check:s=>content.journeyData.length>0 && content.journeyData.every(st=>s.stationStatus[st.id]==="completed")},
+  {id:"streak3", icon:"🔥", name:"مثابر", desc:"3 أيام متتالية (يُسامَح بيوم غياب)", check:s=>(s.streak||0)>=3},
+  {id:"streak7", icon:"⚡", name:"نجم الأسبوع", desc:"7 أيام متتالية (يُسامَح بيوم غياب)", check:s=>(s.streak||0)>=7},
   {id:"points100", icon:"💯", name:"مئة نقطة", desc:"اجمع 100 نقطة", check:s=>(s.points||0)>=100},
   {id:"points500", icon:"🌟", name:"خمسمئة نقطة", desc:"اجمع 500 نقطة", check:s=>(s.points||0)>=500},
   {id:"perfect", icon:"✨", name:"بلا أخطاء", desc:"جلسة كاملة دون خطأ", check:s=>(s.stats?.perfectSessions||0)>=1},
@@ -88,8 +90,12 @@ function verseConfirmed(vid, userState) {
   const e = (st.leitner || {})[vid];
   const pc = (st.parentChecks || {})[vid];
   const lastWrong = ((st.verseStats || {})[vid] || {}).lastWrong || 0;
-  if (pc && pc.r === "ok" && lastWrong <= (+pc.at || 0)) return true;
-  return !!e && e.box >= 6;   // أي خطأ بعده يعيده إلى الصندوق الأول
+  // v114 (قرار صاحب المشروع): تسميعتان بلا فتح بينهما أسبوع على الأقل، وآخرهما خلال 60 يوماً
+  if (typeof verseConfirmedAt === "function") return verseConfirmedAt(vid, st);
+  return !!pc && pc.r === "ok" && lastWrong <= (+pc.at || 0) && !!e;
+}
+function needsTasmeeCount(userState) {
+  return content.journeyData.flatMap(x => x.verses).filter(v => typeof verseNeedsTasmee === "function" && verseNeedsTasmee(v.id, userState)).length;
 }
 function confirmedCount(userState, verses) {
   const list = verses || content.journeyData.flatMap(x => x.verses);
@@ -120,11 +126,12 @@ function calculateMastery(userState) {
 
   let level, stars;
   if (!seenIds.length) { level = "مبتدئ"; stars = 0; }
-  else if (memory >= 90) { level = "حافظ متقن"; stars = 5; }
-  else if (memory >= 75) { level = "متقدم"; stars = 4; }
-  else if (memory >= 55) { level = "متوسط"; stars = 3; }
-  else if (memory >= 30) { level = "مبتدئ متحسن"; stars = 2; }
-  else { level = "مبتدئ"; stars = 1; }
+  // v114: هذا مقياس ترتيب الكلمات مما رآه، لا الحفظ غيباً؛ فلا «حافظ متقن» ولا «متقدم»
+  else if (memory >= 90) { level = "يرتّب كلماته جيداً جداً"; stars = 5; }
+  else if (memory >= 75) { level = "يرتّب كلماته جيداً"; stars = 4; }
+  else if (memory >= 55) { level = "يرتّب أكثر كلماته"; stars = 3; }
+  else if (memory >= 30) { level = "يتحسّن في الترتيب"; stars = 2; }
+  else { level = "بداية الترتيب"; stars = 1; }
 
   // v105: «يحفظه غيباً (مؤكَّد)» بتسميع الوالد، إلى جانب «يرتّبه» (mastered)
   let confirmed = 0; try { confirmed = confirmedCount(userState); } catch (e) {}

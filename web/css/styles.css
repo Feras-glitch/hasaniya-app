@@ -30,12 +30,15 @@ button.action-btn{background:var(--primary);color:#fff;border:none;padding:10px 
 button.action-btn:hover{transform:translateY(-2px)}
 button.action-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
 .btn-gold{background:var(--gold);color:var(--text-dark)}
-.btn-danger{background:var(--danger);color:#fff}
-.btn-parent{background:var(--parent-border);color:#fff}
-.btn-gray{background:#9e9e9e}
-.btn-success{background:var(--success);color:#fff}
-.btn-info{background:var(--info);color:#fff}
-.btn-warn{background:#ff9800;color:#fff}
+/* v114: كان «button.action-btn» يغلب هذه الألوان (أقوى تحديداً)، فبدت الأزرار كلها وردية.
+   الآن اللون بحسب الوظيفة: المتابعة خضراء، والخروج هادئ رمادي، وأحكام التسميع أخضر وبرتقالي وأحمر */
+button.btn-danger,.btn-danger{background:var(--danger);color:#fff}
+button.btn-parent,.btn-parent{background:var(--parent-border);color:#fff}
+button.btn-gray,.btn-gray{background:#eceff1;color:#37474f;box-shadow:inset 0 0 0 1px #cfd8dc}
+button.btn-success,.btn-success{background:var(--success);color:#fff}
+button.btn-info,.btn-info{background:var(--info);color:#fff}
+button.btn-warn,.btn-warn{background:#ef6c00;color:#fff}
+button.btn-primary-soft,.btn-primary-soft{background:var(--primary);color:#fff}
 .progress-stack{display:flex;flex-direction:column;gap:2px}
 .progress-bar{background:var(--secondary);height:8px;width:100%;overflow:hidden}
 .progress-bar.tall{height:10px}
@@ -154,24 +157,12 @@ audio{width:100%;max-width:300px;margin-top:10px;border-radius:20px}
 .ach-icon{font-size:2.4rem;margin-bottom:6px}
 .ach-name{font-weight:bold;font-size:.85rem}
 .ach-desc{font-size:.72rem;color:#666;margin-top:4px}
-.editor-tabs{display:flex;gap:6px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
-.editor-tab{padding:8px 14px;border-radius:20px;background:#f0f0f0;border:2px solid transparent;
-  cursor:pointer;font-weight:bold;font-size:.88rem;font-family:inherit;color:var(--text-dark)}
-.editor-tab.active{background:var(--primary);color:#fff;border-color:var(--primary)}
-.editor-panel{display:none;text-align:right}
-.editor-panel.active{display:block}
 .form-row{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
 .form-row label{font-weight:bold;font-size:.85rem;color:#555}
 .form-row input,.form-row textarea,.form-row select{padding:8px 10px;border:2px solid #ddd;
   border-radius:10px;font-family:inherit;font-size:.95rem;background:#fff;color:var(--text-dark)}
 .form-row input:focus,.form-row textarea:focus,.form-row select:focus{outline:none;border-color:var(--primary)}
 .form-row textarea{min-height:60px;resize:vertical}
-.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.editor-list-item{background:#fafafa;border:1px solid #eee;border-radius:10px;padding:10px;
-  margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
-.editor-list-item .info{flex:1;min-width:0;text-align:right}
-.editor-list-item .info strong{display:block;font-size:.95rem}
-.editor-list-item .info small{color:#888;font-size:.78rem}
 .mini-btn{padding:5px 10px;min-height:40px;min-width:40px;border-radius:8px;border:none;font-weight:bold;cursor:pointer;
   font-size:.78rem;font-family:inherit;color:#fff}
 .mini-btn.edit{background:var(--info)}
@@ -205,7 +196,6 @@ audio{width:100%;max-width:300px;margin-top:10px;border-radius:20px}
   .top-buttons .action-btn{font-size:.75rem;padding:7px 10px}
   .card{padding:18px 12px}.pill{font-size:.7rem;padding:2px 7px}
   .stats-grid{grid-template-columns:1fr 1fr}
-  .form-grid{grid-template-columns:1fr}
   .avatar-grid{grid-template-columns:repeat(4,1fr)}
 }
 
@@ -224,7 +214,6 @@ button,.station,.word-btn,.tool-btn,.action-btn,.user-chip{touch-action:manipula
 /* الأزرار العليا: شبكة متساوية */
 .top-buttons{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:520px;margin-left:auto;margin-right:auto}
 .top-buttons .action-btn{width:100%;margin:0;font-size:.85rem;padding:8px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#dailyBtn:disabled,#reviewBtn:disabled,#challengeBtn:disabled{opacity:.45}
 
 /* الخريطة: محطات أصغر وأقرب */
 .station-container{gap:18px}
@@ -329,8 +318,6 @@ button,.station,.word-btn,.tool-btn,.action-btn,.user-chip{touch-action:manipula
 .more-menu summary::-webkit-details-marker{display:none}
 .more-menu .top-buttons{margin:8px 0 0}
 
-.resume-btn{display:block;width:100%;max-width:420px;margin:0 auto 14px}
-
 /* لوحة التصفّح */
 .browse-panel{background:#fff8e1;border:2px dashed var(--gold);border-radius:12px;padding:10px;margin:0 auto 14px;max-width:420px}
 .browse-panel .bp-title{font-weight:bold;margin-bottom:8px;text-align:center}
@@ -369,9 +356,7 @@ body.night .browse-panel{background:#3a331c}
 .top-buttons .action-btn{white-space:normal;text-overflow:clip;overflow:visible;line-height:1.3;font-size:.8rem;padding:8px 4px}
 
 /* الوضع الليلي: البطاقات البيضاء الثابتة تصبح داكنة */
-body.night :is(.card, .modal-content, .stat-box, .parent-mistake-item, .tool-btn, .word-btn, .station-label,
-  .khilaf-box, .khilaf-side, .story-source, .grown-up, .hub-tile, .hub-row, .leitner-box, .inv-item,
-  #masteryCard, select, input, textarea):not(.success):not(.fail):not(.selected) {
+body.night :is(.card,.modal-content,.stat-box,.parent-mistake-item,.tool-btn,.word-btn,.station-label,.khilaf-box,.khilaf-side,.story-source,.grown-up,.hub-tile,.hub-row,.leitner-box,.inv-item,#masteryCard,select,input,textarea):not(.success):not(.fail):not(.selected){
   background:#2a2a34 !important; color:#eceff1 !important; border-color:#4a4a58 !important;
 }
 body.night .word-btn:not(.success):not(.fail):not(.selected){border-color:var(--primary) !important;color:#f48fb1 !important}
@@ -444,7 +429,6 @@ body.night .guide-bubble{background:#2a2a34;color:#eceff1}
 .guide-charms{font-size:.95rem;margin:-4px 0 10px;text-align:center;color:#555}
 .guide-charms .charm{display:inline-block;margin:0 2px;font-size:1.15rem}
 body.night .guide-charms{color:#ccc}
-.warm-q{font-weight:bold;font-size:1.05rem;line-height:1.8;margin-bottom:12px}
 .guide{position:relative}
 .guide-outfit{position:absolute;top:-6px;right:-10px;font-size:1.3rem;pointer-events:none}
 
@@ -491,10 +475,6 @@ body.guide-open #gameScreen{padding-bottom:190px}
 .hub-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 #guideCharms{cursor:pointer}
 @media (prefers-reduced-motion: reduce){.guide-walker,.campfire .fire,.guide.mood-proud::after,.guide.mood-eager::after,.guide.mood-think::after{animation:none}}
-
-/* v58: تحدي الوقت، وأين ناجي، وقصص المحطة */
-.challenge-box{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:90;background:var(--primary);color:#fff;
-  padding:6px 14px;border-radius:999px;font-weight:bold;box-shadow:var(--shadow);font-size:.95rem}
 .naji-hide{position:absolute;right:-34px;top:-6px;font-size:1.1rem;cursor:pointer;opacity:.85;animation:najiBlink 2.4s ease-in-out infinite}
 @keyframes najiBlink{0%,100%{opacity:.35}50%{opacity:1}}
 @media (prefers-reduced-motion: reduce){.naji-hide{animation:none}}
@@ -529,10 +509,10 @@ body.guide-open #gameScreen{padding-bottom:190px}
 /* v66: زر ✕ للإغلاق في كل نافذة */
 .modal-content { position: relative; }
 .modal-x { position: absolute; top: 8px; inset-inline-start: 8px; width: 34px; height: 34px; border-radius: 50%; border: none; background: #f1f1f1; color: #555; font-size: 16px; cursor: pointer; z-index: 2; }
-.modal-x:hover, .modal-x:focus-visible { background: #e0e0e0; outline: 2px solid var(--primary); }
+.modal-x:hover,.modal-x:focus-visible{ background: #e0e0e0; outline: 2px solid var(--primary); }
 
 /* v67: تقليل الحركة، وإتقان المحطة على الخريطة */
-.reduce-motion *, .reduce-motion *::before, .reduce-motion *::after { animation: none !important; transition: none !important; }
+.reduce-motion *,.reduce-motion *::before,.reduce-motion *::after{ animation: none !important; transition: none !important; }
 .station-mastery { font-size: .72rem; color: #666; text-align: center; margin-top: 2px; }
 
 /* v68: دليل الوالد، ومساحة التسجيلات، وعينة المراجعة */
@@ -564,10 +544,6 @@ body.text-big .verse-intro .intro-verse{font-size:1.75rem}
 .verse-intro .intro-go{width:100%;margin-top:10px;font-size:1.1rem}
 .word-btn.bounce{animation:wordBounce .45s ease;border-color:var(--danger,#e53935)}
 @keyframes wordBounce{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
-.verse-toolbar .tool-more{grid-column:1/-1;text-align:center}
-.verse-toolbar .tool-more>summary{list-style:none;cursor:pointer;display:inline-block;width:auto;min-width:64px;padding:4px 22px;font-size:1.2rem;line-height:1}
-.verse-toolbar .tool-more>summary::-webkit-details-marker{display:none}
-.tool-more-row{display:flex;gap:8px;justify-content:center;margin-top:8px;flex-wrap:wrap}
 body.night .verse-intro{background:#2a2620}
 @media (prefers-reduced-motion: reduce){.word-btn.bounce,.verse-intro{animation:none}}
 body.reduce-motion .word-btn.bounce,body.reduce-motion .verse-intro{animation:none}
@@ -704,8 +680,8 @@ body.night .parent-group.danger-zone>summary{background:#3a2326}
 /* v105: خط نسخ مضمّن (Noto Naskh Arabic، ترخيص OFL في fonts/) للأبيات والآيات المشكولة،
    فلا يختلف شكل الحركات من جهاز لآخر. ومن الإعدادات يمكن الرجوع إلى خط الجهاز. */
 @font-face{font-family:"HasaniyaNaskh";src:url("../fonts/NotoNaskhArabic.woff") format("woff");font-weight:400 700;font-display:swap}
-.bayt,.intro-verse,.intro-prev span,.full-verse-box,.verse-text,#wordsBank .word-btn,#dropZone .word-btn,#optionsBank .word-btn,.quran-ayah,.hub-row span,.poem-verse{font-family:"HasaniyaNaskh",'Segoe UI','Tahoma',sans-serif}
-body.system-font .bayt,body.system-font .intro-verse,body.system-font .intro-prev span,body.system-font .full-verse-box,body.system-font .verse-text,body.system-font #wordsBank .word-btn,body.system-font #dropZone .word-btn,body.system-font #optionsBank .word-btn,body.system-font .quran-ayah,body.system-font .hub-row span,body.system-font .poem-verse{font-family:'Segoe UI','Tahoma',sans-serif}
+.bayt,.intro-verse,.intro-prev span,.full-verse-box,.verse-text,#wordsBank .word-btn,#dropZone .word-btn,#optionsBank .word-btn,.quran-ayah,.hub-row span{font-family:"HasaniyaNaskh",'Segoe UI','Tahoma',sans-serif}
+body.system-font .bayt,body.system-font .intro-verse,body.system-font .intro-prev span,body.system-font .full-verse-box,body.system-font .verse-text,body.system-font #wordsBank .word-btn,body.system-font #dropZone .word-btn,body.system-font #optionsBank .word-btn,body.system-font .quran-ayah,body.system-font .hub-row span{font-family:'Segoe UI','Tahoma',sans-serif}
 
 /* v106: اختيار الطفل بلا رقم سري، ونقطة التنبيه على زر الوالدين */
 .kid-pick .pick-photo,.kid-confirm .pick-photo{width:56px;height:56px;border-radius:50%;object-fit:cover}
@@ -750,9 +726,9 @@ body.system-font .bayt,body.system-font .intro-verse,body.system-font .intro-pre
 .review-who { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: bold; margin-bottom: 6px; }
 .review-progress { height: 8px; background: #eee; border-radius: 6px; overflow: hidden; margin: 6px 0; }
 .review-progress div { height: 100%; background: var(--success, #2e7d32); }
-.review-actions, .review-btns { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.review-actions,.review-btns{ display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .review-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0; }
-.review-filters select, .review-filters input { width: 100%; padding: 8px; border-radius: 10px; font-family: inherit; min-width: 0; }
+.review-filters select,.review-filters input{ width: 100%; padding: 8px; border-radius: 10px; font-family: inherit; min-width: 0; }
 .review-filters label { grid-column: 1 / -1; }
 .review-group { background: #fff7d6; padding: 8px; border-radius: 10px; margin: 6px 0; }
 .review-row { border: 1px solid #ddd; border-radius: 12px; padding: 10px; margin: 8px 0; background: var(--card, #fff); }
@@ -763,7 +739,7 @@ body.system-font .bayt,body.system-font .intro-verse,body.system-font .intro-pre
 .review-text.ml { white-space: pre-line; }
 .review-orig { font-size: .85rem; color: #666; margin: 4px 0; white-space: pre-line; }
 .review-note { font-size: .85rem; background: #f3f3f3; border-radius: 8px; padding: 4px 8px; margin: 4px 0; }
-.review-badge, .review-tag { display: inline-block; font-size: .75rem; font-weight: normal; border-radius: 8px; padding: 1px 6px; background: #eef; margin-inline-start: 4px; }
+.review-badge,.review-tag{ display: inline-block; font-size: .75rem; font-weight: normal; border-radius: 8px; padding: 1px 6px; background: #eef; margin-inline-start: 4px; }
 .review-tag { background: #e8f4ea; }
 .rb-ok { background: #e3f4e5; } .rb-edited { background: #e3ecfb; } .rb-check { background: #fff1d6; } .rb-hard { background: #fde8ef; }
 .review-ta { width: 100%; box-sizing: border-box; padding: 8px; border-radius: 10px; font-family: inherit; font-size: 1rem; line-height: 1.8; }
@@ -778,7 +754,6 @@ body.system-font .bayt,body.system-font .intro-verse,body.system-font .intro-pre
 .word-btn.gender-pick.on{background:var(--primary);color:#fff;opacity:1}
 .poem-now-verse{white-space:pre-line;font-family:"HasaniyaNaskh","Segoe UI",Tahoma,sans-serif;font-size:1.2rem;line-height:2;color:#333;text-align:center;max-height:30vh;overflow:auto}
 .voice-setup>div{background:#f6f7fb;border-radius:12px;padding:10px;margin:8px 0;line-height:1.9;font-size:.95rem}
-.ph-today{text-align:center;font-size:.95rem;margin:4px 0 6px;color:#444}
 .parent-sub{margin:10px 0}
 .parent-sub>summary{cursor:pointer;color:var(--parent-border);font-weight:bold;padding:6px 0}
 .link-box{margin-top:10px;padding:10px;border-radius:12px;background:#eef6ff;border:1px dashed var(--primary);text-align:center}
@@ -789,3 +764,36 @@ body.system-font .bayt,body.system-font .intro-verse,body.system-font .intro-pre
 
 .big-check{display:inline-flex;align-items:center;gap:6px;padding:6px 4px}
 .big-check input{width:22px;height:22px}
+
+/* ---------- v114: التسميع في صلب الحصة ---------- */
+.say-reveal{text-align:center;margin:8px 0}
+.sr-what{font-weight:bold;font-size:1.1rem;margin-bottom:8px}
+.sr-text{font-size:1.25rem;line-height:2;min-height:2.2em;padding:8px;border-radius:12px;background:#fff8e1}
+.sr-text.sr-hidden{color:#bbb;letter-spacing:4px}
+.big-choice{width:100%;font-size:1.15rem;min-height:60px;display:flex;align-items:center;justify-content:center;gap:10px}
+.big-choice .bc-ico{font-size:1.8rem}
+.ts-rec-btn{width:100%;font-size:1.3rem;min-height:72px;margin-top:6px}
+.ts-timer{text-align:center;font-size:1.4rem;font-weight:bold;color:var(--danger);min-height:1.6em;margin-top:6px;font-variant-numeric:tabular-nums;direction:ltr}
+.dash-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+#dailyMainBtn.done-today{opacity:.6}
+.station-mastery{position:relative;z-index:2;font-size:.7rem;background:rgba(255,255,255,.9);border-radius:8px;padding:1px 6px;margin-top:2px;display:inline-block}
+/* v114: «الرئيسية» زر صغير هادئ بعيد عن «التالي»، فلا تُخرج لمسةٌ خاطئة الطفلَ من الدرس */
+.buttons-area .home-small{grid-column:1/-1;justify-self:center;margin-top:18px;background:transparent;border:1px solid #cfd8dc;color:#607d8b;font-size:.85rem;min-height:40px;padding:6px 16px}
+.reward-cert-row{display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap}
+/* v114: عنوان المحطة في رأس الدرس يلتفّ على سطرين ولا يُقصّ إلى «المولد وا…»، وفي الشاشات الضيقة تُخفى الشارات الثانوية أثناء الدرس */
+#appTitle{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.25;font-size:1rem;min-width:0}
+@media (max-width:400px){ body.in-lesson #streakBadge,body.in-lesson #eventBadge{display:none!important} body.in-lesson .user-name{display:none} }
+/* v114: في الرئيسة المبسّطة لا يظهر «المزيد» وفيه زر باهت واحد؛ وضع التصفّح يُفتح من منطقة الوالدين */
+body.simple-home #mapScreen .more-menu{display:none}
+.hub-tile.locked{opacity:.55;cursor:default}
+.hub-tile.locked small{display:block;font-size:.7rem;font-weight:normal;color:#777;margin-top:2px}
+.word-btn.selected-pref{background:var(--parent-border);color:#fff;border-color:var(--parent-border);opacity:1}
+/* v114: أهداف لمس لا تقل عن 40 نقطة (كانت «نسيت الرقم؟» 18 نقطة، والمربعات 13، وأزرار المراجعة 30) */
+#pinForgotBtn{min-height:40px;padding:10px 16px;display:inline-block}
+input[type="checkbox"]{width:22px;height:22px;flex-shrink:0;cursor:pointer}
+.tool-btn.rv-btn,.review-who .tool-btn{min-height:40px;padding:8px 12px}
+/* v114: زرّا «استمع مرة أخرى» و«مع ما قبله» بينهما فراغ */
+.verse-intro .controls{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.fw-status{font-size:.85rem;color:#555;margin:4px 0}
+.fw-mark{display:inline-flex;align-items:center;gap:6px;margin-inline-end:14px;min-height:40px;cursor:pointer}
+.app-info{text-align:center;color:#888;font-size:.78rem;margin:14px 0 4px}

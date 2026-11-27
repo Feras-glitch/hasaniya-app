@@ -7,9 +7,11 @@ function renderParentHeadline() {
   const mastered = typeof masteredCount === "function" ? masteredCount(state) : 0;
   const seen = Object.keys(state.seenVerses || {}).length;
   const done = content.journeyData.filter(s => getStationStatus(s) === "completed").length;
-  box.innerHTML = `<div class="ph-main">يحفظ غيباً <strong>${confirmed}</strong> من ${total} بيتاً <small>(مؤكَّدة بتسميع الوالد)</small></div>
-    <div class="ph-sub">يرتّب كلماته: ${mastered} · رآه في دروسه: ${seen} · محطات مكتملة: ${done} من ${content.journeyData.length}
-    ${seen && !confirmed ? "<br>«سمّعه الآن» أدناه هو ما ينقل البيت إلى «يحفظ غيباً»." : ""}</div>`;
+  const need = typeof needsTasmeeCount === "function" ? needsTasmeeCount(state) : 0;
+  const kh = typeof khatmaProgress === "function" && content.journeyData.every(s => getStationStatus(s) === "completed") ? khatmaProgress() : null;
+  box.innerHTML = `<div class="ph-main">${gForm("يحفظ", "تحفظ")} غيباً <strong>${confirmed}</strong> من ${total} بيتاً <small>(تسميعتان بلا فتح بينهما أسبوع، وآخرهما خلال ${CONFIRM_FRESH_DAYS} يوماً)</small></div>
+    <div class="ph-sub">يحتاج تسميعاً: ${need} · ${gForm("يرتّب", "ترتّب")} كلماته: ${mastered} · ${gForm("رآه", "رأته")} في دروسه: ${seen} · محطات مكتملة: ${done} من ${content.journeyData.length}${kh ? ` · الختمة: ${kh.done} من ${kh.total}` : ""}
+    ${seen && !confirmed ? "<br>تسميعك اليومي (الوِرد وتسميع الدرس) هو ما ينقل البيت إلى «يحفظ غيباً»." : ""}</div>`;
   const bi = document.getElementById("backupInfo");
   if (bi) { const t = typeof backupLastInfo === "function" ? backupLastInfo() : 0;
     let when = ""; try { when = t ? new Date(t).toLocaleDateString("ar-EG") : ""; } catch (e) {}
@@ -21,7 +23,7 @@ function updateStats() {
   const completed = content.journeyData.filter(s => getStationStatus(s) === "completed").length;
   const mistakes = getMistakesSorted();
   document.getElementById("statCompleted").innerText = completed;
-  document.getElementById("statMistakes").innerText = mistakes.length;
+  document.getElementById("statMistakes").innerText = mistakes.length + Object.values(state.parentChecks || {}).filter(x => x && x.r === "fail").length;
   document.getElementById("statPoints").innerText = state.points || 0;
   document.getElementById("statTime").innerText = Math.floor((state.totalTimeSeconds||0)/60) + "د";
   // v111: كان «نسبة الإنجاز» يتعارض مع «يحفظ غيباً» و«مستوى الإتقان»؛ صار عدد ما ينتظر المراجعة
@@ -31,14 +33,29 @@ function updateStats() {
   const mastery = calculateMastery(state);
   document.getElementById("masteryStars").textContent = "⭐".repeat(mastery.stars);
   document.getElementById("masteryLevel").textContent = mastery.level;
-  document.getElementById("masteryPercent").textContent = mastery.percent + "%";
+  document.getElementById("masteryPercent").textContent = mastery.seen ? `${mastery.percent}% مما رآه (${mastery.seen})` : "—";
   document.getElementById("masteryBar").style.width = mastery.percent + "%";
   document.getElementById("masteryBreakdown").innerHTML = `
-    <div>📚 ${"إتقان الحفظ"}: <strong>${mastery.mastered} ${"متقنة من"} ${mastery.seen} ${"بيتاً مرئياً"}</strong></div>
+    <div>🧩 يرتّب كلماته: <strong>${mastery.mastered} من ${mastery.seen} مما رآه</strong> (ليس حفظاً غيباً)</div>
     <div>🗺️ ${"التقدم في المنظومة"}: <strong>${mastery.progress}%</strong></div>
     <div>🔥 ${"الالتزام"}: <strong>${mastery.commitment}%</strong></div>
     <div>🏆 ${"الإنجازات"} (${"لا تدخل في الإتقان"}): <strong>${mastery.details.achievements}/${achievementsShown(state).length}</strong></div>
   `;
+}
+/* v114: رقم النسخة وسجلّ الأخطاء المحلي (للدعم: «أي نسخة عندك؟ وما الخطأ؟») */
+function renderAppInfo() {
+  const el = document.getElementById("appInfo"); if (!el) return;
+  const errs = typeof errorLogGet === "function" ? errorLogGet() : [];
+  el.innerHTML = `نسخة التطبيق: v${escapeHtml(typeof APP_VERSION !== "undefined" ? APP_VERSION : "?")} · المحتوى ${CONTENT_VERSION}`
+    + (errs.length ? ` · <button class="tool-btn" onclick="showErrorLog()">⚠️ أخطاء مسجّلة (${errs.length})</button>` : "");
+}
+function showErrorLog() {
+  const errs = errorLogGet();
+  const text = errs.map(e => { let t = ""; try { t = new Date(e.at).toLocaleString("ar-EG"); } catch (x) {} return `${t} · v${e.v || "?"} · ${e.w || ""}\n${e.m}${e.n > 1 ? ` (×${e.n})` : ""}`; }).join("\n\n");
+  openHub("⚠️ سجلّ الأخطاء", `<p class="rec-count">آخر الأخطاء على هذا الجهاز. لا يُرسل شيء إلا إن نسختَه أنت وأرسلتَه لمن يساعدك.</p>
+    <pre class="report-pre" id="errLogText">${escapeHtml(text)}</pre>
+    <div class="hub-actions"><button class="action-btn btn-info" onclick="try{navigator.clipboard.writeText(document.getElementById('errLogText').textContent);showToast('نُسخ','success')}catch(e){}">📋 نسخ</button>
+    <button class="action-btn btn-gray" onclick="errorLogClear();closePopup('hubPopup');renderAppInfo()">🗑 مسح السجل</button></div>`);
 }
 /* دليل أول زيارة للوالد: يظهر مرة واحدة على هذا الجهاز ثم يُخفى */
 function maybeParentIntro() {
@@ -57,6 +74,7 @@ function dismissParentIntro() {
   if (box) box.style.display = "none";
 }
 function showParentScreen() {
+  document.body.classList.remove("in-lesson");
   if ("speechSynthesis" in window) window.speechSynthesis.cancel();
   if (typeof audioStopAll === "function") audioStopAll();
   stopMediaStream(); stopTimeTracking();
@@ -75,6 +93,7 @@ function showParentScreen() {
   document.getElementById("eventBadge").classList.add("hidden");
   document.getElementById("progressBars").style.display = "none";
   updateStats();
+  renderAppInfo();
   maybeParentIntro();
   renderFamilyBoard();
   const pl = document.getElementById("parentMistakesList");
@@ -88,15 +107,21 @@ function showParentScreen() {
       <div style="font-size:.75rem;color:#999;margin-top:4px">أخطأ ${n} ${n === 1 ? "مرة" : "مرات"}</div>
     </div>`;
   }).join("");
+  // v114: ما حكم عليه السامع «فتحان فأكثر» يظهر هنا (كانت القائمة تقول «لا أخطاء»)
+  const pcFails = Object.entries(state.parentChecks || {}).filter(([, x]) => x && x.r === "fail").map(([vid, x]) => {
+    const v = content.journeyData.flatMap(st => st.verses).find(y => y.id === vid);
+    return `<div class="parent-mistake-item"><strong style="color:var(--danger)">🎙️ في التسميع: فتحان فأكثر</strong>
+      <div style="font-size:.86rem;color:#666;margin-top:6px">${escapeHtml(v ? v.fullVerse : vid)}</div></div>`;
+  }).join("");
   const started = Object.keys(state.seenVerses || {}).length > 0;
   if (!started) pl.innerHTML = `<p class="empty-state">🌱 ${"لم يبدأ الطفل الحفظ بعد."}</p>`;
-  else if (ms.length === 0 && misses.length === 0) pl.innerHTML = `<p class="empty-state">✅ ${"لا توجد أخطاء مسجّلة حتى الآن."}</p>`;
+  else if (ms.length === 0 && misses.length === 0 && !pcFails) pl.innerHTML = `<p class="empty-state">✅ ${"لا توجد أخطاء مسجّلة حتى الآن."}</p>`;
   else pl.innerHTML = ms.map(m => `
     <div class="parent-mistake-item">
       <strong style="color:var(--danger)">${escapeHtml(m.word)}</strong>
       <div style="font-size:.86rem;color:#666;margin-top:6px">السياق: ${escapeHtml(m.context)}</div>
       <div style="font-size:.75rem;color:#999;margin-top:4px">المستوى: ${m.level}/2</div>
-    </div>`).join("") + missHtml;
+    </div>`).join("") + missHtml + pcFails;
 }
 function exportReport() {
   try {
@@ -112,16 +137,19 @@ function exportReport() {
       totalStations: content.journeyData.length,
       achievements: Object.keys(state.achievements),
       stats: state.stats,
-      mistakes: getMistakesSorted()
+      mistakes: getMistakesSorted(),
+      parentFails: Object.values(state.parentChecks || {}).filter(x => x && x.r === "fail").length
     };
     const blob = new Blob([JSON.stringify(report, null, 2)], {type:"application/json"});
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "hasaniya_report_" + getUserName().replace(/\s+/g,"_") + "_" + Date.now() + ".json";
+    a.download = "تقرير-" + safeFileName(getUserName()) + "-" + new Date().toISOString().slice(0, 10) + ".json";
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showToast("تم التصدير", "success");
+    // v114: الملف للمعلم (يفتحه في «لوحة الصف»)، والتقرير المقروء للوالد هو «تقرير الأسبوع»
+    openHub("📤 ملف للمعلّم", `<p style="line-height:1.9">حُفظ ملف «${escapeHtml(a.download)}». أرسله إلى المعلّم ليفتحه في «🏫 لوحة الصف». هذا الملف للتطبيق لا للقراءة.</p>
+      <div class="hub-actions"><button class="action-btn btn-info" onclick="showWeeklyReport()">📝 التقرير المقروء (تقرير الأسبوع)</button></div>`);
   } catch(e) { showToast("تعذّر التصدير", "error"); }
 }
 
@@ -168,7 +196,7 @@ function shareResult() {
     ["🔥 السلسلة", (state.streak||0) + " أيام"],
     ["📚 محطات مكتملة", content.journeyData.filter(s => getStationStatus(s) === "completed").length + " / " + content.journeyData.length],
     ["🏆 إنجازات", Object.keys(state.achievements).length + " / " + achievementsShown(state).length],
-    ["🎯 مستوى الإتقان", mastery.percent + "%"]
+    ["✔ يحفظ غيباً", mastery.confirmed + " / " + content.journeyData.reduce((n, s) => n + s.verses.length, 0)]
   ];
   ctx.font = "bold 24px 'Segoe UI',Tahoma";
   stats.forEach((s, i) => {
@@ -230,11 +258,19 @@ function renderFollow() {
   if (!st) return;
   const f = state.follow || {};
   const marks = [["h", "سمعه"], ["r", "قرأه"], ["u", "فهمه"]];
+  // v114: حال البيت من التطبيق نفسه أولاً (رآه، يرتّبه، سمّعه غيباً)، ثم علاماتك اليدوية
+  const statusOf = v => {
+    if (!(state.seenVerses || {})[v.id]) return "⏳ لم يصل إليه بعد";
+    if (typeof verseConfirmed === "function" && verseConfirmed(v.id)) return "✔ يحفظه غيباً";
+    if (typeof verseNeedsTasmee === "function" && verseNeedsTasmee(v.id)) return "🎙️ يحتاج تسميعاً";
+    if (typeof verseMastered === "function" && verseMastered(v.id)) return "🧩 يرتّب كلماته";
+    return "👀 رآه في درسه";
+  };
   document.getElementById("fwBody").innerHTML = st.verses.map((v, j) => {
     const m = f[v.id] || {};
     const boxes = marks.map(([k, l]) =>
-      `<label style="margin-inline-end:12px"><input type="checkbox" ${m[k] ? "checked" : ""} onchange="setFollow('${v.id}','${k}',this.checked)"> ${l}</label>`).join("");
-    return `<div class="rec-row"><div class="rec-text">${j + 1}. ${escapeHtml(v.fullVerse)}</div><div class="rec-actions">${boxes}</div></div>`;
+      `<label class="fw-mark"><input type="checkbox" ${m[k] ? "checked" : ""} onchange="setFollow('${v.id}','${k}',this.checked)"> ${l}</label>`).join("");
+    return `<div class="rec-row"><div class="rec-text">${j + 1}. ${escapeHtml(v.fullVerse)}</div><div class="fw-status">${statusOf(v)}</div><div class="rec-actions">${boxes}</div></div>`;
   }).join("");
 }
 function setFollow(id, k, val) {

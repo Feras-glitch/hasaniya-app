@@ -22,8 +22,9 @@ function updateStreak() {
   if (!state.lastPracticeDate) state.streak = 1;
   else {
     const d = daysBetween(state.lastPracticeDate, t);
-    if (d === 1) state.streak = (state.streak||0) + 1;
-    else if (d > 1) state.streak = 1;
+    // v114: غياب يوم واحد (سفر أو مرض) لا يصفّر العدّاد
+    if (d === 1 || d === 2) state.streak = (state.streak||0) + 1;
+    else if (d > 2) state.streak = 1;
   }
   state.lastPracticeDate = t;
   updatePointsDisplay(); saveState(); checkAchievements();

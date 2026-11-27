@@ -1,19 +1,5 @@
 /* ردّد معي: يعرض البيت كاملاً ويقرؤه بصوت الوالد أو الآلي. لا يسمع الطفل ولا يصحّح نطقه،
    لأن التعرّف على الصوت العربي كان يخطئ في كلمات صحيحة (مثل «محمود» و«عدداً»). */
-function startShadow() {
-  const out = document.getElementById("shadowResult");
-  if (!out) return;
-  const cur = getCurrentVerse(); if (!cur) return;
-  if (typeof audioStopAll === "function") audioStopAll();
-  // كل كلمة قابلة للنقر: يسمعها الطفل وحدها عند الحاجة
-  const words = cur.verse.words.map(w => `<span class="speak-word" onclick="speak('${escapeForAttr(w)}')" style="cursor:pointer;padding:0 2px;border-bottom:1px dashed #bbb">${escapeHtml(w)}</span>`).join(" ");
-  out.innerHTML = `<div class="shadow-words" style="font-size:1.25rem;line-height:2">${words}</div>
-    <div class="rec-count">اضغط أي كلمة لتسمعها</div>
-    <div class="controls" style="margin-top:8px"><button class="tool-btn" onclick="speak('${escapeForAttr(cur.verse.fullVerse)}')">🔊 اسمع مرة أخرى</button></div>`;
-  const v = cur.verse;
-  if (typeof playVerseAndStory === "function") playVerseAndStory(v, false);
-  else speak(v.fullVerse);
-}
 /* يُمنح الثواب (نقاط أو احتساب إتقان) مرة واحدة فقط لكل بيت في اليوم الواحد.
    يُرجع true إذا كان هذا أول احتساب اليوم، ويُسجَّل الاحتساب فوراً. */
 function firstCreditToday(key) {

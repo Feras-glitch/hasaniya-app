@@ -52,6 +52,8 @@ jobs:
             echo "::error file=web/sw.js::اسم الكاش ($SW) لا يطابق versionName ($VN): المتوقع hasaniya-v$MAJOR-s1 (أو لاحقة أخرى بعد الشرطة)"; bad=1
           fi
           [ "$bad" = 0 ] || exit 1
+          # v114: الأداة نفسها التي ترفع الرقم تفحص المواضع كلها (ومنها APP_VERSION وسطر README)
+          node tools/bump-version.js --check || exit 1
           echo "::notice::أرقام النسخة متطابقة: $VN"
           echo "version=$VN" >> "$GITHUB_OUTPUT"
 
@@ -62,16 +64,17 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
+      - name: Install dev tools (versions from package.json)
+        run: npm install --no-package-lock
+      - name: Lint (scripts concatenated in index.html order)
+        run: npm run lint
       - name: Run all tests
         run: |
-          npm install --no-save --no-package-lock playwright@1.49.1
           npx playwright install --with-deps chromium
-          python3 web/tools/build_standalone.py "$RUNNER_TEMP/hasaniya.html"
-          CHROMIUM_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
-          export CHROMIUM_PATH
+          python3 tools/build_standalone.py "$RUNNER_TEMP/hasaniya.html"
           export HASANIYA_URL="file://$RUNNER_TEMP/hasaniya.html"
-          node web/tests/run-all.js --e2e
+          npm run test:e2e
 
   # اختبار الهاتف الافتراضي (يعمل بالتوازي مع بقية الاختبارات والبناء)؛ النشر ينتظره
   device-test:
@@ -87,6 +90,8 @@ jobs:
         run: |
           mkdir -p android/app/src/main/assets/www
           cp -r web/index.html web/sw.js web/manifest.json web/css web/js web/img web/fonts web/audio android/app/src/main/assets/www/
+      - name: Validate the Gradle wrapper (official checksums)
+        uses: gradle/actions/wrapper-validation@ed408507eac070d1f99cc633dbcf757c94c7933a   # v4.4.3
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -96,7 +101,7 @@ jobs:
           SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKM" --licenses > /dev/null || true
           "$SDKM" --install "platforms;android-34" "build-tools;34.0.0" > /dev/null
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a   # v4.4.3 (مثبّت بالبصمة)
         with:
           gradle-version: 8.9
       - name: Restore signing key
@@ -108,7 +113,7 @@ jobs:
             echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/hasaniya.jks"
             echo "path=$RUNNER_TEMP/hasaniya.jks" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::لم تُضف أسرار التوقيع؛ ستُبنى نسخة تجريبية. انظر SIGNING-AR.md"
+            echo "::warning::لم تُضف أسرار التوقيع؛ ستُبنى نسخة تجريبية. انظر docs/owner/SIGNING-AR.md"
           fi
       - name: Build signed release APK
         if: steps.key.outputs.path != ''
@@ -139,12 +144,12 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
       - name: Standalone file and web zip
         run: |
           mkdir -p out
-          python3 web/tools/build_standalone.py out/hasaniya-standalone.html
-          (cd web && zip -qr ../out/hasaniya-web.zip index.html sw.js manifest.json README.md css js img fonts audio)
+          python3 tools/build_standalone.py out/hasaniya-standalone.html
+          (cd web && zip -qr ../out/hasaniya-web.zip index.html sw.js manifest.json css js img fonts audio)
       - name: Windows and Linux (Electron, sha256-verified download)
         run: bash desktop/package.sh "$ELECTRON_VERSION" desk
       - name: Check that the Linux version opens the app

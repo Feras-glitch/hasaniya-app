@@ -1,7 +1,6 @@
 /* تذكّر: ثلاث طرق — الكلمة المفتاح، الحروف الأولى، والألغاز */
 let recallQ = null;
 
-function openHubBody(title, html) { openHub(title, html); }
 
 function showRecallMenu() {
   openHub("🔑 تذكّر", `
@@ -107,7 +106,7 @@ function rateRecall(ok) {
   const it = recallQ.items[recallQ.i];
   // v105: حكم الطفل على نفسه («تذكّرتُه») تدريب لا دليل، فلا يرفع الصندوق؛ أما «نسيته» فيُعيده إلى المراجعة القريبة
   if (!ok) leitnerRecord(it.v.id, false);
-  if (ok) { recallQ.score++; if (firstCreditToday("recall|" + it.v.id)) addPoints(3); }
+  if (ok) recallQ.score++;   // v114: حكم الطفل على نفسه بلا نقاط
   saveState();
   recallQ.i++;
   renderRecall();

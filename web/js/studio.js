@@ -47,11 +47,12 @@ function pvCurrentList() {
 function pvMaxMs(it) { return it.kind === "station" ? 600000 : it.kind === "story" ? 180000 : (it.section === "expl" || it.section === "quizex" || it.section === "disc") ? 120000 : 60000; }
 function pvFmtMin(sec) {
   const all = Math.round(sec / 60);
-  const mins = m => m === 1 ? "دقيقة" : m === 2 ? "دقيقتان" : m <= 10 ? `${m} دقائق` : `${m} دقيقة`;
+  // v114: بعد «نحو» تُجرّ: «نحو ساعتين» لا «نحو ساعتان»
+  const mins = m => m === 1 ? "دقيقة" : m === 2 ? "دقيقتين" : m <= 10 ? `${m} دقائق` : `${m} دقيقة`;
   if (all < 1) return "أقل من دقيقة";
   if (all < 60) return mins(all);
   const h = Math.floor(all / 60), m = all % 60;
-  const hs = h === 1 ? "ساعة" : h === 2 ? "ساعتان" : `${h} ساعات`;
+  const hs = h === 1 ? "ساعة" : h === 2 ? "ساعتين" : h <= 10 ? `${h} ساعات` : `${h} ساعة`;
   return m ? `${hs} و${mins(m)}` : hs;
 }
 

@@ -84,35 +84,73 @@ function getCurrentVerse() {
   return {station:s, verse:s.verses[it.verseIndex], stationIndex:it.stationIndex, verseIndex:it.verseIndex};
 }
 
+/* v114: خطة اليوم في موضع واحد تقرؤه رئيسة الطفل وبطاقة الوالد (كانتا تختلفان) */
+function todayPlan() {
+  const idx = content.journeyData.findIndex(s => { const st = getStationStatus(s); return st !== "completed" && st !== "locked"; });
+  const due = typeof leitnerDueVerses === "function" ? leitnerDueVerses().length : 0;
+  const plan = dayPlanToday();
+  const revNow = plan.reviews < REVIEW_SESSIONS_PER_DAY ? Math.min(due, REVIEW_PER_SESSION) : 0;
+  const block = idx >= 0 ? newVerseBlockReason() : "allDone";
+  // v114: لا يُوعَد بأكثر مما بقي في المحطة (بعدها تسميعها كاملة)
+  const left = idx >= 0 ? content.journeyData[idx].verses.filter(v => !(state.seenVerses || {})[v.id]).length : 0;
+  const newNow = block ? 0 : Math.max(0, Math.min(LESSON_MAX, newPerDayOf() - plan.newCount, left || LESSON_MAX));
+  const parts = [];
+  if (revNow) parts.push(`مراجعة ${arCount(revNow, "بيت واحد", "بيتين", "أبيات", "بيتاً")}${plan.reviews ? " (الجلسة الثانية)" : ""}`);
+  if (typeof wirdNeededToday === "function" && wirdNeededToday()) { const w = wirdPick(); parts.push(`وِرد «${w.st.title}»`); }
+  // v111: المحطة المكتملة تُسمَّع كاملة قبل الجديد
+  if (block === "segmentFirst") parts.push(`تسميع «${content.journeyData[segmentBlocking()].title}» كاملة`);
+  if (newNow) parts.push(`${arCount(newNow, "بيت جديد", "بيتان جديدان", "أبيات جديدة", "بيتاً جديداً")}`);
+  if (typeof sabqNeededToday === "function" && sabqNeededToday()) parts.push("تسميع درس اليوم");
+  return { idx, due, plan, block, parts };
+}
 /* بطاقة درس اليوم: المحطة الحالية وموضع الطفل فيها */
 function renderDailyCard() {
   const info = document.getElementById("dailyInfo");
   const btn = document.getElementById("dailyMainBtn");
   if (!info || !btn) return;
-  const idx = content.journeyData.findIndex(s => { const st = getStationStatus(s); return st !== "completed" && st !== "locked"; });
-  // v105: سطر خطة اليوم فوق الزر: ما يُراجَع وما يُتعلَّم، أو «أنهيتَ درس اليوم»
-  const due = typeof leitnerDueVerses === "function" ? leitnerDueVerses().length : 0;
-  const plan = dayPlanToday();
-  const revNow = plan.reviews < REVIEW_SESSIONS_PER_DAY ? Math.min(due, REVIEW_PER_SESSION) : 0;
-  const block = idx >= 0 ? newVerseBlockReason() : "allDone";
-  const newNow = block ? 0 : Math.max(0, Math.min(LESSON_MAX, newPerDayOf() - plan.newCount));
-  const parts = [];
-  if (revNow) parts.push(`مراجعة ${arCount(revNow, "بيت واحد", "بيتين", "أبيات", "بيتاً")}`);
-  if (newNow) parts.push(`${arCount(newNow, "بيت جديد", "بيتان جديدان", "أبيات جديدة", "بيتاً جديداً")}`);
+  const { idx, block, parts } = todayPlan();
   let planText;
-  // v111: المحطة المكتملة تُسمَّع كاملة قبل الجديد؛ الزر يفتح تسميعها
-  if (block === "segmentFirst") parts.push(`تسميع «${content.journeyData[segmentBlocking()].title}» كاملة`);
   if (parts.length) planText = "اليوم: " + parts.join("، ثم ");
+  else if (block === "waitJudge") planText = kidLine("waitJudge");
   else if (block === "reviewOnlyToday") planText = gForm("اليوم للمراجعة فقط، وقد أنهيتَ جلستيها. أحسنتَ!", "اليوم للمراجعة فقط، وقد أنهيتِ جلستيها. أحسنتِ!");
-  else if (idx < 0) planText = gForm("أكملتَ كل المحطات، أحسنتَ! 🎉 ونراجع ما يحين موعده.", "أكملتِ كل المحطات، أحسنتِ! 🎉 ونراجع ما يحين موعده.");
+  else if (idx < 0) planText = typeof khatmaComplete === "function" && !khatmaComplete()
+    ? gForm("أتممتَ الدروس كلها! بقيت الختمة: وِرد كل يوم حتى تُسمَّع القصيدة كاملة.", "أتممتِ الدروس كلها! بقيت الختمة: وِرد كل يوم حتى تُسمَّع القصيدة كاملة.")
+    : gForm("حفظتَ القصيدة، أحسنتَ! 🎉 ونراجع ما يحين موعده.", "حفظتِ القصيدة، أحسنتِ! 🎉 ونراجع ما يحين موعده.");
   else planText = gForm("أنهيتَ درس اليوم 🎉 نكمل غداً إن شاء الله.", "أنهيتِ درس اليوم 🎉 نكمل غداً إن شاء الله.");
   const where = idx >= 0 ? (() => { const st = content.journeyData[idx]; const pos = Math.min(state.versePositions[st.id] || 0, st.verses.length - 1);
     return `المحطة ${idx + 1}: ${st.title} · البيت ${pos + 1} من ${st.verses.length}`; })() : "";
   info.innerHTML = `<div class="daily-plan">${escapeHtml(planText)}</div>${where ? `<div class="daily-where">${escapeHtml(where)}</div>` : ""}`;
   if (typeof updateParentDot === "function") updateParentDot();
-  btn.disabled = !parts.length;
+  // v114: الزر لا يُعطَّل: لمسه بعد انتهاء الدرس يقول للطفل (بصوت) لماذا لا جديد
+  btn.disabled = false;
+  btn.classList.toggle("done-today", !parts.length);
+  btn.setAttribute("aria-disabled", parts.length ? "false" : "true");
+}
+function dailyMainTap() {
+  const { parts, block, idx } = todayPlan();
+  if (parts.length) { startDailyLesson(); return; }
+  if (block === "waitJudge") { kidAnnounce(kidLine("waitJudge"), "success"); return; }
+  if (idx < 0) { postCompletionOffer(); return; }
+  kidAnnounce(kidLine("lessonDoneTap"), "success");
+}
+/* v114: بعد أي عمل يغيّر الأرقام (تسميع، تسجيل، نسخة احتياطية، حزمة صوت) تُحدَّث الشاشة الظاهرة،
+   فلا تبقى «اليوم: تسميع المقدمة» أو «يحفظ غيباً 0» حتى يُعاد فتح التطبيق */
+function refreshScreens() {
+  try {
+    const ps = document.getElementById("parentScreen");
+    if (ps && ps.style.display === "block") {
+      if (typeof updateStats === "function") updateStats();
+      if (typeof renderParentCheckCard === "function") renderParentCheckCard();
+      if (typeof renderParentAlerts === "function") renderParentAlerts();
+    }
+    renderDailyCard();
+    if (typeof updateReviewBadge === "function") updateReviewBadge();
+    if (typeof renderMap === "function" && document.getElementById("mapScreen").style.display !== "none") renderMap();
+    if (document.getElementById("recPopup") && document.getElementById("recPopup").classList.contains("active") && typeof renderStorageInfo === "function") renderStorageInfo();
+  } catch (e) { console.warn(e); }
 }
 function showMap() {
+  document.body.classList.remove("in-lesson");
   if (typeof pinGraceReset === "function") pinGraceReset();   // v111: الخروج إلى شاشة الطفل يُسقط مهلة الرقم السري
   if ("speechSynthesis" in window) window.speechSynthesis.cancel();
   if (typeof audioStopAll === "function") audioStopAll();
@@ -160,7 +198,7 @@ function renderMap() {
     html += `<div class="station-wrapper">
       <div class="station ${status}${thumb ? " has-img" : ""}"${thumbStyle} role="button" tabindex="0" aria-label="${escapeHtml(station.title)}" onclick="startStation(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();startStation(${i})}">${thumb ? "" : escapeHtml(station.icon)}</div>
       <div class="station-label ${status==='completed'?'completed':''}">${escapeHtml(station.title)}</div>
-      ${status !== "locked" && typeof stationMastery === "function" ? `<div class="station-mastery">إتقان ${stationMastery(station).done} / ${station.verses.length}</div>` : ""}
+      ${status !== "locked" && typeof stationMastery === "function" ? `<div class="station-mastery" title="يرتّب كلماته">🧩 ${stationMastery(station).done}/${station.verses.length}</div>` : ""}
     </div>`;
   });
   area.innerHTML = html;
@@ -178,6 +216,11 @@ function startStation(index) {
   if (state.selectedVerse >= station.verses.length) state.selectedVerse = 0;
   playMode = MODE_NORMAL;
   if (isBrowse()) { enterPlayScreen(station.title); return; }
+  // v114: المحطة الحالية بعد انتهاء درس اليوم تُفتح على ما تعلّمه منها (كانت ترفض بلا تفسير)
+  const nextV = station.verses[state.selectedVerse];
+  if (nextV && !state.seenVerses[nextV.id] && newVerseBlockReason() && station.verses.some(v => state.seenVerses[v.id])) {
+    state.selectedVerse = 0; kidToast(kidLine("replayLearned"), "success");
+  }
   maybeWarmup(station, () => enterPlayScreen(station.title));
 }
 
@@ -190,6 +233,7 @@ function enterPlayScreen(title) {
   document.getElementById("eventBadge").classList.remove("hidden");
   document.getElementById("progressBars").style.display = "flex";
   document.getElementById("appTitle").innerText = title;
+  document.body.classList.add("in-lesson");
   if (typeof guideHidePanel === "function") guideHidePanel();
   startTimeTracking();
   loadVerse();
@@ -228,6 +272,9 @@ function loadVerse() {
   }
   if (playMode === MODE_NORMAL && !noCredit()) {
     state.seenVerses[verse.id] = true;
+    // v114: يوم تعلّم البيت، ليدخل «السبق» (تسميع الأيام الخمسة الأخيرة على السامع)
+    state.seenAt = state.seenAt || {};
+    if (!state.seenAt[verse.id]) state.seenAt[verse.id] = Date.now();
   }
   lessonNewVerseId = firstTime ? verse.id : null;
 
@@ -248,7 +295,7 @@ function loadVerse() {
   });
   const overallPct = doneV/Math.max(1, totalV)*100;
   document.getElementById("progressOverall").style.width = overallPct + "%";
-  const camel = document.getElementById("camel"); if (camel) camel.style.right = overallPct + "%";
+  const camel = document.getElementById("camel"); if (camel) camel.style.right = `clamp(12px, ${overallPct}%, calc(100% - 12px))`;   // v114: لا يُقصّ عند الحافة
 
   document.getElementById("eventBadge").innerText = verse.n ? `البيت ${verse.n}` : station.title;   // v111: كان يكرّر اسم المحطة الذي في العنوان فيُقصّ العنوان
   document.getElementById("meaningBox").style.display = "none";
@@ -262,13 +309,6 @@ function loadVerse() {
   hintUsedThisVerse = false;
   verseFlawed = false; wrongAtPos = 0;
   const gameArea = document.getElementById("gameArea");
-  const oldPb = document.getElementById("playbackAudio");
-  if (oldPb) {
-    if (oldPb.src && oldPb.src.startsWith("blob:")) {
-      try { URL.revokeObjectURL(oldPb.src); } catch(e) {}
-    }
-    oldPb.remove();
-  }
 
   let prefix = "";
   if (playMode === MODE_FOCUS && focusTarget) {
@@ -284,8 +324,8 @@ function loadVerse() {
   const box = playMode === MODE_REVIEW && !noCredit() ? reviewBoxOf(verse.id) : 0;
   if (verse.type !== "missing_choice" && box === 3) {
     activeVariant = makeMissingVariant(verse, 2); if (activeVariant) { activeVariant._prefix = prefix; shown = activeVariant; }
-  } else if (verse.type !== "missing_choice" && box >= 4) {
-    tiles = "initials";
+  } else if (verse.type !== "missing_choice" && box >= 4 && !(typeof isSmallKid === "function" && isSmallKid())) {
+    tiles = "initials";   // v114: لا أوائل حروف للصغير الذي لا يقرأ
   } else if (verse.type !== "missing_choice" && playMode === MODE_CHALLENGE && Math.random() < 0.5) {
     activeVariant = makeMissingVariant(verse); if (activeVariant) shown = activeVariant;
   }
@@ -334,7 +374,13 @@ function renderMissingChoice(verse, gameArea, prefix) {
   gameArea.innerHTML = `${prefix}${sceneBeforeQuestion(verse)}${renderToolbar(verse)}
     ${Array.isArray(verse.blanks) ? `<div class="verse-text order-hint">${gForm("أكمل الكلمتين الناقصتين:", "أكملي الكلمتين الناقصتين:")}</div>` : ""}
     <div class="verse-text">${textHTML}</div>
-    <div class="word-bank" id="optionsBank">${opts}</div>`;
+    <div class="word-bank" id="optionsBank">${opts}</div>
+    ${typeof isSmallKid === "function" && isSmallKid() ? `<div class="controls"><button class="tool-btn" onclick="readTilesAloud('#optionsBank .word-btn')">👂 اقرأ لي الخيارات</button></div>` : ""}`;
+}
+/* v114: للطفل الصغير: تُقرأ البطاقات أو الخيارات بترتيب ظهورها (استماع بلا عقوبة، ولا يكشف الترتيب) */
+function readTilesAloud(sel) {
+  const words = [...document.querySelectorAll(sel)].filter(b => !b.hidden && !b.classList.contains("selected")).map(b => b.dataset.word || b.textContent);
+  if (words.length && typeof voicePlay === "function") voicePlay(words, { silent: true });
 }
 /* البيت مقسوماً إلى شطرين (صدر وعجز) */
 function baytHTML(v) {
@@ -376,6 +422,7 @@ function renderWordOrder(verse, gameArea, prefix, intro, tiles) {
     <div class="verse-toolbar">
       <button class="tool-btn" onclick="undoWord()">↩️ تراجع</button>
       <button class="tool-btn" onclick="giveHint()">💡 تلميح</button>
+      ${small && !tiles ? `<button class="tool-btn" onclick="readTilesAloud('#wordsBank .word-btn')">👂 اقرأ لي البطاقات</button>` : ""}
     </div>
     <div class="word-bank" id="wordsBank">${wh}</div></div>`;
   if (intro) { introReps = 0; const tok = verseLoadToken; setTimeout(() => { if (tok === verseLoadToken && document.getElementById("verseIntro")) introListen(); }, 350); }
@@ -417,11 +464,9 @@ function startOrderAfterIntro() {
     introListen();
     return;
   }
-  if (go && introReps === INTRO_REPEATS - 1 && !go.dataset.ready) {
-    introReps++;
-    go.dataset.ready = "1";
-    go.textContent = typeof isSmallKid === "function" && isSmallKid() ? "✅ حفظته، أرتّبه الآن" : "✅ أرتّبه الآن من حفظي";
-    return;
+  // v114: بعد الترديد ثلاثاً «قل ثم اكشف» حتى يقوله من حفظه ثلاث مرات متتالية، ثم الترتيب
+  if (go && introReps === INTRO_REPEATS - 1 && typeof sayRevealStart === "function" && !noCredit()) {
+    introReps = 0; sayRevealStart(); return;
   }
   introReps = 0;
   if (typeof audioStopAll === "function") audioStopAll();
@@ -518,9 +563,23 @@ function collapseOrderPart() {
   document.querySelectorAll("#wordsBank, #orderPart .verse-toolbar, #orderPart .order-hint").forEach(e => { e.style.display = "none"; });
 }
 /* الإتقان يُحتسب من الدرس العادي فقط، ومرة واحدة في اليوم لكل بيت، حتى لا يُكسب بتكرار البيت نفسه */
+/* v114 (إعادة التعلّم في الجلسة نفسها): البيت الذي أُخطئ فيه في المراجعة يُعاد آخر الجلسة؛
+   فإن صحّ نزل صندوقين (للصغير صندوقاً) لا إلى الأول، وإن أخطأ ثانية عاد إلى الأول (للصغير نزل صندوقين) */
+let reviewRetry = {};
+function reviewRetryApply(vid, okClean) {
+  const r = reviewRetry[vid]; if (!r) return;
+  delete reviewRetry[vid];
+  const e = (state.leitner || {})[vid]; if (!e) return;
+  const small = typeof isSmallKid === "function" && isSmallKid();
+  e.box = okClean ? Math.max(1, r.box - (small ? 1 : 2)) : (small ? Math.max(1, r.box - 2) : 1);
+  e.due = leitnerDueAfter(1);
+}
 function recordVerseStat(vid, ok) {
   // v104: بيت لم يُعرض في الدرس بعد لا يُحسب له إتقان (كان «تحدّي الأسبوع» يُحسب أبياتاً لم يرها الطفل)
   if (!state.seenVerses || !state.seenVerses[vid]) return;
+  if (!ok && playMode === MODE_REVIEW && !noCredit() && !reviewRetry[vid]) {
+    const e = (state.leitner || {})[vid]; reviewRetry[vid] = { box: e ? e.box : 1 };
+  }
   const s = state.verseStats[vid] || (state.verseStats[vid] = {correct: 0, wrong: 0, lastCorrect: 0, lastWrong: 0});
   leitnerRecord(vid, ok);
   if (!ok) { s.wrong++; s.lastWrong = Date.now(); return; }
@@ -548,6 +607,8 @@ function handleCorrect(verse, key, station, flawed) {
   if (noCredit()) return;
   // v104: التلميح يكشف الكلمة، فالبيت يُكمَل بنصف النقاط لكنه لا يُحسب إتقاناً ولا يرفع صندوقه ولا ينجز تحدّي الأسبوع
   if (hintUsedThisVerse) flawed = true;
+  const qi = playMode === MODE_REVIEW ? playQueue[playIndex] : null;
+  if (qi && qi.retry) { reviewRetryApply(verse.id, !flawed); saveState(); }
   if (flawed && typeof leitnerEnsure === "function") leitnerEnsure(verse.id);
   if (!flawed) {
     recordVerseStat(verse.id, true);
@@ -578,7 +639,8 @@ function renderLinkBox(verse) {
 function linkDone(vid) {
   const b = document.getElementById("linkDoneBtn"); if (b) { b.disabled = true; b.textContent = "✅ 🔗"; }
   state.linked = state.linked || {};
-  if (!state.linked[vid] && firstCreditToday("link|" + vid)) { state.linked[vid] = Date.now(); addPoints(2); saveState(); }
+  // v114: لا نقاط على ما يقوله الطفل عن نفسه؛ النقاط على تسميع السامع
+  if (!state.linked[vid]) { state.linked[vid] = Date.now(); saveState(); }
   kidToast(kidLine("linkDone"), "success");
 }
 function showFullVerse(verse) {
@@ -596,6 +658,8 @@ function showFullVerse(verse) {
     const sp = document.createElement("button"); sp.className = "say-btn"; sp.textContent = "🔊"; sp.setAttribute("aria-label", "استمع للشرح");
     sp.onclick = () => sayText(verse.meaning);
     mb.appendChild(sp); mb.appendChild(document.createTextNode(" " + verse.meaning));
+    // v114: زر «📝 راجع» على شرح البيت أيضاً حين يشغّله المراجِع
+    if (typeof reviewInlineBtn === "function") { const rb = reviewInlineBtn("v:" + verse.id); if (rb) mb.insertAdjacentHTML("beforeend", " " + rb); }
     // v104: الشرح كان يظهر فوق سؤال «ماذا حدث هنا؟» فيكشف جوابه؛ يظهر الآن بعد الإجابة
     mb.style.display = askFirst ? "none" : "block";
   }
@@ -626,7 +690,6 @@ function showMeaningAfterEvent(v) {
 function nextVerse() {
   if (typeof guideHideOffers === "function") guideHideOffers();
   if (typeof dailyLimitReached === "function" && dailyLimitReached() && playMode !== MODE_PREVIEW) { showMap(); kidAnnounce(kidLine("timeUp"), "success"); return; }
-  if (typeof guideOnNextVerse === "function") guideOnNextVerse();
   if (playMode === MODE_PREVIEW) {
     previewTarget = null;
     playMode = MODE_NORMAL;
@@ -646,7 +709,7 @@ function nextVerse() {
           if (state.dailyLeft <= 0) { dailyLessonDone(station); return; }
         }
         state.selectedVerse++;
-        if (!isBrowse()) state.versePositions[station.id] = state.selectedVerse;
+        if (!isBrowse()) state.versePositions[station.id] = Math.max(state.versePositions[station.id] || 0, state.selectedVerse);
         saveState(); loadVerse();
         // v104: عرض «سمّع ما سبق» مرة في آخر الدرس، لا بعد كل بيت
       };
@@ -656,7 +719,7 @@ function nextVerse() {
       // وضع التصفّح يعبر إلى المحطة التالية دون أن يُتمّ المحطة أو يفتح ما بعدها
       if (isBrowse()) { browseNext(); return; }
       state.versePositions[station.id] = 0;
-      if (state.dailyLeft != null) creditLessonDay();   // درس اليوم انتهى بإكمال المحطة
+      if (state.dailyLeft != null) { creditLessonDay(); if (typeof sabqDone === "function") sabqDone(); }   // درس اليوم انتهى بإكمال المحطة، وتسميعها كاملة يقوم مقام السبق
       state.dailyLeft = null; state.dailyIds = [];
       markStationCompleted(station);
       // v111: المحطة التي أُتمّت في الدروس تُسمَّع كاملة قبل المحطة التالية
@@ -670,11 +733,14 @@ function nextVerse() {
         if (qr && qr.total && qr.score * 3 < qr.total * 2 && typeof kidToast === "function") setTimeout(() => kidToast(kidLine("stationLow"), "success"), 1500);
         if (content.journeyData.every(s => getStationStatus(s) === "completed")) setTimeout(showFinale, 1200);
         document.getElementById("rewardVerb").innerText = guideVocative() + "، " + gForm("أتممتَ", "أتممتِ");
+        document.getElementById("rewardGot").innerText = gForm("وحصلتَ على", "وحصلتِ على");
         document.getElementById("popupPhotoWrap").innerHTML = rewardPhoto()
           ? `<img class="reward-photo" src="${rewardPhoto()}" alt="">` : "";
         document.getElementById("popupStationName").innerText = station.title;
-        document.getElementById("popupRewardIcon").innerText = station.reward.icon;
-        document.getElementById("popupRewardName").innerText = station.reward.name;
+        // v114: الملصق نفسه الذي في الألبوم (كانت المقدمة ✍️ في النافذة و📜 في الألبوم)
+        const stk = (typeof STICKERS !== "undefined" && STICKERS[station.id]) || station.reward;
+        document.getElementById("popupRewardIcon").innerText = stk.icon;
+        document.getElementById("popupRewardName").innerText = stk.name;
         document.getElementById("rewardPopup").classList.add("active");
         launchConfetti();
       });
@@ -684,6 +750,9 @@ function nextVerse() {
     if (focusTarget.remaining <= 0) finishFocus();
     else loadVerse();
   } else {
+    // v114: ما أُخطئ فيه يعود آخر الجلسة مرة واحدة
+    const it = playQueue[playIndex], c = getCurrentVerse();
+    if (playMode === MODE_REVIEW && it && !it.retry && c && reviewRetry[c.verse.id]) playQueue.push({ stationIndex: it.stationIndex, verseIndex: it.verseIndex, retry: true });
     playIndex++;
     if (playIndex >= playQueue.length) finishSession();
     else loadVerse();
@@ -718,6 +787,10 @@ function newPerDayOf(s) {
 function newVerseBlockReason() {
   if (noCredit()) return "";
   if (typeof segmentBlocking === "function" && segmentBlocking() >= 0) return "segmentFirst";
+  // v114: تسجيلات لم يسمعها أحد: محطتان تنتظران الحكم، أو تسجيلات يومين
+  if ((typeof segmentWaitingJudge === "function" && segmentWaitingJudge() >= 0) || (typeof tsPendingDays === "function" && tsPendingDays() > TASMEE_PENDING_MAX_DAYS)) return "waitJudge";
+  // v114: الوِرد اليومي قبل الجديد (إلزامي)
+  if (typeof wirdNeededToday === "function" && wirdNeededToday()) return "wirdFirst";
   if (dayPlanToday().newCount >= newPerDayOf()) return "newDoneToday";
   if (typeof leitnerDueVerses === "function" && leitnerDueVerses().length > OVERDUE_NO_NEW) return "reviewOnlyToday";
   return "";
@@ -742,6 +815,14 @@ function startDailyLesson(opts) {
     return;
   }
   dailyFlow = false;
+  // v114: الوِرد اليومي بعد المراجعة وقبل الجديد
+  if (!noCredit() && typeof wirdNeededToday === "function" && wirdNeededToday()) {
+    showMap(); showWirdStep(() => startDailyLesson({ afterReview: true })); return;
+  }
+  // v114: درس اليوم انتهى ولم يُسمَّع: السبق أولاً
+  if (!noCredit() && typeof sabqNeededToday === "function" && sabqNeededToday()) {
+    showMap(); showSabqStep(() => lessonFinished()); return;
+  }
   if (idx < 0) { postCompletionOffer(); return; }
   const why = newVerseBlockReason();
   if (why) {
@@ -749,6 +830,7 @@ function startDailyLesson(opts) {
     if (opts.afterReview || plan.newCount > 0) { creditLessonDay(); saveState(); }
     showMap();
     if (why === "segmentFirst") { showSegmentMilestone(segmentBlocking()); return; }
+    if (why === "newDoneToday") { lessonFinished(); return; }
     kidAnnounce(kidLine(why), "success"); return;
   }
   const station = content.journeyData[idx];
@@ -761,14 +843,12 @@ function startDailyLesson(opts) {
 }
 /* v106 (من الدفعة «ز»): بعد إكمال القسم تستمر المراجعة اليومية، ويقترح ناجي كل يوم تسميع محطة كاملة من الحفظ
    بالتناوب، فتُراجَع المنظومة كلها كل 16 يوماً */
+/* v114: بعد إتمام الدروس: الوِرد اليومي إلزامي ويسير بالختمة (أعلاه)، وهنا تهنئة اليوم فقط */
 function postCompletionOffer() {
-  const n = content.journeyData.length; if (!n) return;
-  const k = Math.floor(leitnerDayStart() / 86400000) % n, st = content.journeyData[k];
   showMap();
-  if (typeof guidePanel === "function") guidePanel(`${kidLine("allDone")}. ${kidLine("finaleRecite")} «${st.title}»`, [
-    { label: "🔁 سمّع المحطة", run: () => openRecPopup({ mode: "child", range: "station-" + k }) }
-  ], null, { say: [kidLine("allDone"), kidLine("finaleRecite"), st.title] });
-  else kidToast(kidLine("allDone"), "success");
+  const k = typeof khatmaProgress === "function" ? khatmaProgress() : null;
+  if (k && k.done < k.total) kidAnnounce(`${kidLine("allDone")}. ${kidLine("khatmaLeft")} ${k.done} / ${k.total}`, "success");
+  else kidAnnounce(kidLine("allDone"), "success");
 }
 /* v106: يوم درس مكتمل: نقاط المواظبة ويوم لوسام «مواظب»، مرة في اليوم.
    يُحتسب في كل نهاية لدرس اليوم: آخر بيت فيه، أو إكمال محطة في أثنائه، أو انتهاء مراجعة يوم «المراجعة فقط».
@@ -776,6 +856,7 @@ function postCompletionOffer() {
 function creditLessonDay() {
   if (noCredit() || !firstCreditToday("dailyPlan")) return false;
   addPoints(5); state.lessonDays = (state.lessonDays || 0) + 1;
+  if (typeof checkAchievements === "function") checkAchievements();   // v114: «مواظب» يُمنح يوم يتمّ (كان ينتظر تسجيل صحيح لاحق)
   return true;
 }
 function dailyLessonDone(station) {
@@ -783,22 +864,30 @@ function dailyLessonDone(station) {
   state.versePositions[station.id] = Math.min(state.selectedVerse, station.verses.length - 1);
   const ids = state.dailyIds || [];
   state.dailyLeft = null; state.dailyIds = [];
-  // v105: المكافأة على المواظبة (درس اليوم كاملاً) لا على السرعة
-  creditLessonDay();
   saveState();
-  // v104: آخر الدرس: عرض التسميع المتصل مرة واحدة (بعد ثلاثة أبيات على الأقل في الحفظ)،
-  // وبعد سؤال المكان إن ظهر، فلا يتراكب العرضان ولا يقطع صوتُ أحدهما الآخر
-  const canOffer = typeof offerReview === "function" && typeof learnedVerses === "function" && learnedVerses("all").length >= 3;
-  const onMap = () => document.getElementById("mapScreen").style.display !== "none" && document.getElementById("gameScreen").style.display === "none"
-    && document.getElementById("parentScreen").style.display !== "block" && !document.querySelector(".modal-overlay.active");
-  const finish = (delay) => () => {
-    showMap(); kidAnnounce(kidLine("lessonDone"), "success");
-    if (canOffer) setTimeout(() => { if (onMap()) offerReview(); }, delay);
-  };
-  // سؤال المكان: يظهر إن كان أحد أبيات الدرس مرتبطاً بموضع على الخريطة
+  // سؤال المكان: يظهر إن كان أحد أبيات الدرس مرتبطاً بموضع على الخريطة، ثم تسميع الدرس على السامع
+  const next = () => { showMap(); if (typeof sabqNeededToday === "function" && sabqNeededToday()) showSabqStep(() => lessonFinished()); else lessonFinished(); };
   const visit = (typeof PLACE_VISITS !== "undefined" ? PLACE_VISITS : []).find(v => ids.includes(v.ref));
-  if (visit && typeof askPlaceAfterLesson === "function") askPlaceAfterLesson(visit, finish(3200));
-  else finish(3200)();
+  if (visit && typeof askPlaceAfterLesson === "function") askPlaceAfterLesson(visit, next);
+  else next();
+}
+/* v114: نهاية درس اليوم بعد التسميع: يُحتسب اليوم، ثم تُعرض جلسة المراجعة الثانية صراحة إن بقي مستحق */
+function lessonFinished() {
+  // v105: المكافأة على المواظبة (درس اليوم كاملاً) لا على السرعة
+  creditLessonDay(); saveState();
+  showMap();
+  const plan = dayPlanToday();
+  const due = typeof leitnerDueVerses === "function" ? leitnerDueVerses().length : 0;
+  if (due && plan.reviews < REVIEW_SESSIONS_PER_DAY && !noCredit()) {
+    const n = Math.min(due, REVIEW_PER_SESSION);
+    const say = [kidLine("secondSession"), arCount(n, "بيت واحد", "بيتان", "أبيات", "بيتاً")];
+    if (typeof guidePanel === "function") guidePanel(`${kidLine("secondSession")} (${arCount(n, "بيت واحد", "بيتان", "أبيات", "بيتاً")})`, [
+      { label: "🗃️ " + gForm("ابدأ المراجعة الثانية", "ابدئي المراجعة الثانية"), run: () => startDailyLesson() }
+    ], null, { say });
+    else kidAnnounce(kidLine("secondSession"), "success");
+    return;
+  }
+  kidAnnounce(kidLine("lessonDone"), "success");
 }
 /* سؤال المكان: ثلاثة خيارات، والجواب الصحيح يُحتسب مرة واحدة لكل بيت في اليوم */
 let placeHubDone = null;
@@ -903,7 +992,8 @@ function finishFocus() {
 }
 
 function finishSession() {
-  const total = sessionStats.total, correct = sessionStats.correct;
+  reviewRetry = {};
+  const total = sessionStats.total, correct = Math.min(sessionStats.correct, sessionStats.total);
   const perfect = correct === total;
   const icon = perfect ? "🏆" : correct >= total/2 ? "👍" : "💪";
   const title = playMode === MODE_REVIEW ? "انتهت المراجعة" : "انتهى التحدي";
@@ -1004,6 +1094,10 @@ function initialsLabels(words) {
 function barVerse() { const c = getCurrentVerse(); return c ? c.verse : null; }
 function listenVerse() {
   const v = barVerse(); if (!v || recIsActive()) return;
+  // v114: في المراجعة، الاستماع قبل إكمال البيت تلميح: يُكمَل البيت ولا يصعد صندوقه
+  if (playMode === MODE_REVIEW && !noCredit() && document.getElementById("nextBtn").style.display === "none" && !hintUsedThisVerse) {
+    hintUsedThisVerse = true; kidToast(kidLine("listenIsHint"), "");
+  }
   if (typeof playVerseAndStory === "function") playVerseAndStory(v, false); else speak(v.fullVerse);
 }
 async function recordVerse() {
@@ -1022,6 +1116,9 @@ async function updateRecBar() {
   const on = recIsActive();
   rb.textContent = on ? "⏹ أوقف" : "🎤 سجّل";
   rb.classList.toggle("recording", on);
+  // v114: عدّاد ثوانٍ أثناء التسجيل (كان يتغير نص الزر فقط)
+  clearInterval(updateRecBar.tick);
+  if (on) { const t0 = Date.now(); updateRecBar.tick = setInterval(() => { if (!recIsActive() || !document.body.contains(rb)) { clearInterval(updateRecBar.tick); return; } rb.textContent = `⏹ أوقف · ${Math.floor((Date.now() - t0) / 1000)} ث`; }, 500); }
   if (lb) lb.disabled = on;
   if (mb) {
     mb.disabled = on;

@@ -47,18 +47,31 @@ function sanitizeImportedState(raw) {
   if (!Object.keys(s.stationStatus).some(k => stationIds.has(k)))
     return { ok: false, error: "ملف التقدم لا يطابق محطات هذا التطبيق" };
 
-  const objOr = k => { if (!_isObj(s[k])) s[k] = {}; };
-  ["stationStatus", "rewardUnlocked", "versePositions", "mistakes", "seenVerses", "verseStats", "leitner",
-   "storyUnlocked", "riddlesSolved", "achievements", "stampDates", "guideBadges", "meaningSeen", "stats",
-   "dailyCredits", "follow", "eventMisses", "recEval", "masteredNotified", "quizResults", "parentChecks", "linked", "segmentChecks", "segmentDue"].forEach(objOr);
+  // v114: الحقول المجهولة تُسقط، وكل حقل معروف يُصحَّح نوعه من الجدول الواحد (js/schema.js)؛
+  // كان 12 حقلاً بلا فحص، فملف فيه «certs» كائناً لا مصفوفة يعطّل شاشة الشهادات
+  schemaDropUnknown(s);
+  schemaNormalize(s);
 
   const ST = { completed: 1, current: 1, locked: 1 };
   const pick = (obj, ok, map) => { const o = {}; for (const k of Object.keys(obj)) if (ok(k)) { const v = map(obj[k], k); if (v !== undefined) o[k] = v; } return o; };
   s.segmentDue = pick(s.segmentDue, k => stationIds.has(k), v => _num(v, 0, 9e15, undefined));
   s.linked = pick(s.linked, k => verseIds.has(k), v => _num(v, 0, 9e15, undefined));
   // v111: تسميع المقطع (المحطة كاملة) على الوالد: النتيجة ووقتها، أو تسجيل الطفل ينتظر حكم الوالد
-  s.segmentChecks = pick(s.segmentChecks, k => stationIds.has(k), v => _isObj(v) && ["ok", "fath", "fail", "pending"].includes(v.r) ? ({ at: _num(v.at, 0, 9e15, 0), r: v.r }) : undefined);
-  s.parentChecks = pick(s.parentChecks, k => verseIds.has(k), v => _isObj(v) && ["ok", "fath", "fail"].includes(v.r) ? ({ at: _num(v.at, 0, 9e15, 0), r: v.r }) : undefined);
+  s.segmentChecks = pick(s.segmentChecks, k => stationIds.has(k), v => _isObj(v) && ["ok", "fath", "fail", "pending"].includes(v.r) ? ({ at: _num(v.at, 0, 9e15, 0), r: v.r, opened: _int(v.opened, 0, 400, 0) }) : undefined);
+  // v114: سجلّ التسميعات بلا فتح (لـ«يحفظه غيباً»: تسميعتان بينهما أسبوع)
+  s.parentChecks = pick(s.parentChecks, k => verseIds.has(k), v => _isObj(v) && ["ok", "fath", "fail"].includes(v.r) ? ({ at: _num(v.at, 0, 9e15, 0), r: v.r,
+    oks: Array.isArray(v.oks) ? v.oks.filter(t => typeof t === "number" && isFinite(t) && t > 0 && t < 9e15).slice(-6) : (v.r === "ok" && v.at ? [_num(v.at, 0, 9e15, 0)] : []) }) : undefined);
+  // v114: يوم تعلّم البيت، والوِرد، والختمة، و«قل ثم اكشف»، والتسجيلات التي تنتظر حكم السامع
+  s.seenAt = pick(s.seenAt, k => verseIds.has(k), v => _num(v, 0, 9e15, undefined));
+  s.wirdLog = pick(s.wirdLog, k => stationIds.has(k), v => _num(v, 0, 9e15, undefined));
+  s.khatma = pick(s.khatma, k => stationIds.has(k), v => _num(v, 0, 9e15, undefined));
+  s.sayRevealed = pick(s.sayRevealed, k => verseIds.has(k), v => _isObj(v) ? ({ at: _num(v.at, 0, 9e15, 0), misses: _int(v.misses, 0, 1000, 0) }) : undefined);
+  s.wirdDay = typeof s.wirdDay === "string" ? s.wirdDay.slice(0, 40) : null;
+  s.sabqDay = typeof s.sabqDay === "string" ? s.sabqDay.slice(0, 40) : null;
+  s.khatmaDoneAt = _num(s.khatmaDoneAt, 0, 9e15, 0) || null;
+  s.tasmeePending = Array.isArray(s.tasmeePending) ? s.tasmeePending.filter(p => _isObj(p) && ["wird", "sabq", "segment"].includes(p.kind) && typeof p.key === "string" && p.key.length < 200 && Array.isArray(p.ids))
+    .slice(0, 30).map(p => ({ id: String(p.id || "p").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 30) || "p" + Date.now(), kind: p.kind, ids: p.ids.filter(id => verseIds.has(id)).slice(0, 200),
+      title: String(p.title || "").slice(0, 80), key: p.key, at: _num(p.at, 0, 9e15, 0), opened: _int(p.opened, 0, 400, 0) })).filter(p => p.ids.length) : [];
   s.quizResults = pick(s.quizResults, k => stationIds.has(k), v => { if (!_isObj(v)) return undefined; const total = _int(v.total, 0, 50, 0);
     return { score: _int(v.score, 0, total, 0), total, at: _num(v.at, 0, 9e15, 0) }; });
   s.stationStatus = pick(s.stationStatus, k => stationIds.has(k), v => ST[v] ? v : undefined);
@@ -104,6 +117,21 @@ function sanitizeImportedState(raw) {
   s.lessonDays = _int(s.lessonDays, 0, 100000, 0);   // v106: أيام إكمال درس اليوم (وسام «مواظب»)
   s.dayPlan = _isObj(s.dayPlan) && typeof s.dayPlan.day === "string"
     ? { day: s.dayPlan.day.slice(0, 40), reviews: _int(s.dayPlan.reviews, 0, 9, 0), newCount: _int(s.dayPlan.newCount, 0, 99, 0), back: s.dayPlan.back === true } : null;
+  // قيم القواميس والمصفوفات التي لا مُنقّي خاصاً لها: أنواع بسيطة فقط
+  s.certs = s.certs.filter(c => _isObj(c) && typeof c.station === "string").slice(-500).map(c => ({ station: c.station.slice(0, 80), date: String(c.date || "").slice(0, 10), code: String(c.code || "").slice(0, 40), at: _num(c.at, 0, 9e15, 0) }));
+  s.reflections = pick(s.reflections, k => stationIds.has(k), v => typeof v === "string" ? v.slice(0, 2000) : undefined);
+  s.storiesRead = pick(s.storiesRead, k => verseIds.has(k), () => 1);
+  s.charms = pick(s.charms, k => stationIds.has(k), v => !!v);
+  s.stampDates = pick(s.stampDates, k => stationIds.has(k), v => typeof v === "string" || typeof v === "number" ? v : undefined);
+  s.docChecks = pick(s.docChecks, k => k.length <= 60, v => typeof v === "string" ? v.slice(0, 20) : undefined);
+  s.docSample = s.docSample.filter(id => typeof id === "string" && verseIds.has(id)).slice(0, 50);
+  s.customBadges = pick(s.customBadges, k => k.length <= 40, v => typeof v === "number" || v === true ? v : undefined);
+  s.guideBadges = pick(s.guideBadges, k => k.length <= 40, v => typeof v === "number" || v === true ? v : undefined);
+  s.warmups = pick(s.warmups, k => k.length <= 60, v => (typeof v === "string" || typeof v === "number" || typeof v === "boolean") ? v : undefined);
+  s.recentDone = s.recentDone && stationIds.has(s.recentDone) ? s.recentDone : null;
+  s.lastPracticeDate = s.lastPracticeDate && /^\d{4}-\d{2}-\d{2}$/.test(s.lastPracticeDate) ? s.lastPracticeDate : null;
+  s.najiFound = s.najiFound ? String(s.najiFound).slice(0, 20) : null;
+  if (s.weekly && !(typeof s.weekly.week === "string" && _isObj(s.weekly.done))) s.weekly = null;
   normalizeUserState(s);
   if (typeof ensureCurrentStation === "function") ensureCurrentStation(s);
   const completed = Object.values(s.stationStatus).filter(v => v === "completed").length;
@@ -139,7 +167,8 @@ function validateRecitationDoc(doc) {
   }
   const part = _int(doc.part, 1, 1000, 1), parts = _int(doc.parts, 1, 1000, 1);
   const name = _isObj(doc.child) && typeof doc.child.name === "string" ? doc.child.name.slice(0, 40) : "الطفل";
-  return { ok: true, doc: { child: { name }, part, parts, items } };
+  const id = _isObj(doc.child) && isSafeId(doc.child.id) ? doc.child.id : "";
+  return { ok: true, doc: { child: { name, id }, part, parts, items } };
 }
 
 /* ملف تقييم: ينقّي كل تقييم ويُسقط ما لا يطابق بيتاً حقيقياً */
@@ -156,7 +185,9 @@ function validateEvaluationDoc(doc) {
     ratings[k] = sanitizeRating(doc.ratings[k0], evaluator, date);
   }
   if (!Object.keys(ratings).length) return { ok: false, error: "التقييم لا يطابق أبيات هذا التطبيق" };
-  return { ok: true, evaluator, ratings };
+  const child = typeof doc.child === "string" ? doc.child.slice(0, 40) : "";
+  const childId = typeof doc.childId === "string" && isSafeId(doc.childId) ? doc.childId : "";
+  return { ok: true, evaluator, ratings, child, childId };
 }
 
 /* ---------- استبدال ذري لحالة الطفل الحالي ---------- */

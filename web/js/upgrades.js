@@ -1,6 +1,8 @@
 /* v62: التوثيق المرئي، القرآن، الغريب، الإخفاء التدريجي، ترتيب المحطات، سؤال التأمل، تقرير الأسبوع */
 
 /* ---------- 1. درجة التوثيق والقرآن تحت القصة ---------- */
+/* v114: رقم السورة والآيات يُعرض من اليسار إلى اليمين («105:1–5» كان يظهر «5–105:1») */
+function quranRefHtml(ref) { return escapeHtml(ref).replace(/(\d+:\d+(?:[–-]\d+)?)/, '<bdi dir="ltr">$1</bdi>'); }
 function docGradeHtml(v) {
   if (!v.story) return "";
   if (v.storyStatus === "ok") return `<div class="grade-line grade-ok">✅ موثّق: ظهر نص الشاهد في المصدر</div>`;
@@ -18,7 +20,7 @@ function quranHtml(v) {
   const L = (typeof QURAN_LINKS !== "undefined") ? QURAN_LINKS[v.id] : null;
   if (!L || !L.length) return "";
   return `<div class="quran-box"><div class="quran-title">📖 من القرآن الكريم</div>${L.map(q => `
-    <div class="quran-ayah">${quranAyatHtml(q)}<div class="quran-ref">﴿ ${escapeHtml(q.ref)} ﴾</div>${q.note ? `<div class="quran-note">${escapeHtml(q.note)}</div>` : ""}</div>`).join("")}<div class="quran-src">${escapeHtml(QURAN_SOURCE)}</div></div>`;
+    <div class="quran-ayah">${quranAyatHtml(q)}<div class="quran-ref">﴿ ${quranRefHtml(q.ref)} ﴾</div>${q.note ? `<div class="quran-note">${escapeHtml(q.note)}</div>` : ""}</div>`).join("")}<div class="quran-src">${escapeHtml(QURAN_SOURCE)}</div></div>`;
 }
 /* v108: الآيات برسم مصحف المدينة (QPC V2): كل آية كاملة بعلامة رقمها، تليها الآية التالية.
    إن نقص رمز آية رجع إلى نص تنزيل. النص المقروء للقارئ الصوتي وقارئ الشاشة يبقى نص تنزيل */
@@ -126,7 +128,6 @@ function checkHideLevel() {
     // بالضغط: يُكشف ما بقي مخفياً، والنقاط مرة في اليوم، ولا تغيير في الصندوق
     body0.querySelectorAll(".hide-tap:not(.shown)").forEach(b => { b.textContent = v.words[+b.dataset.i]; b.classList.add("shown"); });
     body0.querySelectorAll(".hide-next").forEach(b => b.remove());
-    if (firstCreditToday("hidetap|" + level + "|" + v.id)) addPoints(level);
     saveState(); playSuccess();
     document.getElementById("hideMsg").innerHTML = `<span style="color:var(--success)">✅ ${escapeHtml(guideVocative())}، ${gForm("أحسنتَ", "أحسنتِ")}! ${gForm("قارِن ما قلتَه بالكلمات الظاهرة", "قارِني ما قلتِه بالكلمات الظاهرة")}</span>`;
     const label = level < 3 ? "المستوى التالي ⬅️" : "بيت جديد 🎲";
@@ -152,7 +153,7 @@ function checkHideLevel() {
     body.insertAdjacentHTML("beforeend", `<button class="action-btn btn-success hide-next" style="width:100%" onclick="${level < 3 ? `renderHideLevel(hideState.v, ${level + 1})` : "startHideLevels()"}">${label}</button>`);
   } else {
     leitnerRecord(v.id, false); saveState(); playFail();
-    msg.innerHTML = `<span style="color:var(--danger)">حاول مرة أخرى، الكلمات المعلّمة بالأحمر</span>`;
+    msg.innerHTML = `<span style="color:var(--danger)">${gForm("حاول", "حاولي")} مرة أخرى، الكلمات المعلّمة بالأحمر</span>`;
   }
 }
 
@@ -236,13 +237,18 @@ function buildWeeklyText() {
   const ids = weeklyVerseIds(w.week);
   const completed = content.journeyData.filter(s => getStationStatus(s) === "completed").length;
   const mastered = masteredCount(state);
-  const weak = getMistakesSorted().slice(0, 5).map(m => m.word);
+  const weak = getMistakesSorted().slice(0, 5).map(m => m.word)
+    .concat(Object.entries(state.parentChecks || {}).filter(([, x]) => x && x.r === "fail").map(([vid]) => { const v = vpFindVerse(vid); return v ? (v.words || []).slice(0, 3).join(" ") + "…" : ""; }).filter(Boolean)).slice(0, 8);
   const reflections = Object.values(state.reflections || {}).filter(Boolean).length;
   return [
     `تقرير المتابعة الأسبوعي: ${getUserName()}`,
     `التاريخ: ${new Date().toLocaleDateString("ar-EG")}`,
     `المحطات المكتملة: ${completed} من ${content.journeyData.length}`,
-    `أبيات أُتقنت (صحيحة في يومين مختلفين على الأقل، بلا خطأ بعدها): ${mastered} من ${content.journeyData.reduce((n, x) => n + x.verses.length, 0)}`,
+    // v114: يبدأ التقرير بما سمّعه السامع غيباً، ثم الترتيب
+    `يحفظه غيباً (تسميعتان بلا فتح بينهما أسبوع): ${typeof confirmedCount === "function" ? confirmedCount(state) : 0} من ${content.journeyData.reduce((n, x) => n + x.verses.length, 0)}`,
+    `يحتاج تسميعاً: ${typeof needsTasmeeCount === "function" ? needsTasmeeCount(state) : 0}`,
+    `${typeof pcLastText === "function" ? pcLastText() : ""}`,
+    `يرتّب كلماته (صحيح في يومين، والكلمات أمامه): ${mastered}`,
     ...(ids.length ? [`تحدّي الأسبوع: ${Object.keys(w.done).filter(k => ids.includes(k)).length} من ${ids.length}`] : []),
     `أبيات مستحقة للمراجعة الآن: ${leitnerDueVerses().length}`,
     `تأمّلات مكتوبة: ${reflections}`,

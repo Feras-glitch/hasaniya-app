@@ -1,0 +1,18 @@
+{
+  "name": "hasaniya-dev",
+  "private": true,
+  "description": "أدوات تطوير «المنظومة الحسنية»: الاختبارات والفحص والبناء. التطبيق نفسه في web/ ولا يحتاج شيئاً من هنا.",
+  "scripts": {
+    "test": "node tests/run-all.js",
+    "test:e2e": "node tests/run-all.js --e2e",
+    "lint": "node tools/lint.js",
+    "build:standalone": "python3 tools/build_standalone.py dist/hasaniya.html",
+    "version:bump": "node tools/bump-version.js",
+    "version:check": "node tools/bump-version.js --check"
+  },
+  "devDependencies": {
+    "eslint": "9.17.0",
+    "globals": "15.14.0",
+    "playwright": "1.49.1"
+  }
+}

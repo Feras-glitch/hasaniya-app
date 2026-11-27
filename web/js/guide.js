@@ -24,9 +24,12 @@ const GUIDE_LINES = {
     "التسميع المتصل يربط الأبيات ببعضها 📜"
   ],
   ask: () => [gForm("{N}، ماذا حدث هنا؟ اختر الإجابة الصحيحة 🐪", "{N}، ماذا حدث هنا؟ اختاري الإجابة الصحيحة 🐪")],
-  finale: () => [
-    gForm("أتممتَ الرحلة كاملة {N}! 🏆", "أتممتِ الرحلة كاملة {N}! 🏆"),
-    gForm("لقد حفظتَ القصيدة وعرفتَ السيرة، أنا فخور بك 🐪", "لقد حفظتِ القصيدة وعرفتِ السيرة، أنا فخور بكِ 🐪")
+  finale: () => typeof khatmaComplete === "function" && khatmaComplete() ? [
+    gForm("ختمتَ القصيدة {N}! 🏆", "ختمتِ القصيدة {N}! 🏆"),
+    gForm("لقد حفظتَ القصيدة وسمّعتَها كاملة، أنا فخور بك 🐪", "لقد حفظتِ القصيدة وسمّعتِها كاملة، أنا فخور بكِ 🐪")
+  ] : [
+    gForm("أتممتَ دروس القصيدة {N}! 🏆", "أتممتِ دروس القصيدة {N}! 🏆"),
+    gForm("بقيت الختمة: نسمّعها كلها محطةً محطة 🐪", "بقيت الختمة: نسمّعها كلها محطةً محطة 🐪")
   ],
   back: () => [
     "اشتقتُ إليك {N}! هيا نُكمل الرحلة معاً 💛",
@@ -54,8 +57,12 @@ function renderGuideOutfit() {
 function showFinale() {
   const pop = document.getElementById("finalePopup");
   if (!pop) return;
-  document.getElementById("finaleTitle").textContent = "🏆 " + guideVocative() + "، " + gForm("أتممتَ", "أتممتِ") + " الرحلة كاملة!";
-  document.getElementById("finaleText").textContent = gForm("حفظتَ القصيدة وعرفتَ السيرة من أولها إلى آخرها.", "حفظتِ القصيدة وعرفتِ السيرة من أولها إلى آخرها.");
+  // v114 (قرار صاحب المشروع): «حفظتَ القصيدة» بعد الختمة المسمَّعة؛ قبلها «أتممتَ الدروس، وبقيت الختمة»
+  const khatma = typeof khatmaComplete === "function" && khatmaComplete();
+  document.getElementById("finaleTitle").textContent = "🏆 " + guideVocative() + "، " + (khatma ? gForm("ختمتَ", "ختمتِ") + " القصيدة!" : gForm("أتممتَ", "أتممتِ") + " دروس القصيدة!");
+  document.getElementById("finaleText").textContent = khatma
+    ? gForm("حفظتَ القصيدة وسمّعتَها كاملة، وعرفتَ السيرة من أولها إلى آخرها.", "حفظتِ القصيدة وسمّعتِها كاملة، وعرفتِ السيرة من أولها إلى آخرها.")
+    : gForm("بقيت الختمة: تسمّع القصيدة كلها لوالديك محطةً محطة في الوِرد اليومي، ثم تكون حافظاً لها.", "بقيت الختمة: تسمّعين القصيدة كلها لوالديك محطةً محطة في الوِرد اليومي، ثم تكونين حافظةً لها.");
   guideDance(true);
   guideSay("finale");
   pop.classList.add("active");
@@ -270,6 +277,8 @@ function guideCheckStuck() {
   if (guideHintKey === cur.verse.id) return;
   guideHintKey = cur.verse.id;
   lastActivity = Date.now();
+  // v114: في المراجعة لا يُقترح الاستماع (هو تلميح هناك)؛ يُقترح التلميح صراحة
+  if (playMode === MODE_REVIEW) { guidePanel(kidLine("needHelpReview"), [{ label: "💡 تلميح", run: () => giveHint() }], null); return; }
   guidePanel(kidLine("needHelp"),
     [{ label: "🔊 استمع للبيت", run: () => playVerseAndStory(cur.verse, false) }],
     document.getElementById("speakFullBtn"));
@@ -277,10 +286,11 @@ function guideCheckStuck() {
 
 /* احتفال حقيقي عند تسجيل الطفل: أول بيت، ثم كل خمسة أبيات */
 async function guideOnRecorded(kind) {
-  if (kind !== "verse" || typeof recAllForUser !== "function") return;
+  if (typeof recAllForUser !== "function") return;
+  // v114: أول تسجيل للطفل من أي نوع يمنح الوسام (كان تسميع المحطة أولاً يحرمه منه إلى الأبد)
   const n = (await recAllForUser(activeUserId)).length;
-  if (n === 1) guideAwardBadge("firstRec");
-  if (n === 1) guideSay("mastery", kidLine("firstRec"));
+  if (kind !== "verse") { guideAwardBadge("firstRec"); return; }
+  if (guideAwardBadge("firstRec")) guideSay("mastery", kidLine("firstRec"));
   else if (n % 5 === 0) guideSay("mastery", gForm(`{N}، سجّلتَ ${arCount(n, "بيتاً", "بيتين", "أبيات", "بيتاً")} بصوتك! 🌟`, `{N}، سجّلتِ ${arCount(n, "بيتاً", "بيتين", "أبيات", "بيتاً")} بصوتِكِ! 🌟`), { say: [guideFill(kidLine("recMore"))] });
 }
 

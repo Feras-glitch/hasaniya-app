@@ -1,0 +1,5 @@
+# أدوات بايثون للتطوير فقط (التطبيق لا يحتاجها):
+#   tools/build_quran_glyphs.py يحتاج fonttools (pyftsubset)
+#   tools/compress_scenes.py يحتاج Pillow
+fonttools==4.67.0   # بهذا الإصدار تطابقت مخرجات build_quran_glyphs.py بايتاً ببايت
+Pillow==12.3.0

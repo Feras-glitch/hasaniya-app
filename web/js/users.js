@@ -111,6 +111,8 @@ function saveUserEditor() {
   const avatar = selected ? selected.dataset.avatar : (AVATARS.find(a => !users.some(x => x.avatar === a)) || AVATARS[0]);
   if (!name) { showToast("أدخل الاسم", "error"); return; }
   if (!editGender) { showToast("اختر ولداً أو بنتاً، ليتناسب الخطاب مع الطفل", "error"); return; }
+  // v114: اسمان متطابقان يُربكان التقارير وملفات المعلم
+  if (users.some(x => x.id !== editingUserId && x.name === name) && !confirm(`يوجد طفل آخر باسم «${name}». المتابعة باسمين متطابقين؟ (يُستحسن تمييزهما، مثل «${name} الصغير»)`)) return;
   const wasOnboarding = editOnboarding;
   editOnboarding = false;
 
@@ -126,18 +128,33 @@ function saveUserEditor() {
   saveState();
   closePopup("userEditorPopup");
   updateUserChip();
+  // v114: الرئيسة تُحسب من جديد بعد الحفظ (وضع الصغير كان يَعِد بثلاثة أبيات والدرس يعطي اثنين)
+  if (typeof refreshScreens === "function") refreshScreens();
   showToast("تم الحفظ", "success");
-  if (wasOnboarding) { afterOnboarding(); return; }
+  // v114: الرقم السري يُضبط في أول تشغيل لكل الأطفال (كان أول من يلمس «للوالدين» يختاره، وقد يكون الطفل)
+  if (wasOnboarding) {
+    try { vpPref("onboarded", true); } catch (e) {}
+    if (typeof hasPin === "function" && !hasPin()) requirePin(() => afterOnboarding(), "قبل أن يبدأ الطفل: رقم سري لمنطقة الوالدين");
+    else afterOnboarding();
+    return;
+  }
   showUsersModal();
   // v111: طفل صغير على جهاز بلا صوت عربي: يُخبَر الوالد الآن
   if (editSmall && typeof voiceSetupCheck === "function") setTimeout(() => { if (voiceEngineMuted()) { closePopup("usersPopup"); voiceSetupCheck(true); } }, 300);
 }
 
+/* v114: «إلغاء» في أول تشغيل لا يعيد النافذة في كل فتح (جهاز المعلم بلا طفل) */
+function cancelUserEditor() {
+  if (editOnboarding) { editOnboarding = false; try { vpPref("onboardSkipped", true); } catch (e) {} }
+  closePopup("userEditorPopup");
+}
 function deleteUser(id) {
   if (users.length <= 1) { showToast("لا يمكن حذف آخر مستخدم", "error"); return; }
   const u = getUserById(id);
   if (!u) return;
-  if (!confirm(`حذف ملف "${u.name}" وكل تقدمه؟ لا يمكن التراجع.`)) return;
+  if (!confirm(`حذف ملف "${u.name}" وكل تقدمه وتسجيلاته؟ تُحفظ نسخة تلقائية «قبل حذف طفل» تستعيد منها التقدّم (لا التسجيلات).`)) return;
+  // v114: نسخة تلقائية قبل حذف الطفل، كما قبل التصفير والاستعادة
+  if (typeof safetyBackupPush === "function") safetyBackupPush("قبل حذف طفل");
   users = users.filter(x => x.id !== id);
   /* v103: تسجيلات صوت الطفل تُحذف معه (خصوصية)، ولا تبقى في ذاكرة الجهاز */
   if (typeof recAllForUser === "function" && id !== "author" && id !== "meta")

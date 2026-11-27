@@ -36,18 +36,19 @@ function showJourneyMap() {
     g.status = g.stations.reduce((best, s) => (rank[s.status] || 0) > (rank[best] || 0) ? s.status : best, "locked");
     g.x = px(g.lon); g.y = py(g.lat);
   });
+  mapSpread(groupList, 32, W, H);   // v114: المواضع المتقاربة لا تتراكب
   const open = groupList.filter(g => g.status !== "locked");
-  const line = open.length > 1 ? `<polyline points="${open.map(g => g.x + "," + g.y).join(" ")}" fill="none" stroke="#d81b60" stroke-width="3" stroke-dasharray="6 4"/>` : "";
+  const line = open.length > 1 ? `<polyline points="${open.map(g => g.ax + "," + g.ay).join(" ")}" fill="none" stroke="#d81b60" stroke-width="3" stroke-dasharray="6 4"/>` : "";
   const dots = groupList.map(g => {
     const fill = g.status === "completed" ? "#4caf50" : g.status === "current" ? "#d81b60" : "#ddd";
     const icon = g.status === "locked" ? "🔒" : escapeHtml(g.stations[0].st.icon || "");
-    const badge = g.stations.length > 1 ? `<text x="${g.x + 12}" y="${g.y - 10}" font-size="10" font-weight="700" fill="#333">×${g.stations.length}</text>` : "";
-    const left = g.x < 90;
+    const badge = g.stations.length > 1 ? `<text x="${g.ax + 12}" y="${g.ay - 10}" font-size="10" font-weight="700" fill="#333">×${g.stations.length}</text>` : "";
     return `<g>
-      <circle cx="${g.x}" cy="${g.y}" r="14" fill="${fill}" stroke="#fff" stroke-width="2"/>
-      <text x="${g.x}" y="${g.y + 5}" text-anchor="middle" font-size="13">${icon}</text>
+      ${g.moved ? `<line x1="${g.x}" y1="${g.y}" x2="${g.ax}" y2="${g.ay}" stroke="#999" stroke-width="1"/><circle cx="${g.x}" cy="${g.y}" r="2.5" fill="#666"/>` : ""}
+      <circle cx="${g.ax}" cy="${g.ay}" r="14" fill="${fill}" stroke="#fff" stroke-width="2"/>
+      <text x="${g.ax}" y="${g.ay + 5}" text-anchor="middle" font-size="13">${icon}</text>
       ${badge}
-      <text x="${g.x}" y="${g.y + 28}" text-anchor="${left ? "start" : "middle"}" font-size="11" fill="#444">${escapeHtml(g.name)}</text>
+      ${g.showLabel ? `<text x="${g.ax}" y="${g.ay + 28}" text-anchor="middle" font-size="11" fill="#444">${escapeHtml(g.name)}</text>` : ""}
     </g>`;
   }).join("");
   const svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:340px;background:#fdf6ec;border-radius:16px;border:2px solid #f0d9b5" role="img" aria-label="خريطة الرحلة">
@@ -56,7 +57,7 @@ function showJourneyMap() {
     const nums = g.stations.map(s => s.status === "locked" ? `${s.num} 🔒` : `${s.num} ${escapeHtml(s.st.icon || "")}`).join("، ");
     return `<div class="board-row"><span>${escapeHtml(g.name)}</span><strong>${nums}</strong></div>`;
   }).join("");
-  openHub("🗺️ خريطة الرحلة", `
+  openHub("🐪 مسار الرحلة", `
     <p style="color:#666;font-size:.88rem">كل موضع يُضيء عند فتح محطاته. الخط يتبع مسار الرحلة.</p>
     <div style="display:flex;justify-content:center">${svg}</div>
     <div style="margin-top:10px">${legend}</div>

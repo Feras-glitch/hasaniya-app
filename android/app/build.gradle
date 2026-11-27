@@ -10,11 +10,11 @@ android {
         applicationId "com.hasaniya.app"
         minSdk 26
         targetSdk 34
-        versionCode 113
-        versionName "113.0"
+        versionCode 114
+        versionName "114.0"
     }
 
-    /* التوقيع: المفتاح يأتي من أسرار GitHub (انظر SIGNING-AR.md في جذر المستودع)،
+    /* التوقيع: المفتاح يأتي من أسرار GitHub (انظر docs/owner/SIGNING-AR.md)،
        ولا يُحفظ في المستودع أبداً. المفتاح نفسه في كل نسخة release، فتُثبَّت كل نسخة فوق السابقة دون فقد البيانات. */
     def ks = System.getenv("HASANIYA_KEYSTORE")
     signingConfigs {
@@ -48,3 +48,16 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 }
+
+/* v114: ملفات التطبيق تُنسخ من web/ قبل كل بناء، فيعمل البناء المحلي (Android Studio أو ./gradlew)
+   كما يعمل في GitHub (كان النسخ في ملف البناء الآلي وحده، فيبني Android Studio تطبيقاً فارغاً).
+   القائمة نفسها التي ينسخها البناء الآلي. */
+def webDir = rootProject.file("../web")
+tasks.register("copyWebAssets", Copy) {
+    from(webDir) {
+        include "index.html", "sw.js", "manifest.json", "css/**", "js/**", "img/**", "fonts/**", "audio/**"
+    }
+    into "src/main/assets/www"
+}
+tasks.matching { it.name == "preBuild" }.configureEach { dependsOn "copyWebAssets" }
+

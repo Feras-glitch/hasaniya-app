@@ -36,7 +36,7 @@ const REVIEW_RIDDLE_KEYS = REVIEW_PRISTINE.RIDDLES.map(r => r.ref + "|" + normal
 function reviewLoad() {
   try {
     const s = JSON.parse(localStorage.getItem(REVIEW_KEY) || "null");
-    if (s && typeof s === "object") return { reviewer: s.reviewer || null, edits: s.edits || {}, verdicts: s.verdicts || {} };
+    if (s && typeof s === "object") return { reviewer: s.reviewer || null, edits: s.edits || {}, verdicts: s.verdicts || {}, draft: s.draft === true };
   } catch (e) {}
   return { reviewer: null, edits: {}, verdicts: {} };
 }
@@ -98,7 +98,7 @@ function reviewRegistry() {
       const owner = reviewStoryOwner(pv.id), isOwner = owner === pv.id;
       const sTags = [];
       if (pv.storyStatus === "review") sTags.push("قيد المراجعة");
-      if (REVIEW_V107_SOURCES.includes(pv.id)) sTags.push("مصدر تغيّر في v107");
+      if (REVIEW_V107_SOURCES.includes(pv.id)) sTags.push("مصدره تغيّر حديثاً");
       if (pv.story && isOwner) {
         add(Object.assign({ sec: "story", key: "story|" + pv.id, label: "القصة", orig: pv.story, multiline: true, tags: sTags.slice(),
           apply: t => sharers(owner).forEach(v => { v.story = t; }) }, base));
@@ -107,7 +107,7 @@ function reviewRegistry() {
       }
       if (pv.note && isOwner) add(Object.assign({ sec: "note", key: "note|" + pv.id, label: "الحاشية", orig: pv.note, multiline: true, tags: sTags.slice(),
         apply: t => sharers(owner).forEach(v => { v.note = t; }) }, base));
-      if (REVIEW_PRISTINE.STORIES_SHORT[pv.id]) glob("short", "short|" + pv.id, "STORIES_SHORT", [pv.id], Object.assign({ label: "القصة القصيرة للصغير", multiline: true, tags: ["جديد v107"], kidHard: true }, base));
+      if (REVIEW_PRISTINE.STORIES_SHORT[pv.id]) glob("short", "short|" + pv.id, "STORIES_SHORT", [pv.id], Object.assign({ label: "القصة القصيرة للصغير", multiline: true, tags: ["مضاف حديثاً"], kidHard: true }, base));
       add(Object.assign({ sec: "tashkeel", key: "tashkeel|" + pv.id, label: "تشكيل البيت (اقتراح فقط، لا يُطبَّق)", orig: pv.fullVerse, suggestOnly: true, apply: () => {} }, base));
       const K = REVIEW_PRISTINE.KHILAF[pv.id];
       if (K) {
@@ -129,12 +129,12 @@ function reviewRegistry() {
   });
   REVIEW_PRISTINE.RIDDLES.forEach((r, i) => {
     const si = P.findIndex(s => s.id === r.station), rk = REVIEW_RIDDLE_KEYS[i];
-    const b = { si, vid: r.ref, group: "r:" + rk, tags: i >= 16 ? ["جديد v109"] : [], kidHard: true };
+    const b = { si, vid: r.ref, group: "r:" + rk, tags: i >= 16 ? ["مضاف حديثاً"] : [], kidHard: true };
     glob("riddle", `riddle|${rk}|riddle`, "RIDDLES", [i, "riddle"], Object.assign({ label: "اللغز", multiline: true }, b));
     glob("riddle", `riddle|${rk}|answer`, "RIDDLES", [i, "answer"], Object.assign({ label: "جواب اللغز", mustInVerse: r.ref, kidHard: false }, b));
   });
   Object.keys(REVIEW_PRISTINE.GEO_PLACES).forEach(name => glob("place", "place|" + name, "GEO_PLACES", [name, "note"],
-    { si: -1, group: "p:" + name, label: "ملاحظة المكان: " + name, tags: REVIEW_V107_PLACES.includes(name) ? ["جديد v107"] : [] }));
+    { si: -1, group: "p:" + name, label: "ملاحظة المكان: " + name, tags: REVIEW_V107_PLACES.includes(name) ? ["مضاف حديثاً"] : [] }));
   Object.keys(REVIEW_PRISTINE.KID_LINES).forEach(k => (REVIEW_PRISTINE.KID_LINES[k] || []).forEach((t, i) =>
     glob("kid", `kid|${k}|${i}`, "KID_LINES", [k, i], { si: -1, group: "k:" + k, label: (REVIEW_PRISTINE.KID_LINES[k].length > 1 ? (i ? "للبنت" : "للولد") : "رسالة") + " · " + k, keepN: /\{N\}/.test(t) })));
   const byKey = new Map(items.map(it => [it.key, it]));
@@ -163,7 +163,7 @@ function reviewApplyAll() {
     // دُمج التعديل في التطبيق نفسه (صار النص الأصلي هو المعدَّل): لا حاجة إليه
     if (e.text === it.orig) { delete reviewStore.edits[k]; changed = true; continue; }
     e.conflict = e.orig !== it.orig;
-    if (!it.suggestOnly) { try { it.apply(e.text); } catch (err) {} }
+    if (!it.suggestOnly && !reviewStore.draft) { try { it.apply(e.text); } catch (err) {} }
   }
   if (changed) reviewSave();
   if (typeof voiceCacheReset === "function") voiceCacheReset();
@@ -189,13 +189,26 @@ function reviewSetText(key, text) {
   if (chk.err) { showToast(chk.err, "error"); return false; }
   if (t === it.orig) return reviewRevert(key);
   reviewStore.edits[key] = { orig: it.orig, text: t, at: Date.now(), by: reviewerLabel() };
-  if (!it.suggestOnly) it.apply(t);
+  if (!it.suggestOnly && !reviewStore.draft) it.apply(t);
   const vd = reviewStore.verdicts[key];
   reviewStore.verdicts[key] = Object.assign({}, vd, { v: vd && vd.v === "hard" ? "hard" : "edited", at: Date.now(), by: reviewerLabel() });
   reviewSave();
   if (typeof voiceCacheReset === "function") voiceCacheReset();
   if (chk.warn) showToast("حُفظ، وتنبيه: " + chk.warn, "error"); else showToast("حُفظ التعديل", "success");
   return true;
+}
+/* v114: «مسودة»: تعديلات المراجِع تبقى عنده ولا تظهر للأطفال على هذا الجهاز حتى يعتمدها */
+function reviewSetDraft(on) {
+  const reg = reviewRegistry();
+  reviewStore.draft = !!on;
+  for (const [k, e] of Object.entries(reviewStore.edits)) {
+    const it = reg.byKey.get(k); if (!it || it.suggestOnly || !e) continue;
+    try { it.apply(on ? it.orig : e.text); } catch (err) {}
+  }
+  reviewSave();
+  if (typeof voiceCacheReset === "function") voiceCacheReset();
+  showToast(on ? "تعديلاتك مسودة: لا يراها الأطفال على هذا الجهاز" : "اعتُمدت تعديلاتك: يراها الأطفال الآن", "success");
+  renderReview();
 }
 function reviewRevert(key) {
   const it = reviewRegistry().byKey.get(key); if (!it) return false;
@@ -294,6 +307,7 @@ function renderReview() {
       <button class="tool-btn rv-btn" onclick="reviewExport()">📤 تصدير المراجعة</button>
       <label class="tool-btn rv-btn" style="cursor:pointer">📥 استيراد مراجعة<input type="file" accept=".json,application/json" style="display:none" onchange="reviewImportFile(this.files[0]); this.value=''"></label>
       <button class="tool-btn rv-btn" onclick="reviewToggleInline()">${reviewInlineOn() ? "✏️ أخفِ أزرار المراجعة في التطبيق" : "✏️ أظهر أزرار المراجعة في التطبيق"}</button>
+      <button class="tool-btn rv-btn" onclick="reviewSetDraft(${!reviewStore.draft})">${reviewStore.draft ? "✅ اعتمِد تعديلاتي (تظهر للأطفال)" : "🛑 اجعل تعديلاتي مسودة (لا يراها الأطفال)"}</button>
       <button class="tool-btn rv-btn" onclick="reviewRevertAll()">↩️ أرجع كل التعديلات</button>
     </div>
     ${v.group ? `<div class="review-group">تُعرض نصوص موضع واحد فقط <button class="tool-btn rv-btn" onclick="reviewView.group=null;reviewView.status='todo';renderReview()">كل النصوص</button></div>` : `
@@ -442,11 +456,11 @@ function reviewImportDoc(d) {
   document.getElementById("rvBody").innerHTML = `
     <div class="review-import-head">📥 مراجعة من: <strong>${escapeHtml(v.reviewer.name)}</strong> (${escapeHtml(REVIEW_ROLES[v.reviewer.role])})${v.createdAt ? ` · ${escapeHtml(v.createdAt)}` : ""}</div>
     <div class="rec-count">${edits.length} تعديلاً، و${v.items.length - edits.length} حكماً أو ملاحظة${conflicts.length ? ` · ⚠ ${conflicts.length} تخالف تعديلاتك` : ""}${v.unknown ? ` · ${v.unknown} لا تطابق هذه النسخة فتُترك` : ""}</div>
-    <div class="review-import-list">${edits.slice(0, 15).map(x => `<div class="review-row"><div class="review-ctx">${reviewContext(x.it)}</div><div class="review-label">${escapeHtml(x.it.label)}</div>
+    <div class="review-import-list" style="max-height:50vh;overflow:auto">${edits.map(x => `<div class="review-row"><label class="rv-pick"><input type="checkbox" checked data-k="${escapeHtml(x.it.key)}"> طبّق هذا التعديل</label><div class="review-ctx">${reviewContext(x.it)}</div><div class="review-label">${escapeHtml(x.it.label)}</div>
       <div class="review-old">${escapeHtml(reviewCurrent(x.it))}</div><div class="review-new">${escapeHtml(x.text)}</div>${x.note ? `<div class="review-note">🗒️ ${escapeHtml(x.note)}</div>` : ""}</div>`).join("")}
-      ${edits.length > 15 ? `<div class="rec-count">و${edits.length - 15} غيرها</div>` : ""}</div>
+      ${(() => { const vs = v.items.filter(x => !(x.text != null && x.text !== x.it.orig) && (x.verdict || x.note)); return vs.length ? `<h4 style="margin:10px 0 4px">الأحكام والملاحظات (${vs.length})</h4>` + vs.map(x => `<div class="review-row"><div class="review-ctx">${reviewContext(x.it)}</div><div class="review-label">${escapeHtml(x.it.label)}</div>${x.verdict ? `<div>${escapeHtml((typeof REVIEW_VERDICTS !== "undefined" && REVIEW_VERDICTS[x.verdict]) || x.verdict)}</div>` : ""}${x.note ? `<div class="review-note">🗒️ ${escapeHtml(x.note)}</div>` : ""}</div>`).join("") : ""; })()}</div>
     <div class="review-btns" style="margin-top:10px">
-      <button class="action-btn btn-success" onclick="reviewCommitImport(true)">طبّق الكل</button>
+      <button class="action-btn btn-success" onclick="reviewCommitImport('sel')">طبّق المختار</button>
       ${conflicts.length ? `<button class="action-btn btn-info" onclick="reviewCommitImport(false)">طبّق ما لا يخالف تعديلاتي</button>` : ""}
       <button class="action-btn btn-gray" onclick="reviewStaged=null;renderReview()">إلغاء</button>
     </div>`;
@@ -455,10 +469,13 @@ function reviewImportDoc(d) {
 function reviewCommitImport(all) {
   const v = reviewStaged; if (!v) return;
   const by = `${v.reviewer.name} (${REVIEW_ROLES[v.reviewer.role]})`;
+  // v114: «طبّق المختار»: ما أزال المراجِع علامته لا يُطبَّق
+  const skip = new Set(all === "sel" ? [...document.querySelectorAll('#rvBody .rv-pick input:not(:checked)')].map(i => i.dataset.k) : []);
   let n = 0;
   for (const x of v.items) {
     const k = x.it.key, mine = reviewStore.edits[k];
     if (x.text != null && x.text !== x.it.orig) {
+      if (skip.has(k)) continue;
       if (mine && mine.text !== x.text && !all) continue;
       reviewStore.edits[k] = { orig: x.it.orig, text: x.text, at: Date.now(), by };
       if (!x.it.suggestOnly) x.it.apply(x.text);

@@ -5,8 +5,8 @@ const TOOLS = [
   {icon: "💭", name: "سؤال التأمل", fn: "showReflection"},
   {icon: "🧩", name: "تدريب", fn: "showTrainHub"},
   {icon: "🌍", name: "أماكن القصص", fn: "showPlacesMap"},
-  {icon: "🗺️", name: "خريطة الرحلة", fn: "showJourneyMap"},
-  {icon: "🧭", name: "رحلة المحطات", fn: "toggleStationList"},
+  {icon: "🐪", name: "مسار الرحلة", fn: "showJourneyMap"},
+  {icon: "📋", name: "قائمة المحطات", fn: "toggleStationList"},
   {icon: "🏆", name: "إنجازاتي", fn: "showAchievementsHub"},
   {icon: "⚡", name: "التحديات", fn: "showChallengesHub"},
   {icon: "💬", name: "اسأل المنظومة", fn: "showAsk"},
@@ -42,10 +42,19 @@ function playSetOf(s) {
   // v111: للكبير ألعاب حقيقية: «إخفاء تدريجي» (تسميع غيبي) و«رتّب المحطات» بدل قائمة «الأحداث بالترتيب» للقراءة
   return typeof isSmallKid === "function" && isSmallKid() ? ["riddles", "poemListen", "recordings"] : ["riddles", "hide", "poemListen", "stationOrder"];
 }
+/* v114: النشاط الذي لم يحن بعد يظهر مقفلاً بسببه، لا زراً يرفض حين يُضغط */
+function playLockReason(k) {
+  const done = content.journeyData.filter(s => getStationStatus(s) === "completed").length;
+  const seen = Object.keys(state.seenVerses || {}).length;
+  if (k === "stationOrder" && done < 2) return "بعد محطتين";
+  if (["riddles", "hide", "recall", "timeline", "mistakes", "boxes"].includes(k) && !seen) return "بعد أول درس";
+  return "";
+}
 function openPlayHub() {
   if (typeof kidTimeUp === "function" && kidTimeUp()) return;
-  const tiles = playSetOf().map(k => { const a = PLAY_ACTIVITIES[k];
-    return `<button class="hub-tile" onclick="openTool('${a.fn}')"><span>${a.icon}</span>${escapeHtml(a.name)}</button>`; }).join("");
+  const tiles = playSetOf().map(k => { const a = PLAY_ACTIVITIES[k], lock = playLockReason(k);
+    return lock ? `<button class="hub-tile locked" disabled aria-disabled="true"><span>🔒</span>${escapeHtml(a.name)}<small>${escapeHtml(lock)}</small></button>`
+      : `<button class="hub-tile" onclick="openTool('${a.fn}')"><span>${a.icon}</span>${escapeHtml(a.name)}</button>`; }).join("");
   openHub("🎮 العب", `<div class="hub-grid">${tiles}</div>`);
 }
 function applyHomeMode() { document.body.classList.toggle("simple-home", !(state && state.allActivities)); }
@@ -63,6 +72,8 @@ function openHub(title, html) {
   if (typeof placeHubDone !== "undefined") placeHubDone = null;
   document.getElementById("hubTitle").textContent = title;
   document.getElementById("hubBody").innerHTML = html;
+  // v114: نافذة لها زر «تم» خاص بها لا يظهر معه «إغلاق» (كانا زرين لعمل واحد)
+  const cb = document.getElementById("hubCloseBtn"); if (cb) cb.style.display = /onclick="pcFinish\(\)"/.test(html) ? "none" : "";
   document.getElementById("hubPopup").classList.add("active");
 }
 function speakStory() {
@@ -308,7 +319,8 @@ function openSettings() {
 }
 function renderSettings() {
   const p = getPrefs();
-  const btn = (label, on, js) => `<button class="word-btn ${on ? "selected" : ""}" onclick="${js}">${label}</button>`;
+  // v114: المختار ممتلئ بعلامة ✓ (كان باهتاً كأنه معطّل)، كما في بقية الإعدادات
+  const btn = (label, on, js) => `<button class="word-btn ${on ? "selected-pref" : ""}" aria-pressed="${on}" onclick="${js}">${on ? "✓ " : ""}${label}</button>`;
   document.getElementById("settingsBody").innerHTML = `
     <div class="set-row"><div class="set-label">🐢 سرعة القراءة بالصوت</div><div class="word-bank">
       ${btn("عادي", p.rate !== "slow", "setPref('rate','normal')")}${btn("بطيء", p.rate === "slow", "setPref('rate','slow')")}</div></div>
@@ -340,7 +352,6 @@ function exportProgress() {
     showToast("تم تصدير التقدم", "success");
   } catch(e) { showToast("تعذّر التصدير", "error"); }
 }
-function importProgress(file) { openSharedFile(file); }
 
 /* ---------- رحلة المحطات: قائمة المحطات كاملة، تُفتح من الأدوات لا من الشاشة الرئيسية ---------- */
 let showStationList = false;
@@ -349,9 +360,6 @@ function toggleStationList() {
   if (typeof showMap === "function") showMap();
 }
 
-/* ---------- أكمل من حيث توقفت ---------- */
-/* v105: «تابع الرحلة» يمر بالخطة اليومية نفسها: المراجعة أولاً ثم الجديد في حدّه */
-function resumeJourney() { startDailyLesson(); }
 
 /* ---------- قفزة إلى بيت في وضع التصفّح ---------- */
 function updateBrowsePanel() {

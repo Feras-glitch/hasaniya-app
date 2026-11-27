@@ -352,6 +352,8 @@ async function vpRefreshExportReport() {
     <div style="margin-top:8px"><strong>ما بقي للتسجيل:</strong></div>
     ${rows || "<div>✅ كل النصوص مسجّلة</div>"}`;
   document.getElementById("vpDoExportBtn").disabled = p.selected.length === 0;
+  // v114: الزر الباهت يُشرح سببه (كان «سيُرسل الآن: 0» بلا تفسير)
+  if (!p.selected.length) body.insertAdjacentHTML("beforeend", `<div class="parent-alert" style="margin-top:8px">لا شيء يُرسل بهذه الخيارات: ${opts.onlyReviewed && p.unreviewed ? "تسجيلاتك لم تُراجَع بعد؛ أزل علامة «المراجَع فقط» أو راجعها في الاستوديو." : opts.deltaOnly ? "لم يتغيّر شيء منذ آخر تصدير؛ أزل علامة «الجديد فقط» لترسل الكل." : "لا تسجيلات."}</div>`);
 }
 
 /* ---------- التصدير ---------- */
@@ -489,6 +491,7 @@ async function vpCommitVoicePacks() {
   document.getElementById("vpCommitBtn").style.display = "none";
   document.getElementById("vpImportStatus").textContent = `تم استيراد ${added} تسجيلاً.`;
   showToast(added ? "تم استيراد حزمة الصوت" : "لم يُستورد شيء", added ? "success" : "error");
+  if (typeof refreshScreens === "function") refreshScreens();
   renderVoiceStatus();
   if (document.getElementById("pvPopup").classList.contains("active")) renderParentVoice();
   if (document.getElementById("recPopup").classList.contains("active") && typeof renderRecList === "function") renderRecList();
@@ -643,7 +646,7 @@ async function migrateVoiceKeys() {
 /* ---------- إعداد الطفل لأول مرة: يُكمل بياناته ثم يعرض استيراد الصوت ---------- */
 function maybeOnboard() {
   const u = getCurrentUser();
-  if (!u || u.gender || vpPref("onboarded")) return;
+  if (!u || u.gender || vpPref("onboarded") || vpPref("onboardSkipped")) return;
   openUserEditor(u.id, { onboarding: true });
 }
 function afterOnboarding() {
@@ -685,10 +688,15 @@ async function voiceSetupCheck(force) {
       <button class="action-btn btn-success" onclick="closePopup('hubPopup'); voiceSetupRecheck()">🔄 تحقّق الآن</button>
       <button class="action-btn btn-info" onclick="closePopup('hubPopup'); requirePin(openParentVoice, 'استوديو التسجيل')">🎙️ سجّل بصوتك</button>
       <button class="action-btn btn-info" onclick="closePopup('hubPopup'); requirePin(() => { showParentScreen(); setTimeout(() => { const e = document.getElementById('vpStatus'); if (e) e.scrollIntoView({ block: 'center' }); }, 300); }, 'حزمة الصوت')">📦 حزمة صوت</button>
-      <button class="action-btn btn-gray" onclick="voiceSetupSnooze()">لاحقاً</button>
+      <button class="action-btn btn-gray" onclick="voiceSetupSnooze(true)">لاحقاً، ونبدأ الدرس</button>
     </div>`);
 }
-function voiceSetupSnooze() { try { localStorage.setItem(VOICE_SETUP_SNOOZE, String(Date.now())); } catch (e) {} closePopup("hubPopup"); }
+function voiceSetupSnooze(go) {
+  try { localStorage.setItem(VOICE_SETUP_SNOOZE, String(Date.now())); } catch (e) {}
+  closePopup("hubPopup");
+  // v114: «لاحقاً» يبدأ درس اليوم (كان يعيد إلى الرئيسة فيقف الطفل أمامها)
+  if (go && document.getElementById("mapScreen").style.display !== "none" && typeof dailyMainTap === "function") dailyMainTap();
+}
 function voiceSetupRecheck() {
   try { voiceSynthFailed = false; window.speechSynthesis.getVoices(); } catch (e) {}
   setTimeout(() => voiceSetupCheck(true), 800);

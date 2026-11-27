@@ -307,7 +307,7 @@ function pinRecWaitScreen(noCode) {
     <h2 style="color:var(--parent-border);margin-top:0">⏳ فتح بالانتظار</h2>
     ${noCode ? `<p class="pinrec-p">لم تُنشأ شفرة استرجاع على هذا الجهاز.</p>` : ""}
     <p class="pinrec-p">يمكن إلغاء الرقم السري بعد <strong>48 ساعة</strong> من الآن. طوال هذه المدة تظهر لافتة في أعلى الشاشة، فإن لم يكن الطلب منك تلغيه بالرقم السري.</p>
-    ${pinRecClock().kind === "web" ? `<p class="pinrec-note">في نسخة المتصفح يُحسب من غياب التطبيق يوم ونصف على الأكثر، وما بقي يُحسب والتطبيق مفتوح.</p>` : ""}
+    ${pinRecClock().kind === "web" ? `<p class="pinrec-note">في نسخة المتصفح لا تُحسب ساعات الإغلاق كلها: يُحسب منها يوم ونصف على الأكثر، ويُكمَل الباقي والتطبيق مفتوح.</p>` : ""}
     <p class="pinrec-note">لا يُمسح شيء من تقدّم الأطفال ولا تسجيلاتهم.</p>
     <div class="pinrec-btns">
       <button class="action-btn btn-danger" onclick="pinRecStartWait()">ابدأ الانتظار</button>

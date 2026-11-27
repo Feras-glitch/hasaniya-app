@@ -199,34 +199,6 @@ async function guidePlayStationStories(si) {
   if (token === seqToken) guideDance(false);
 }
 
-/* ---------- تحدي الخمس دقائق: كم بيتاً ينجز الطفل؟ ---------- */
-let guideChallenge = null, guideChallengeTimer = null;
-function guideStartChallenge() {
-  if (guideChallenge) return;
-  const open = guideOpenStation(); if (!open) return;
-  guideChallenge = { end: Date.now() + 5 * 60 * 1000, count: 0 };
-  guideChallengeTick();
-  guideChallengeTimer = setInterval(guideChallengeTick, 1000);
-  startStation(content.journeyData.indexOf(open));
-}
-function guideChallengeTick() {
-  if (!guideChallenge) return;
-  let box = document.getElementById("challengeBox");
-  if (!box) { box = document.createElement("div"); box.id = "challengeBox"; box.className = "challenge-box"; document.body.appendChild(box); }
-  const left = guideChallenge.end - Date.now();
-  if (left <= 0) {
-    clearInterval(guideChallengeTimer);
-    const n = guideChallenge.count;
-    guideChallenge = null; box.remove();
-    playSuccess(); guideSetMood("proud", 8000);
-    guidePanel(`انتهى التحدي {N}! ${gForm("أنجزتَ", "أنجزتِ")} ${n} ${n === 1 ? "بيتاً" : "أبيات"} في خمس دقائق 🎉`, [{ label: "📖 دفتر الرحلة", run: () => openGuideJournal() }], null, { say: [guideFill(kidLine("challengeDone"))] });
-    return;
-  }
-  const m = Math.floor(left / 60000), sec = Math.floor((left % 60000) / 1000);
-  box.textContent = `⏱ ${m}:${String(sec).padStart(2, "0")} · ${gForm("أنجزتَ", "أنجزتِ")} ${guideChallenge.count}`;
-}
-function guideOnNextVerse() { if (guideChallenge) guideChallenge.count++; }
-
 /* ينتظر حتى يسكت الصوت الحالي (حتى 20 ثانية) ثم ينفّذ */
 function guideWhenAudioIdle(fn, maxMs) {
   const until = Date.now() + (maxMs || 20000);

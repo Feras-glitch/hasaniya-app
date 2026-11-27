@@ -33,31 +33,9 @@ function getCurrentUser() { return getUserById(activeUserId); }
 function getUserName() { return getCurrentUser()?.name || "الطفل"; }
 function getUserAvatar() { return getCurrentUser()?.avatar || "👤"; }
 
+/* v114: الأنواع والقيم الافتراضية من جدول واحد (js/schema.js) */
 function normalizeUserState(s) {
-  s.stationStatus = s.stationStatus || {};
-  s.rewardUnlocked = s.rewardUnlocked || {};
-  s.versePositions = s.versePositions || {};
-  s.mistakes = s.mistakes || {};
-  s.seenVerses = s.seenVerses || {};
-  s.verseStats = s.verseStats || {};
-  s.leitner = s.leitner || {};
-  s.weekly = s.weekly || null;
-  s.storyUnlocked = s.storyUnlocked || {};
-  s.riddlesSolved = s.riddlesSolved || {};
-  s.points = s.points || 0;
-  s.streak = s.streak || 0;
-  s.totalTimeSeconds = s.totalTimeSeconds || 0;
-  s.achievements = s.achievements || {};
-  s.activeDays = s.activeDays || [];
-  s.stampDates = s.stampDates || {};
-  s.guideBadges = s.guideBadges || {};
-  s.guideHue = s.guideHue || 0;
-  s.meaningSeen = s.meaningSeen || {};
-  s.najiFound = s.najiFound || null;
-  s.najiCount = s.najiCount || 0;
-  s.recentDone = s.recentDone || null;
-  s.stats = Object.assign({perfectSessions:0, reviewSessions:0, shared:0, challengeSessions:0}, s.stats || {});
-  return s;
+  return schemaNormalize(s || {});
 }
 
 /* v103: التطبيق مفتوح في نافذتين: حين تحفظ الأخرى تتوقف هذه عن الحفظ، فلا تمحو النسخة القديمة تقدّماً أحدث */
@@ -182,10 +160,69 @@ function contentSnapshotGet() {
 function contentPrevInfo() {
   const o = contentSnapshotGet();
   if (!o || !o.edited || o.dismissed || Date.now() - o.at > 30 * 86400000) return "";
-  if (o.edited === "unknown") return `<div class="parent-alert">📝 تحدّث محتوى التطبيق (تصحيحات علمية). إن كنت عدّلت شيئاً في المحرر قبل التحديث، فالمحتوى السابق محفوظ وتسترجعه من «المحرر» ← «↩️ المحتوى السابق».
-    <button class="tool-btn" onclick="contentPrevDismiss()">حسناً</button></div>`;
-  return `<div class="parent-alert">📝 تغيّر محتوى التطبيق (${escapeHtml(o.reason || "")})، وكانت فيه تعديلات منك في المحرر. التعديلات محفوظة، وتسترجعها من «المحرر» ← «↩️ المحتوى السابق».
-    <button class="tool-btn" onclick="contentPrevDismiss()">حسناً</button></div>`;
+  if (o.edited === "unknown") return `<div class="parent-alert">📝 تحدّث محتوى التطبيق (تصحيحات علمية). إن كنت عدّلت شيئاً في المحرر قبل التحديث، فالمحتوى السابق محفوظ وتسترجعه بالزر.
+    <button class="tool-btn" onclick="restoreContentPrev()">↩️ استرجع المحتوى السابق</button> <button class="tool-btn" onclick="contentPrevDismiss()">حسناً</button></div>`;
+  return `<div class="parent-alert">📝 تغيّر محتوى التطبيق (${escapeHtml(o.reason || "")})، وكانت فيه تعديلات منك في المحرر. التعديلات محفوظة، وتسترجعها بالزر.
+    <button class="tool-btn" onclick="restoreContentPrev()">↩️ استرجع المحتوى السابق</button> <button class="tool-btn" onclick="contentPrevDismiss()">حسناً</button></div>`;
+}
+/* v114: تحقق المحتوى (كان في المحرر القديم المحذوف) */
+function sameWordBag(a, b) {
+  if (a.length !== b.length) return false;
+  const x = a.slice().sort(), y = b.slice().sort();
+  return x.every((w, i) => w === y[i]);
+}
+function verseProblem(v) {
+  if (!v || typeof v !== "object") return "بيت غير صالح";
+  if (typeof v.id !== "string" || !v.id.trim()) return "معرّف البيت مفقود";
+  if (!isSafeId(v.id)) return "معرّف بيت غير صالح: " + String(v.id).slice(0, 30);
+  if (typeof v.fullVerse !== "string" || !v.fullVerse.trim()) return "نص البيت مفقود (" + v.id + ")";
+  const strs = a => Array.isArray(a) && a.length >= 2 && a.every(x => typeof x === "string" && x.trim());
+  if (v.type === "missing_choice") {
+    if (typeof v.correctWord !== "string" || !v.correctWord) return "الكلمة الصحيحة مفقودة (" + v.id + ")";
+    if (!strs(v.options) || !v.options.includes(v.correctWord)) return "الخيارات لا تتضمن الكلمة الصحيحة (" + v.id + ")";
+  } else if (v.type === "word_order") {
+    if (!strs(v.words) || !strs(v.correctOrder)) return "الكلمات أو الترتيب غير صالحة (" + v.id + ")";
+    if (!sameWordBag(v.words, v.correctOrder)) return "ترتيب الكلمات لا يطابق كلمات البيت (" + v.id + ")";
+  } else return "نوع البيت غير معروف (" + v.id + ")";
+  return "";
+}
+function journeyProblem(arr) {
+  const sids = new Set(), vids = new Set();
+  for (const s of arr) {
+    if (!s || typeof s.id !== "string" || !s.id.trim() || typeof s.title !== "string" || !s.title.trim()) return "محطة بلا معرّف أو عنوان";
+    if (!isSafeId(s.id)) return "معرّف محطة غير صالح: " + String(s.id).slice(0, 30);
+    if (sids.has(s.id)) return "معرّف محطة مكرر: " + s.id;
+    sids.add(s.id);
+    // v104: الأيقونات رموز قصيرة (إيموجي)؛ لا وسوم ولا نصوص طويلة
+    const iconBad = x => x != null && (typeof x !== "string" || x.length > 8 || /[<>&"'`]/.test(x));
+    if (iconBad(s.icon) || (s.reward && iconBad(s.reward.icon))) return "أيقونة غير صالحة في المحطة: " + s.id;
+    if (!Array.isArray(s.verses)) return "أبيات المحطة غير صالحة: " + s.id;
+    for (const v of s.verses) {
+      const pr = verseProblem(v);
+      if (pr) return pr;
+      if (vids.has(v.id)) return "معرّف بيت مكرر: " + v.id;
+      vids.add(v.id);
+    }
+  }
+  return "";
+}
+/* استرجاع المحتوى السابق (كان في المحرر القديم؛ v114: صار من تنبيه الوالدين) */
+function restoreContentPrev() {
+  const o = contentSnapshotGet();
+  if (!o) { showToast("لا توجد نسخة سابقة من المحتوى", "error"); return; }
+  const prob = journeyProblem(o.journeyData);
+  if (prob) { showToast("النسخة السابقة غير صالحة: " + prob, "error"); return; }
+  let when = ""; try { when = new Date(o.at).toLocaleString("ar-EG"); } catch (e) {}
+  if (!confirm(`استرجاع المحتوى كما كان ${when} (${o.reason || ""})؟ يُحفظ المحتوى الحالي نسخةً سابقة.`)) return;
+  const cur = content.journeyData;
+  if (typeof safetyBackupPush === "function") safetyBackupPush("قبل استرجاع المحتوى السابق");
+  content.journeyData = o.journeyData;
+  contentSnapshotSave(cur, "قبل استرجاع المحتوى السابق", !!content.edited);
+  content.edited = true;
+  cleanupOrphanedState();
+  saveState();
+  if (typeof renderParentAlerts === "function") renderParentAlerts();
+  showToast("استُرجع المحتوى السابق", "success");
 }
 function contentPrevDismiss() {
   const o = contentSnapshotGet(); if (!o) return;
@@ -365,15 +402,8 @@ function cleanupOrphanedState() {
   });
   users.forEach(u => {
     const st = u.state;
-    ["stationStatus", "rewardUnlocked", "versePositions", "stampDates", "charms", "segmentChecks", "segmentDue"].forEach(f => {
-      if (!st[f] || typeof st[f] !== "object") return;
-      Object.keys(st[f]).forEach(id => { if (!validStationIds.has(id)) delete st[f][id]; });
-    });
-    ["leitner", "storyUnlocked", "meaningSeen", "recEval", "follow", "eventMisses", "masteredNotified", "parentChecks", "linked"].forEach(f => {
-      if (!st[f] || typeof st[f] !== "object") return;
-      // v104: تقييم التسميع المتصل مفتاحه sec:all أو sec:station-N، لا رقم بيت
-      Object.keys(st[f]).forEach(id => { if (!validVerseIds.has(id) && !(f === "recEval" && SEC_EVAL_KEY.test(id))) delete st[f][id]; });
-    });
+    // v114: القواميس التي تشير إلى بيت أو محطة من جدول واحد (js/schema.js)
+    schemaCleanup(st, validVerseIds, validStationIds);
     Object.keys(st.mistakes || {}).forEach(key => {
       const m = st.mistakes[key];
       if (!m || !validVerseIds.has(m.verseId)) delete st.mistakes[key];
